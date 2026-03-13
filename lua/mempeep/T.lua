@@ -81,6 +81,7 @@ local function validate(type_ref)
         assert(type_ref.count >= 1, "array count must be at least 1")
     elseif type_ref.kind == "circular_list" then
         validate(assert(type_ref.type_ref, "circular_list has no type_ref"))
+        assert(type_ref.type_ref.kind == "struct", "circular_list element must be a struct")
     elseif type_ref.kind == "float"
         or type_ref.kind == "i8"
         or type_ref.kind == "i16"

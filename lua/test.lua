@@ -69,3 +69,6 @@ assert(not ok)
 local ok, err = pcall(T.validate, {kind = "unknown"})
 assert(not ok)
 
+local ok, err = pcall(T.validate, T.circular_list(T.i32()))
+assert(not ok)
+
