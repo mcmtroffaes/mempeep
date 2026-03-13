@@ -59,13 +59,10 @@ end
 -- before any sizes or offsets are computed.
 -- @param structs Array of structs (each element built with D.struct(...)).
 D.validate = function(structs)
-    -- Build a name->struct lookup for cross-reference checks.
     local struct_by_name = {}
     for _, s in ipairs(structs) do
         struct_by_name[s.name] = s
     end
-
-    -- Cross-reference checks now that all struct names are known.
     for _, s in ipairs(structs) do
         for _, desc in ipairs(assert(s.descriptors, "D.validate: struct is missing descriptors")) do
             if desc.kind == "field" then
