@@ -1,7 +1,15 @@
 local T = require("mempeep.T")
 
+local flt = T.float()
+assert(flt.kind == "float")
+local i8 = T.i8()
+assert(i8.kind == "i8")
+local i16 = T.i16()
+assert(i16.kind == "i16")
 local i32 = T.i32()
 assert(i32["kind"] == "i32")
+local i64 = T.i64()
+assert(i64.kind == "i64")
 
 local arr = T.array(i32, 5)
 T.validate(arr)
