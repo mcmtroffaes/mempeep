@@ -43,7 +43,7 @@ local function new(pointer_size, structs)
                 error("compute.sizeof: struct '" .. type_ref.name ..
                       "' has not been resolved yet (declare it earlier in the array)")
             end
-            return offs[#offs]
+            return offs[#offs]  -- last offset is size
         else
             error("compute.sizeof: unknown type kind '" .. tostring(kind) .. "'")
         end
