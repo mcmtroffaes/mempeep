@@ -30,7 +30,9 @@ end
 local function assert_valid_circular_list_next(sub_struct, sub_name)
     for _, sub_desc in ipairs(sub_struct.descriptors) do
         if sub_desc.kind == "field" and sub_desc.name == "next" then
-            if sub_desc.type_ref.kind ~= "ptr" or not sub_desc.type_ref.weak then
+            if sub_desc.type_ref.kind ~= "ptr"
+                or not sub_desc.type_ref.weak
+                or sub_desc.type_ref.optional then
                 error(
                     "D.validate: circular_list 'next' field " ..
                     "in struct '" .. sub_name .. "' must be a ptr, got: " ..
