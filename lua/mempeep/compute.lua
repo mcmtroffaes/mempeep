@@ -57,10 +57,10 @@ local function new(pointer_size, structs)
             if desc.kind == "pad" then
                 cursor = cursor + desc.n
             elseif desc.kind == "offset" then
-                if desc.n < cursor then
+                if desc.n <= cursor then
                     error(string.format(
-                        "compute: D.offset(%d) in struct '%s' would move " ..
-                        "cursor backwards (currently at %d)", desc.n, s.name, cursor))
+                        "compute: D.offset(%d) in struct '%s' would not move " ..
+                        "cursor forwards (currently at %d)", desc.n, s.name, cursor))
                 end
                 cursor = desc.n
             elseif desc.kind == "field" then
@@ -71,7 +71,7 @@ local function new(pointer_size, structs)
                       tostring(desc.kind) .. "' in struct '" .. s.name .. "'")
             end
         end
-        resolved_fields[i]  = field_list
+        resolved_fields[i] = field_list
         resolved_sizes[i] = cursor
     end
 
