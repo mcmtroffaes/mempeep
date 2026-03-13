@@ -15,7 +15,8 @@ local function new(pointer_size, structs)
         struct_index[s.name] = i
     end
 
-    local resolved_offsets = {}
+    local resolved_fields = {}
+    local resolved_sizes = {}
 
     --- Returns the byte size of any type_ref.
     -- @param type_ref The type reference to size.
@@ -38,20 +39,20 @@ local function new(pointer_size, structs)
             if not i then
                 error("compute.sizeof: unknown struct '" .. type_ref.name .. "'")
             end
-            local offs = resolved_offsets[i]
-            if not offs then
+            local size = resolved_sizes[i]
+            if not size then
                 error("compute.sizeof: struct '" .. type_ref.name ..
                       "' has not been resolved yet (declare it earlier in the array)")
             end
-            return offs[#offs]  -- last offset is size
+            return size
         else
             error("compute.sizeof: unknown type kind '" .. tostring(kind) .. "'")
         end
     end
 
     for i, s in ipairs(structs) do
-        local cursor       = 0
-        local desc_offsets = {}
+        local field_list = {}
+        local cursor     = 0
         for _, desc in ipairs(s.descriptors) do
             if desc.kind == "pad" then
                 cursor = cursor + desc.n
@@ -63,14 +64,15 @@ local function new(pointer_size, structs)
                 end
                 cursor = desc.n
             elseif desc.kind == "field" then
+                field_list[#field_list + 1] = {name=desc.name, type_ref=desc.type_ref, offset=cursor}
                 cursor = cursor + sizeof(desc.type_ref)
             else
                 error("compute: unknown descriptor kind '" ..
                       tostring(desc.kind) .. "' in struct '" .. s.name .. "'")
             end
-            desc_offsets[#desc_offsets + 1] = cursor
         end
-        resolved_offsets[i] = desc_offsets
+        resolved_fields[i]  = field_list
+        resolved_sizes[i] = cursor
     end
 
     --- Returns an array of {name, type_ref, offset} for each field in the named struct.
@@ -83,19 +85,7 @@ local function new(pointer_size, structs)
         if not i then
             error("compute.fields: unknown struct '" .. struct_name .. "'")
         end
-        local s         = structs[i]
-        local s_offsets = resolved_offsets[i]
-        local result    = {}
-        for j, desc in ipairs(s.descriptors) do
-            if desc.kind == "field" then
-                result[#result + 1] = {
-                    name     = desc.name,
-                    type_ref = desc.type_ref,
-                    offset   = s_offsets[j - 1] or 0,
-                }
-            end
-        end
-        return result
+        return resolved_fields[i]
     end
 
     local compute = {}
