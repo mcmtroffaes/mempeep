@@ -65,22 +65,22 @@ T.vector = function(element_type_ref)
     return {kind = "vector", type_ref = element_type_ref}
 end
 
---- Validates a type_ref table, raising an error if it is malformed.
+--- Asserts that a type_ref table is valid, raising an error if it is malformed.
 -- Recursively validates nested type references.
 -- Does not check cross-references between structs; that is deferred to
--- mempeep.D.validate.
+-- mempeep.D.assert_valid.
 -- @param type_ref The type reference to validate.
 -- @raise if the type_ref is malformed or has an unknown kind.
-local function validate(type_ref)
+local function assert_valid(type_ref)
     if not type_ref.kind then
         error("type_ref has no kind")
     end
     if type_ref.kind == "array" then
-        validate(assert(type_ref.type_ref, "array has no type_ref"))
+        assert_valid(assert(type_ref.type_ref, "array has no type_ref"))
         assert(type_ref.count, "array has no count")
         assert(type_ref.count >= 1, "array count must be at least 1")
     elseif type_ref.kind == "circular_list" then
-        validate(assert(type_ref.type_ref, "circular_list has no type_ref"))
+        assert_valid(assert(type_ref.type_ref, "circular_list has no type_ref"))
         assert(type_ref.type_ref.kind == "struct", "circular_list element must be a struct")
     elseif type_ref.kind == "float"
         or type_ref.kind == "i8"
@@ -89,20 +89,19 @@ local function validate(type_ref)
         or type_ref.kind == "i64" then
         -- no additional validation needed
     elseif type_ref.kind == "ptr" then
-        validate(assert(type_ref.type_ref, "ptr has no type_ref"))
+        assert_valid(assert(type_ref.type_ref, "ptr has no type_ref"))
     elseif type_ref.kind == "string" then
         assert(type_ref.max_length, "string has no max_length")
         assert(type_ref.max_length >= 1, "string max_length must be at least 1")
     elseif type_ref.kind == "struct" then
         assert(type_ref.name, "struct type_ref has no name")
     elseif type_ref.kind == "vector" then
-        validate(assert(type_ref.type_ref, "vector has no type_ref"))
+        assert_valid(assert(type_ref.type_ref, "vector has no type_ref"))
     else
         error("unknown type_ref kind: " .. type_ref.kind)
     end
 end
 
-T.validate = validate
+T.assert_valid = assert_valid
 
 return T
-
