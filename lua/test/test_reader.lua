@@ -553,5 +553,3 @@ do
     assert(not ok)
     assert(err:find("bogus"))
 end
-
-print("test_reader: all assertions passed")

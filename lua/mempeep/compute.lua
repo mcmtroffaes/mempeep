@@ -91,7 +91,7 @@ local function new(pointer_size, structs)
                 result[#result + 1] = {
                     name     = desc.name,
                     type_ref = desc.type_ref,
-                    offset   = j > 1 and s_offsets[j - 1] or 0,
+                    offset   = s_offsets[j - 1] or 0,
                 }
             end
         end
