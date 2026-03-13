@@ -136,10 +136,7 @@ local function new(compute, mem)
         if addr == nil then
             return {addr = nil, value = nil, error = "nil address"}
         end
-        local r = readers[type_ref.kind]
-        if not r then
-            error("reader: unknown type kind: " .. type_ref.kind)
-        end
+        local r = assert(readers[type_ref.kind], "reader: unknown type kind: " .. type_ref.kind)
         return r(addr, type_ref)
     end
 
