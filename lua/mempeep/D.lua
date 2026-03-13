@@ -64,6 +64,7 @@ end
 -- between structs are satisfied.  Operates on the raw descriptor arrays,
 -- before any sizes or offsets are computed.
 -- @param structs Array of structs (each element built with D.struct(...)).
+-- @return structs if valid.
 D.assert_valid = function(structs)
     local struct_by_name = {}
     for _, s in ipairs(structs) do
@@ -87,6 +88,7 @@ D.assert_valid = function(structs)
             end
         end
     end
+    return structs
 end
 
 return D

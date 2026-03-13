@@ -70,6 +70,7 @@ end
 -- Does not check cross-references between structs; that is deferred to
 -- mempeep.D.assert_valid.
 -- @param type_ref The type reference to validate.
+-- @return type_ref if valid.
 -- @raise if the type_ref is malformed or has an unknown kind.
 local function assert_valid(type_ref)
     if not type_ref.kind then
@@ -100,6 +101,7 @@ local function assert_valid(type_ref)
     else
         error("unknown type_ref kind: " .. type_ref.kind)
     end
+    return type_ref
 end
 
 T.assert_valid = assert_valid
