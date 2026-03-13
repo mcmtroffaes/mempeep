@@ -7,7 +7,7 @@
 -- pointer-typed fields are fine in any order.
 -- @param pointer_size Byte size of a pointer in the target process (4 or 8).
 -- @param structs Array of structs produced by D.struct(...).
--- @return Table with sizeof and fields functions.
+-- @return Table with sizeof, fields, and pointer_size.
 local function new(pointer_size, structs)
 
     local struct_index = {}
@@ -100,8 +100,9 @@ local function new(pointer_size, structs)
 
     local compute = {}
 
-    compute.sizeof = sizeof
-    compute.fields = fields
+    compute.pointer_size = pointer_size
+    compute.sizeof       = sizeof
+    compute.fields       = fields
 
     return compute
 end
