@@ -1,13 +1,17 @@
 --- Print raw values read from memory.
 --@module mempeep.printer
 --
--- Provides printer.new(compute) -> print_rawval, where
+-- Provides printer.new(structs) -> print_rawval, where
 -- print_rawval(type_ref, rawval, indent, label) prints a human-readable
 -- representation of a raw value to stdout.
---
--- compute is an instance produced by mempeep.compute.new(pointer_size, structs).
 
-local function new(compute)
+local function new(structs)
+
+    -- Build name->struct lookup for O(1) access.
+    local struct_by_name = {}
+    for _, s in ipairs(structs) do
+        struct_by_name[s.name] = s
+    end
 
     local print_rawval  -- forward declaration for mutual recursion
 
@@ -70,10 +74,16 @@ local function new(compute)
     end
 
     printers.struct = function(type_ref, value, addr, indent, label)
+        local s = struct_by_name[type_ref.name]
+        if not s then
+            error("printer: unknown struct '" .. type_ref.name .. "'")
+        end
         print_line(addr, indent, label, type_ref.name)
-        for _, fd in ipairs(compute.fields(type_ref.name)) do
-            if not (fd.opts and fd.opts.print == false) then
-                print_rawval(fd.type_ref, value[fd.name], indent + 1, fd.name)
+        for _, desc in ipairs(s.descriptors) do
+            if desc.kind == "field" then
+                if not (desc.opts and desc.opts.print == false) then
+                    print_rawval(desc.type_ref, value[desc.name], indent + 1, desc.name)
+                end
             end
         end
     end
