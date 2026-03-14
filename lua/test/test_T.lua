@@ -12,7 +12,7 @@ do
   local u16 = T.assert_valid(T.u16)
   local u32 = T.assert_valid(T.u32)
   local u64 = T.assert_valid(T.u64)
-  local str = T.assert_valid(T.string(32))
+  local str = T.assert_valid(T.string(15))
   assert(f32.kind == "primitive")
   assert(f64.kind == "primitive")
   assert(i8.kind == "primitive")
@@ -39,8 +39,9 @@ do
   assert(i64.decode("\x99\xAA\xBB\xCC\xDD\xEE\xFF\xFF") == -0x112233445567)
   assert(f32.decode("\x00\x00\x80\x3F") == 1.0)
   assert(f64.decode("\x00\x00\x00\x00\x00\x00\xF0\x3F") == 1.0)
-  assert(str.size == 32)
-  assert(str.decode("hello\0world") == "hello") -- null terminates the string
+  assert(str.size == 15)
+  assert(str.decode("hello\0world!!!") == "hello")
+  assert(str.decode("HelloThereWorld") == "HelloThereWorld")
   local ok, err = pcall(T.assert_valid, T.string(0)) -- requires size >= 1
   assert(not ok)
   assert(err:find("size"), err)
