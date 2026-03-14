@@ -80,7 +80,8 @@ T.string = function(size)
     name = "string",
     size = size,
     decode = function(bytes)
-      return string.unpack("z", bytes)
+      -- "z" format gives error if no null in bytes, so add one
+      return string.unpack("z", bytes .. "\0")
     end,
   }
 end
