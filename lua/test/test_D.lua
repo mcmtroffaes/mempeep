@@ -6,7 +6,7 @@ local foo_struct = D.struct("Foo", {
   D.pad(4),
   D.field("y", T.i32),
   D.offset(24),
-  D.field("z", T.float),
+  D.field("z", T.f32),
 })
 D.assert_valid({ foo_struct })
 
