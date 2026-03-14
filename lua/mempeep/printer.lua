@@ -76,7 +76,7 @@ local function new(structs)
     printers.struct = function(type_ref, value, addr, indent, label)
         local s = struct_by_name[type_ref.name]
         if not s then
-            error("printer: unknown struct '" .. type_ref.name .. "'")
+            error("print: unknown struct '" .. type_ref.name .. "'")
         end
         print_line(addr, indent, label, type_ref.name)
         for _, desc in ipairs(s.descriptors) do
@@ -119,7 +119,7 @@ local function new(structs)
             return
         end
 
-        local p = assert(printers[type_ref.kind], "printer: unknown type kind: " .. type_ref.kind)
+        local p = assert(printers[type_ref.kind], "print: unknown type kind: " .. type_ref.kind)
         p(type_ref, rawval.value, addr, indent, label)
     end
 

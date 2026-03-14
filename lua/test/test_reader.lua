@@ -3,10 +3,6 @@ local D       = require("mempeep.D")
 local compute = require("mempeep.compute")
 local reader  = require("mempeep.reader")
 
--- ---------------------------------------------------------------------------
--- Helpers
--- ---------------------------------------------------------------------------
-
 --- Build a flat byte table from a list of {offset, bytes} pairs, where each
 --- entry in bytes is a list of byte values.  All accesses outside the written
 --- ranges return nil (simulating unreadable memory).
@@ -362,7 +358,6 @@ do
     assert(r.value[3].value == 30)
 end
 
--- Array of structs
 do
     local point = D.struct("Point2", {
         D.field("x", T.i16()),
