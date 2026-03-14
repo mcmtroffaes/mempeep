@@ -1,6 +1,4 @@
 --- Read structs from memory.
--- @module mempeep.reader
---
 -- Provides reader.new(compute, mem) -> read, where read(addr, type_ref)
 -- reads a typed value.
 --
@@ -18,6 +16,7 @@
 -- read(addr, type_ref) returns {addr, value, error}.
 -- error is a string if an error occurred, nil otherwise.
 -- For containers, value is a table of {addr, value, error} elements.
+-- @module mempeep.reader
 
 local function new(compute, mem)
 

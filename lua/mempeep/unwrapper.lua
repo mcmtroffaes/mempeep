@@ -1,10 +1,9 @@
 --- Unwrap raw values into plain values.
---@module mempeep.unwrapper
---
 -- Provides unwrapper.new(structs) -> unwrap, where
 -- unwrap(type_ref, rawval) converts a raw value tree produced by
 -- mempeep.reader into plain Lua values, surfacing errors as a flat list of
 -- context-prefixed strings.
+-- @module mempeep.unwrapper
 
 local function new(structs)
 

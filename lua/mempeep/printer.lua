@@ -1,9 +1,8 @@
 --- Print raw values read from memory.
---@module mempeep.printer
---
 -- Provides printer.new(structs) -> print_rawval, where
 -- print_rawval(type_ref, rawval, indent, label) prints a human-readable
 -- representation of a raw value to stdout.
+-- @module mempeep.printer
 
 local function new(structs)
 
