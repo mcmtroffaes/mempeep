@@ -12,7 +12,7 @@ local function make_float(size)
     name = "f" .. (size * 8),
     size = size,
     decode = function(bytes)
-      return string.unpack(fmt, bytes)
+      return #bytes == size and string.unpack(fmt, bytes) or nil
     end,
   }
 end
@@ -24,7 +24,7 @@ local function make_int(size, signed)
     name = (signed and "i" or "u") .. (size * 8),
     size = size,
     decode = function(bytes)
-      return string.unpack(fmt, bytes)
+      return #bytes == size and string.unpack(fmt, bytes) or nil
     end,
   }
 end
