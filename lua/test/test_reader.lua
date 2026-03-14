@@ -3,111 +3,22 @@ local D = require("mempeep.D")
 local compute = require("mempeep.compute")
 local reader = require("mempeep.reader")
 
---- Build a flat byte table from a list of {offset, bytes} pairs, where each
---- entry in bytes is a list of byte values.  All accesses outside the written
---- ranges return nil (simulating unreadable memory).
-local function make_mem(pointer_size, writes)
-  local bytes = {}
-  for _, w in ipairs(writes) do
-    local base = w[1]
-    for i, b in ipairs(w[2]) do
-      bytes[base + i - 1] = b
-    end
+--- Make a mock read_bytes function.
+local function make_read_bytes(data)
+  return function(addr, size)
+    return data:sub(addr + 1, addr + size)
   end
-
-  local function read_int(addr, size, signed)
-    local v = 0
-    for i = size - 1, 0, -1 do
-      local b = bytes[addr + i]
-      if b == nil then
-        return nil
-      end
-      v = v * 256 + b
-    end
-    -- sign-extend if requested and top bit is set
-    if signed then
-      local limit = 2 ^ (size * 8 - 1)
-      if v >= limit then
-        v = v - limit * 2
-      end
-    end
-    return v
-  end
-
-  local mem = {}
-
-  mem.pointer = function(addr)
-    return read_int(addr, pointer_size, true)
-  end
-  mem.i8 = function(addr)
-    return read_int(addr, 1, true)
-  end
-  mem.i16 = function(addr)
-    return read_int(addr, 2, true)
-  end
-  mem.i32 = function(addr)
-    return read_int(addr, 4, true)
-  end
-  mem.i64 = function(addr)
-    return read_int(addr, 8, true)
-  end
-  mem.float = function(addr)
-    -- return a dummy float-shaped number for testing purposes
-    return read_int(addr, 4, false)
-  end
-  mem.string = function(addr, max_length)
-    local chars = {}
-    for i = 0, max_length - 1 do
-      local b = bytes[addr + i]
-      if b == nil then
-        return nil
-      end
-      if b == 0 then
-        break
-      end
-      chars[#chars + 1] = string.char(b)
-    end
-    return table.concat(chars)
-  end
-
-  return mem
 end
-
---- Encode a little-endian integer into a byte list of the given width.
-local function le(value, width)
-  local out = {}
-  for _ = 1, width do
-    out[#out + 1] = value % 256
-    value = math.floor(value / 256)
-  end
-  return out
-end
-
---- Concatenate multiple byte lists into one.
-local function cat(...)
-  local out = {}
-  for _, t in ipairs({ ... }) do
-    for _, b in ipairs(t) do
-      out[#out + 1] = b
-    end
-  end
-  return out
-end
-
--- ---------------------------------------------------------------------------
--- Scalars
--- ---------------------------------------------------------------------------
-
 do
   local structs = { D.struct("S", { D.field("v", T.i32) }) }
   local c = compute.new(4, structs)
-  local mem = make_mem(4, { { 0x100, le(42, 4) } })
-  local read = reader.new(c, mem)
+  local rb = make_read_bytes("\xFF\xFF\x44\x33\x22\x11\xFF\xFF")
+  local read = reader.new(c, rb)
 
-  local r = read(0x100, T.i32)
-  assert(r.value == 42)
-  assert(r.addr == 0x100)
-  assert(r.error == nil)
+  local rawval = read(2, T.i32)
+  assert(rawval.value == 0x11223344)
+  assert(rawval.addr == 2)
+  assert(rawval.error == nil)
 end
 
 do

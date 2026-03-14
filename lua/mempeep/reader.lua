@@ -1,24 +1,17 @@
---- Read structs from memory.
--- Provides reader.new(compute, mem) -> read, where read(addr, type_ref)
+--- Read values from memory.
+-- Provides reader.new(compute, read_bytes) -> read, where read(addr, type_ref)
 -- reads a typed value.
 --
 -- compute is an instance produced by mempeep.compute.new(pointer_size, structs).
 --
--- mem is a table of raw read functions for each primitive kind:
---   mem.pointer(addr)            -> integer or nil
---   mem.float(addr)              -> number  or nil
---   mem.i8(addr)                 -> integer or nil
---   mem.i16(addr)                -> integer or nil
---   mem.i32(addr)                -> integer or nil
---   mem.i64(addr)                -> integer or nil
---   mem.string(addr, max_length) -> string  or nil
+-- read_bytes(addr, size) is a function that reads size bytes at addr, returning them as a string.
 --
 -- read(addr, type_ref) returns {addr, value, error}.
 -- error is a string if an error occurred, nil otherwise.
 -- For containers, value is a table of {addr, value, error} elements.
 -- @module mempeep.reader
 
-local function new(compute, mem)
+local function new(compute, read_bytes)
   local ptr_size = compute.pointer_size
 
   local read -- forward declaration for mutual recursion
@@ -81,12 +74,13 @@ local function new(compute, mem)
       return { addr = addr, value = read(p, type_ref.type_ref) }
     end,
 
-    string = function(addr, type_ref)
-      local s = mem.string(addr, type_ref.max_length)
+    primitive = function(addr, type_ref)
+      local s = read_bytes(addr, type_ref.size)
       if s == nil then
-        return { addr = addr, value = nil, error = "Could not read string" }
+        return { addr = addr, value = nil, error = "Could not read " .. type_ref.name }
       end
-      return { addr = addr, value = s }
+      val = type_ref.decode(s)
+      return { addr = addr, value = val }
     end,
 
     struct = function(addr, type_ref)
