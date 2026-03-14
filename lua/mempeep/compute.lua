@@ -22,18 +22,8 @@ local function new(pointer_size, structs)
   -- @return Byte size as a number.
   local function sizeof(type_ref)
     local kind = type_ref.kind
-    if kind == "i8" then
-      return 1
-    elseif kind == "i16" then
-      return 2
-    elseif kind == "i32" then
-      return 4
-    elseif kind == "float" then
-      return 4
-    elseif kind == "i64" then
-      return 8
-    elseif kind == "string" then
-      return type_ref.max_length
+    if kind == "primitive" then
+      return type_ref.size
     elseif kind == "ptr" then
       return pointer_size
     elseif kind == "circular_list" then

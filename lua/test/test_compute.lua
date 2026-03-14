@@ -8,7 +8,8 @@ assert(c.sizeof(T.i8) == 1)
 assert(c.sizeof(T.i16) == 2)
 assert(c.sizeof(T.i32) == 4)
 assert(c.sizeof(T.i64) == 8)
-assert(c.sizeof(T.float) == 4)
+assert(c.sizeof(T.f32) == 4)
+assert(c.sizeof(T.f64) == 8)
 
 -- sizeof: strings
 assert(c.sizeof(T.string(16)) == 16)
@@ -35,8 +36,8 @@ assert(c8.sizeof(T.vector(T.i32)) == 16)
 -- sizeof: arrays
 local c = compute.new(4, {})
 assert(c.sizeof(T.array(T.i32, 5)) == 20)
-assert(c.sizeof(T.array(T.i8(), 8)) == 8)
-assert(c.sizeof(T.array(T.i64(), 3)) == 24)
+assert(c.sizeof(T.array(T.i8, 8)) == 8)
+assert(c.sizeof(T.array(T.i64, 3)) == 24)
 
 -- sizeof: inline struct
 local point = D.struct("Point", {
@@ -106,10 +107,12 @@ local c = compute.new(4, { point })
 local f = c.fields("Point")
 assert(#f == 2)
 assert(f[1].name == "x")
-assert(f[1].type_ref.kind == "i32")
+assert(f[1].type_ref.kind == "primitive")
+assert(f[1].type_ref.name == "i32")
 assert(f[1].offset == 0)
 assert(f[2].name == "y")
-assert(f[2].type_ref.kind == "i32")
+assert(f[1].type_ref.kind == "primitive")
+assert(f[2].type_ref.name == "i32")
 assert(f[2].offset == 4)
 
 -- fields: pad is excluded
