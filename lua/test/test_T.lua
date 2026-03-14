@@ -40,8 +40,8 @@ do
   assert(f32.decode("\x00\x00\x80\x3F") == 1.0)
   assert(f64.decode("\x00\x00\x00\x00\x00\x00\xF0\x3F") == 1.0)
   assert(str.size == 32)
-  assert(str.decode("hello\0world") == "hello")  -- null terminates the string
-  local ok, err = pcall(T.assert_valid, T.string(0))  -- requires size >= 1
+  assert(str.decode("hello\0world") == "hello") -- null terminates the string
+  local ok, err = pcall(T.assert_valid, T.string(0)) -- requires size >= 1
   assert(not ok)
   assert(err:find("size"), err)
 end
@@ -52,7 +52,7 @@ do
   assert(arr.kind == "array")
   assert(arr.type_ref == T.i32)
   assert(arr.count == 5)
-  local ok, err = pcall(T.assert_valid, T.array(T.i32, 0))  -- no zero count
+  local ok, err = pcall(T.assert_valid, T.array(T.i32, 0)) -- no zero count
   assert(not ok)
   assert(err:find("count"), err)
 end
@@ -77,13 +77,13 @@ do
   assert(opt_ptr.type_ref == T.i32)
   assert(opt_ptr.optional == true)
   assert(opt_ptr.weak == true)
-  
+
   local opt_ref = T.assert_valid(T.optional_ref(T.i32))
   assert(opt_ref.kind == "ptr")
   assert(opt_ref.type_ref == T.i32)
   assert(opt_ref.optional == true)
   assert(opt_ref.weak == false)
-  
+
   local ptr = T.assert_valid(T.ptr(T.i32))
   assert(ptr.kind == "ptr")
   assert(ptr.type_ref == T.i32)
@@ -107,7 +107,7 @@ do
   local ok, err = pcall(T.assert_valid, {})
   assert(not ok)
   assert(err:find("kind"), err)
-  local ok, err = pcall(T.assert_valid, {kind = "unknown"})
+  local ok, err = pcall(T.assert_valid, { kind = "unknown" })
   assert(not ok)
   assert(err:find("kind"), err)
 end

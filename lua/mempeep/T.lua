@@ -33,44 +33,44 @@ local T = {}
 
 --- Fixed-size inline array.
 T.array = function(element_type_ref, count)
-  return {kind = "array", type_ref = element_type_ref, count = count}
+  return { kind = "array", type_ref = element_type_ref, count = count }
 end
 
 --- Circular linked list (element struct must have a weak ptr field named "next").
 T.circular_list = function(element_type_ref)
-  return {kind = "circular_list", type_ref = element_type_ref}
+  return { kind = "circular_list", type_ref = element_type_ref }
 end
 
 -- Primitive types.
-T.f32  = make_float(4)
+T.f32 = make_float(4)
 T.f64 = make_float(8)
-T.i8  = make_int(1, true)
+T.i8 = make_int(1, true)
 T.i16 = make_int(2, true)
 T.i32 = make_int(4, true)
 T.i64 = make_int(8, true)
-T.u8  = make_int(1, false)
+T.u8 = make_int(1, false)
 T.u16 = make_int(2, false)
 T.u32 = make_int(4, false)
 T.u64 = make_int(8, false)
 
 --- Nullable, non-followed pointer (raw address only).
 T.optional_ptr = function(type_ref)
-  return {kind = "ptr", type_ref = type_ref, optional = true, weak = true}
+  return { kind = "ptr", type_ref = type_ref, optional = true, weak = true }
 end
 
 --- Nullable, followed pointer (pointee is read if non-null).
 T.optional_ref = function(type_ref)
-  return {kind = "ptr", type_ref = type_ref, optional = true, weak = false}
+  return { kind = "ptr", type_ref = type_ref, optional = true, weak = false }
 end
 
 --- Non-null, non-followed pointer (raw address only).
 T.ptr = function(type_ref)
-  return {kind = "ptr", type_ref = type_ref, optional = false, weak = true}
+  return { kind = "ptr", type_ref = type_ref, optional = false, weak = true }
 end
 
 --- Non-null, followed pointer (pointee is read; null raises an error).
 T.ref = function(type_ref)
-  return {kind = "ptr", type_ref = type_ref, optional = false, weak = false}
+  return { kind = "ptr", type_ref = type_ref, optional = false, weak = false }
 end
 
 --- Null-terminated string.
@@ -87,12 +87,12 @@ end
 
 --- Reference to a named struct.
 T.struct = function(name)
-  return {kind = "struct", name = name}
+  return { kind = "struct", name = name }
 end
 
 --- Begin/end pointer pair (std::vector-style).
 T.vector = function(element_type_ref)
-  return {kind = "vector", type_ref = element_type_ref}
+  return { kind = "vector", type_ref = element_type_ref }
 end
 
 --- Asserts that a type_ref table is valid, raising an error if it is malformed.
