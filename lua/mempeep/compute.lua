@@ -64,7 +64,7 @@ local function new(pointer_size, structs)
                 end
                 cursor = desc.n
             elseif desc.kind == "field" then
-                field_list[#field_list + 1] = {name=desc.name, type_ref=desc.type_ref, offset=cursor}
+                field_list[#field_list + 1] = {name=desc.name, type_ref=desc.type_ref, opts=desc.opts, offset=cursor}
                 cursor = cursor + sizeof(desc.type_ref)
             else
                 error("compute: unknown descriptor kind '" ..
