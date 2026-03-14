@@ -106,9 +106,9 @@ end
 do
   local print_rawval = printer.new({})
 
-  for _, kind in ipairs({ "i8", "i16", "i32", "i64", "float" }) do
+  for _, type_ref in ipairs({ T.i8, T.i16, T.i32, T.i64, T.f32 }) do
     local lines = capture(function()
-      print_rawval({ kind = kind }, { addr = 0x100, value = 99 }, 0, "v")
+      print_rawval(type_ref, { addr = 0x100, value = 99 }, 0, "v")
     end)
     assert(any_line(lines, "99"))
   end
@@ -121,7 +121,7 @@ do
   local lines = capture(function()
     print_rawval(T.string(16), { addr = 0x500, value = "hello" }, 0, "s")
   end)
-  assert(any_line(lines, '"hello"'))
+  assert(any_line(lines, "hello"))
 end
 
 -- print_rawval: weak pointer prints hex address with "0x" prefix

@@ -39,19 +39,19 @@ do
   assert(v == 42)
   assert(#errs == 0)
 
-  local v, errs = unwrap(T.i8(), { addr = 0x100, value = -1 })
+  local v, errs = unwrap(T.i8, { addr = 0x100, value = -1 })
   assert(v == -1)
   assert(#errs == 0)
 
-  local v, errs = unwrap(T.i16(), { addr = 0x100, value = 1000 })
+  local v, errs = unwrap(T.i16, { addr = 0x100, value = 1000 })
   assert(v == 1000)
   assert(#errs == 0)
 
-  local v, errs = unwrap(T.i64(), { addr = 0x100, value = 123456789 })
+  local v, errs = unwrap(T.i64, { addr = 0x100, value = 123456789 })
   assert(v == 123456789)
   assert(#errs == 0)
 
-  local v, errs = unwrap(T.float(), { addr = 0x100, value = 3 })
+  local v, errs = unwrap(T.f32, { addr = 0x100, value = 3 })
   assert(v == 3)
   assert(#errs == 0)
 end

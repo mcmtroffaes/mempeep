@@ -51,22 +51,7 @@ local function new(structs)
     return result, errors
   end
 
-  unwrappers.float = function(type_ref, value)
-    return value, {}
-  end
-  unwrappers.i8 = function(type_ref, value)
-    return value, {}
-  end
-  unwrappers.i16 = function(type_ref, value)
-    return value, {}
-  end
-  unwrappers.i32 = function(type_ref, value)
-    return value, {}
-  end
-  unwrappers.i64 = function(type_ref, value)
-    return value, {}
-  end
-  unwrappers.string = function(type_ref, value)
+  unwrappers.primitive = function(type_ref, value)
     return value, {}
   end
 

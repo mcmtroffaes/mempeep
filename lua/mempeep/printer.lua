@@ -36,23 +36,7 @@ local function new(structs)
     end
   end
 
-  printers.float = function(type_ref, value, addr, indent, label)
-    print_line(addr, indent, label, tostring(value))
-  end
-
-  printers.i8 = function(type_ref, value, addr, indent, label)
-    print_line(addr, indent, label, tostring(value))
-  end
-
-  printers.i16 = function(type_ref, value, addr, indent, label)
-    print_line(addr, indent, label, tostring(value))
-  end
-
-  printers.i32 = function(type_ref, value, addr, indent, label)
-    print_line(addr, indent, label, tostring(value))
-  end
-
-  printers.i64 = function(type_ref, value, addr, indent, label)
+  printers.primitive = function(type_ref, value, addr, indent, label)
     print_line(addr, indent, label, tostring(value))
   end
 
@@ -65,10 +49,6 @@ local function new(structs)
       print_line(addr, indent, label, "ptr")
       print_rawval(type_ref.type_ref, value, indent + 1, nil)
     end
-  end
-
-  printers.string = function(type_ref, value, addr, indent, label)
-    print_line(addr, indent, label, '"' .. value .. '"')
   end
 
   printers.struct = function(type_ref, value, addr, indent, label)
