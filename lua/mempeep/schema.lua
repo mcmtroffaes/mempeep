@@ -30,14 +30,11 @@ local function new(pointer_size, structs)
     elseif kind == "array" then
       return sizeof(typ.typ) * typ.count
     elseif kind == "struct" then
-      local i = struct_index[typ.name]
-      if not i then
-        error("schema.sizeof: unknown struct '" .. typ.name .. "'")
-      end
-      local size = resolved_sizes[i]
-      if not size then
-        error("schema.sizeof: struct '" .. typ.name .. "' has not been resolved yet (declare it earlier in the array)")
-      end
+      local i = assert(struct_index[typ.name], "schema.sizeof: unknown struct '" .. typ.name .. "'")
+      local size = assert(
+        resolved_sizes[i],
+        "schema.sizeof: struct '" .. typ.name .. "' has not been resolved yet (declare it earlier in the array)"
+      )
       return size
     else
       error("schema.sizeof: unknown type kind '" .. tostring(kind) .. "'")
