@@ -17,9 +17,6 @@ local function new(pointer_size, structs)
   local resolved_fields = {}
   local resolved_sizes = {}
 
-  --- Returns the byte size of any type_ref.
-  -- @param type_ref The type reference to size.
-  -- @return Byte size as a number.
   local function sizeof(type_ref)
     local kind = type_ref.kind
     if kind == "primitive" then
@@ -59,7 +56,7 @@ local function new(pointer_size, structs)
         if desc.n <= cursor then
           error(
             string.format(
-              "compute: D.offset(%d) in struct '%s' would not move " .. "cursor forwards (currently at %d)",
+              "compute: D.offset(%d) in struct '%s' would not move cursor forwards (currently at %d)",
               desc.n,
               s.name,
               cursor
