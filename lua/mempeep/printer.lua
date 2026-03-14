@@ -1,17 +1,11 @@
---- Print raw values read from memory.
--- Provides printer.new(structs) -> print_rawval, where
--- print_rawval(type_ref, rawval, indent, label) prints a human-readable
--- representation of a raw value to stdout.
+--- Print readings from memory.
+-- Provides printer.new(schema) -> print_reading, where
+-- print_reading(typ, reading, indent, label) prints a human-readable
+-- representation of a reading to stdout.
 -- @module mempeep.printer
 
-local function new(structs)
-  -- Build name->struct lookup for O(1) access.
-  local struct_by_name = {}
-  for _, s in ipairs(structs) do
-    struct_by_name[s.name] = s
-  end
-
-  local print_rawval -- forward declaration for mutual recursion
+local function new(schema)
+  local print_reading -- forward declaration for mutual recursion
 
   local function print_line(addr, indent, label, value_str)
     local pad = string.rep("  ", indent)
@@ -22,86 +16,81 @@ local function new(structs)
 
   local printers = {}
 
-  printers.array = function(type_ref, value, addr, indent, label)
+  printers.array = function(typ, value, addr, indent, label)
     print_line(addr, indent, label, "array(" .. #value .. ")")
     for i, elem in ipairs(value) do
-      print_rawval(type_ref.type_ref, elem, indent + 1, "[" .. (i - 1) .. "]")
+      print_reading(typ.typ, elem, indent + 1, "[" .. (i - 1) .. "]")
     end
   end
 
-  printers.circular_list = function(type_ref, value, addr, indent, label)
+  printers.circular_list = function(typ, value, addr, indent, label)
     print_line(addr, indent, label, "circular_list(" .. #value .. ")")
     for i, elem in ipairs(value) do
-      print_rawval(type_ref.type_ref, elem, indent + 1, "[" .. (i - 1) .. "]")
+      print_reading(typ.typ, elem, indent + 1, "[" .. (i - 1) .. "]")
     end
   end
 
-  printers.primitive = function(type_ref, value, addr, indent, label)
+  printers.primitive = function(typ, value, addr, indent, label)
     print_line(addr, indent, label, tostring(value))
   end
 
-  printers.ptr = function(type_ref, value, addr, indent, label)
-    if type_ref.weak then
+  printers.ptr = function(typ, value, addr, indent, label)
+    if typ.weak then
       -- Weak pointer: value is a raw address integer.
       print_line(addr, indent, label, string.format("0x%X", value))
     else
-      -- Followed pointer: value is a nested rawval for the pointee.
+      -- Followed pointer: value is a nested reading for the pointee.
       print_line(addr, indent, label, "ptr")
-      print_rawval(type_ref.type_ref, value, indent + 1, nil)
+      print_reading(typ.typ, value, indent + 1, nil)
     end
   end
 
-  printers.struct = function(type_ref, value, addr, indent, label)
-    local s = struct_by_name[type_ref.name]
-    if not s then
-      error("print: unknown struct '" .. type_ref.name .. "'")
-    end
-    print_line(addr, indent, label, type_ref.name)
-    for _, desc in ipairs(s.descriptors) do
-      if desc.kind == "field" then
-        if not (desc.opts and desc.opts.print == false) then
-          print_rawval(desc.type_ref, value[desc.name], indent + 1, desc.name)
-        end
+  printers.struct = function(typ, value, addr, indent, label)
+    local field_descs = schema.fields(typ.name)
+    print_line(addr, indent, label, typ.name)
+    for _, fd in ipairs(field_descs) do
+      if not (fd.opts and fd.opts.print == false) then
+        print_reading(fd.typ, value[fd.name], indent + 1, fd.name)
       end
     end
   end
 
-  printers.vector = function(type_ref, value, addr, indent, label)
+  printers.vector = function(typ, value, addr, indent, label)
     print_line(addr, indent, label, "vector(" .. #value .. ")")
     for i, elem in ipairs(value) do
-      print_rawval(type_ref.type_ref, elem, indent + 1, "[" .. (i - 1) .. "]")
+      print_reading(typ.typ, elem, indent + 1, "[" .. (i - 1) .. "]")
     end
   end
 
-  --- Print raw value.
-  -- rawval is the {addr, value, error} table produced by mempeep.reader.
-  -- Containers hold a table of child rawvals as their value.
-  print_rawval = function(type_ref, rawval, indent, label)
+  --- Print a reading.
+  -- reading is the {addr, value, error} table produced by mempeep.reader.
+  -- Containers hold a table of child readings as their value.
+  print_reading = function(typ, reading, indent, label)
     indent = indent or 0
 
-    if rawval == nil then
+    if reading == nil then
       print_line(nil, indent, label, "nil")
       return
     end
 
-    local addr = rawval.addr
+    local addr = reading.addr
 
-    if rawval.error then
-      print_line(addr, indent, label, "ERROR: " .. rawval.error)
+    if reading.error then
+      print_line(addr, indent, label, "ERROR: " .. reading.error)
       -- If there is also a partial value, fall through and print it.
-      if rawval.value == nil then
+      if reading.value == nil then
         return
       end
-    elseif rawval.value == nil then
+    elseif reading.value == nil then
       print_line(addr, indent, label, "nil")
       return
     end
 
-    local p = assert(printers[type_ref.kind], "print: unknown type kind: " .. type_ref.kind)
-    p(type_ref, rawval.value, addr, indent, label)
+    local p = assert(printers[typ.kind], "print: unknown type kind: " .. typ.kind)
+    p(typ, reading.value, addr, indent, label)
   end
 
-  return print_rawval
+  return print_reading
 end
 
 local printer = {}

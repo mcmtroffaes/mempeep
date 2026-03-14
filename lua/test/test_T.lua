@@ -51,7 +51,7 @@ end
 do
   local arr = T.assert_valid(T.array(T.i32, 5))
   assert(arr.kind == "array")
-  assert(arr.type_ref == T.i32)
+  assert(arr.typ == T.i32)
   assert(arr.count == 5)
   local ok, err = pcall(T.assert_valid, T.array(T.i32, 0)) -- no zero count
   assert(not ok)
@@ -63,51 +63,58 @@ do
   local stru = T.assert_valid(T.struct("Item"))
   assert(stru.kind == "struct")
   assert(stru.name == "Item")
+
   local circ = T.assert_valid(T.circular_list(stru))
   assert(circ.kind == "circular_list")
-  assert(circ.type_ref == stru)
+  assert(circ.typ == stru)
+  assert(circ.next_field == "next")
+
+  local circ2 = T.assert_valid(T.circular_list(stru, "sibling"))
+  assert(circ2.next_field == "sibling")
+
   local ok, err = pcall(T.assert_valid, T.circular_list(T.i32))
   assert(not ok)
   assert(err:find("element must be a struct"), err)
 end
 
--- pointer types
+-- pointer types: single constructor, all four combinations via opts
 do
-  local opt_ptr = T.assert_valid(T.optional_ptr(T.i32))
-  assert(opt_ptr.kind == "ptr")
-  assert(opt_ptr.type_ref == T.i32)
-  assert(opt_ptr.optional == true)
-  assert(opt_ptr.weak == true)
+  -- default: non-optional, non-weak (followed)
+  local p = T.assert_valid(T.ptr(T.i32))
+  assert(p.kind == "ptr")
+  assert(p.typ == T.i32)
+  assert(p.optional == false)
+  assert(p.weak == false)
 
-  local opt_ref = T.assert_valid(T.optional_ref(T.i32))
-  assert(opt_ref.kind == "ptr")
-  assert(opt_ref.type_ref == T.i32)
-  assert(opt_ref.optional == true)
-  assert(opt_ref.weak == false)
+  -- non-optional weak (raw address)
+  local pw = T.assert_valid(T.ptr(T.i32, { weak = true }))
+  assert(pw.optional == false)
+  assert(pw.weak == true)
 
-  local ptr = T.assert_valid(T.ptr(T.i32))
-  assert(ptr.kind == "ptr")
-  assert(ptr.type_ref == T.i32)
-  assert(ptr.optional == false)
-  assert(ptr.weak == true)
+  -- optional non-weak (followed, nullable)
+  local po = T.assert_valid(T.ptr(T.i32, { optional = true }))
+  assert(po.optional == true)
+  assert(po.weak == false)
 
-  local ref = T.assert_valid(T.ref(T.i32))
-  assert(ref.kind == "ptr")
-  assert(ref.type_ref == T.i32)
-  assert(ref.optional == false)
-  assert(ref.weak == false)
+  -- optional weak (raw address, nullable)
+  local pow = T.assert_valid(T.ptr(T.i32, { optional = true, weak = true }))
+  assert(pow.optional == true)
+  assert(pow.weak == true)
 end
 
+-- vector
 do
   local vec = T.assert_valid(T.vector(T.i32))
   assert(vec.kind == "vector")
-  assert(vec.type_ref == T.i32)
+  assert(vec.typ == T.i32)
 end
 
+-- unknown kind errors
 do
   local ok, err = pcall(T.assert_valid, {})
   assert(not ok)
   assert(err:find("kind"), err)
+
   local ok, err = pcall(T.assert_valid, { kind = "unknown" })
   assert(not ok)
   assert(err:find("kind"), err)

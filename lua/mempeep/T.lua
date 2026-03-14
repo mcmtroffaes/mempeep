@@ -1,7 +1,6 @@
---- Type reference constructors.
--- A type reference, or "type_ref", is a table
--- describing the type of a value in memory.
--- They are used as arguments to the memory layout descriptors.
+--- Type constructors.
+-- A "type" (typ) is a table describing the type of a value in memory.
+-- Types are used as arguments to the memory layout descriptors.
 -- @module mempeep.T
 
 local function make_float(size)
@@ -32,13 +31,16 @@ end
 local T = {}
 
 --- Fixed-size inline array.
-T.array = function(element_type_ref, count)
-  return { kind = "array", type_ref = element_type_ref, count = count }
+T.array = function(element_typ, count)
+  return { kind = "array", typ = element_typ, count = count }
 end
 
---- Circular linked list (element struct must have a weak ptr field named "next").
-T.circular_list = function(element_type_ref)
-  return { kind = "circular_list", type_ref = element_type_ref }
+--- Circular linked list.
+-- element_typ must be a struct type.
+-- next_field is the name of the weak-ptr field on the element struct
+-- that points to the next element (defaults to "next").
+T.circular_list = function(element_typ, next_field)
+  return { kind = "circular_list", typ = element_typ, next_field = next_field or "next" }
 end
 
 -- Primitive types.
@@ -53,24 +55,20 @@ T.u16 = make_int(2, false)
 T.u32 = make_int(4, false)
 T.u64 = make_int(8, false)
 
---- Nullable, non-followed pointer (raw address only).
-T.optional_ptr = function(type_ref)
-  return { kind = "ptr", type_ref = type_ref, optional = true, weak = true }
-end
-
---- Nullable, followed pointer (pointee is read if non-null).
-T.optional_ref = function(type_ref)
-  return { kind = "ptr", type_ref = type_ref, optional = true, weak = false }
-end
-
---- Non-null, non-followed pointer (raw address only).
-T.ptr = function(type_ref)
-  return { kind = "ptr", type_ref = type_ref, optional = false, weak = true }
-end
-
---- Non-null, followed pointer (pointee is read; null raises an error).
-T.ref = function(type_ref)
-  return { kind = "ptr", type_ref = type_ref, optional = false, weak = false }
+--- Pointer.
+-- opts.optional: if true, a null pointer is allowed (value will be nil, no error).
+--               Defaults to false.
+-- opts.weak:     if true, the pointer is not followed; value is the raw address integer.
+--               if false, the pointer is followed; value is a reading of the pointee.
+--               Defaults to false.
+T.ptr = function(typ, opts)
+  opts = opts or {}
+  return {
+    kind = "ptr",
+    typ = typ,
+    optional = opts.optional or false,
+    weak = opts.weak or false,
+  }
 end
 
 --- Null-terminated string.
@@ -92,42 +90,43 @@ T.struct = function(name)
 end
 
 --- Begin/end pointer pair (std::vector-style).
-T.vector = function(element_type_ref)
-  return { kind = "vector", type_ref = element_type_ref }
+T.vector = function(element_typ)
+  return { kind = "vector", typ = element_typ }
 end
 
---- Asserts that a type_ref table is valid, raising an error if it is malformed.
--- Recursively validates nested type references.
+--- Asserts that a type is valid, raising an error if it is malformed.
+-- Recursively validates nested types.
 -- Does not check cross-references between structs; that is deferred to
 -- mempeep.D.assert_valid.
--- @param type_ref The type reference to validate.
--- @return type_ref if valid.
--- @raise if the type_ref is malformed or has an unknown kind.
-local function assert_valid(type_ref)
-  assert(type_ref.kind, "type_ref has no kind")
-  if type_ref.kind == "array" then
-    assert_valid(assert(type_ref.type_ref, "array has no type_ref"))
-    assert(type_ref.count, "array has no count")
-    assert(type_ref.count >= 1, "array count must be at least 1")
-  elseif type_ref.kind == "circular_list" then
-    assert_valid(assert(type_ref.type_ref, "circular_list has no type_ref"))
-    assert(type_ref.type_ref.kind == "struct", "circular_list element must be a struct")
-  elseif type_ref.kind == "primitive" then
-    assert(type_ref.name, "primitive has no name")
-    assert(type_ref.size >= 1, "primitive size must be a positive integer")
-    assert(type(type_ref.decode) == "function", "primitive has no decode function")
-  elseif type_ref.kind == "ptr" then
-    assert_valid(assert(type_ref.type_ref, "ptr has no type_ref"))
-    assert(type_ref.optional ~= nil, "ptr has no optional flag")
-    assert(type_ref.weak ~= nil, "ptr has no weak flag")
-  elseif type_ref.kind == "struct" then
-    assert(type_ref.name, "struct type_ref has no name")
-  elseif type_ref.kind == "vector" then
-    assert_valid(assert(type_ref.type_ref, "vector has no type_ref"))
+-- @param typ The type to validate.
+-- @return typ if valid.
+-- @raise if the type is malformed or has an unknown kind.
+local function assert_valid(typ)
+  assert(typ.kind, "type has no kind")
+  if typ.kind == "array" then
+    assert_valid(assert(typ.typ, "array has no typ"))
+    assert(typ.count, "array has no count")
+    assert(typ.count >= 1, "array count must be at least 1")
+  elseif typ.kind == "circular_list" then
+    assert_valid(assert(typ.typ, "circular_list has no typ"))
+    assert(typ.typ.kind == "struct", "circular_list element must be a struct")
+    assert(typ.next_field, "circular_list has no next_field")
+  elseif typ.kind == "primitive" then
+    assert(typ.name, "primitive has no name")
+    assert(typ.size >= 1, "primitive size must be a positive integer")
+    assert(type(typ.decode) == "function", "primitive has no decode function")
+  elseif typ.kind == "ptr" then
+    assert_valid(assert(typ.typ, "ptr has no typ"))
+    assert(typ.optional ~= nil, "ptr has no optional flag")
+    assert(typ.weak ~= nil, "ptr has no weak flag")
+  elseif typ.kind == "struct" then
+    assert(typ.name, "struct type has no name")
+  elseif typ.kind == "vector" then
+    assert_valid(assert(typ.typ, "vector has no typ"))
   else
-    error("unknown type_ref kind: " .. type_ref.kind)
+    error("unknown type kind: " .. typ.kind)
   end
-  return type_ref
+  return typ
 end
 
 T.assert_valid = assert_valid

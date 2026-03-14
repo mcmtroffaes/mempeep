@@ -1,17 +1,14 @@
---- Unwrap raw values into plain values.
--- Provides unwrapper.new(structs) -> unwrap, where
--- unwrap(type_ref, rawval) converts a raw value tree produced by
--- mempeep.reader into plain Lua values, surfacing errors as a flat list of
+--- Decode readings into plain Lua values.
+-- Provides decoder.new(schema) -> decode, where
+-- decode(typ, reading) converts a reading produced by mempeep.reader
+-- into a plain Lua value, surfacing errors as a flat list of
 -- context-prefixed strings.
--- @module mempeep.unwrapper
+-- Partial readings (both a value and an error present) are decoded;
+-- the error is surfaced alongside whatever value could be recovered.
+-- @module mempeep.decoder
 
-local function new(structs)
-  local struct_by_name = {}
-  for _, s in ipairs(structs) do
-    struct_by_name[s.name] = s
-  end
-
-  local unwrap -- forward declaration for mutual recursion
+local function new(schema)
+  local decode -- forward declaration for mutual recursion
 
   local function prefix_errors(errors, context)
     local result = {}
@@ -27,92 +24,95 @@ local function new(structs)
     end
   end
 
-  local unwrappers = {}
+  local decoders = {}
 
-  unwrappers.array = function(type_ref, value)
+  decoders.array = function(typ, value)
     local result = {}
     local errors = {}
     for i, elem in ipairs(value) do
-      local v, errs = unwrap(type_ref.type_ref, elem)
+      local v, errs = decode(typ.typ, elem)
       result[i] = v
       merge_errors(errors, prefix_errors(errs, "[" .. (i - 1) .. "]"))
     end
     return result, errors
   end
 
-  unwrappers.circular_list = function(type_ref, value)
+  decoders.circular_list = function(typ, value)
     local result = {}
     local errors = {}
     for i, elem in ipairs(value) do
-      local v, errs = unwrap(type_ref.type_ref, elem)
+      local v, errs = decode(typ.typ, elem)
       result[i] = v
       merge_errors(errors, prefix_errors(errs, "[" .. (i - 1) .. "]"))
     end
     return result, errors
   end
 
-  unwrappers.primitive = function(type_ref, value)
+  decoders.primitive = function(typ, value)
     return value, {}
   end
 
-  unwrappers.ptr = function(type_ref, value)
-    if type_ref.weak then
+  decoders.ptr = function(typ, value)
+    if typ.weak then
       -- Weak pointer: value is a raw address integer; pass through as-is.
       return value, {}
     end
-    -- Followed pointer: value is a nested rawval for the pointee.
-    return unwrap(type_ref.type_ref, value)
+    -- Followed pointer: value is a nested reading for the pointee.
+    return decode(typ.typ, value)
   end
 
-  unwrappers.struct = function(type_ref, value)
-    local s = struct_by_name[type_ref.name]
-    if not s then
-      error("unwrapper: unknown struct '" .. type_ref.name .. "'")
-    end
+  decoders.struct = function(typ, value)
+    local field_descs = schema.fields(typ.name)
     local result = {}
     local errors = {}
-    for _, desc in ipairs(s.descriptors) do
-      if desc.kind == "field" then
-        local v, errs = unwrap(desc.type_ref, value[desc.name])
-        result[desc.name] = v
-        merge_errors(errors, prefix_errors(errs, desc.name))
-      end
+    for _, fd in ipairs(field_descs) do
+      local v, errs = decode(fd.typ, value[fd.name])
+      result[fd.name] = v
+      merge_errors(errors, prefix_errors(errs, fd.name))
     end
     return result, errors
   end
 
-  unwrappers.vector = function(type_ref, value)
+  decoders.vector = function(typ, value)
     local result = {}
     local errors = {}
     for i, elem in ipairs(value) do
-      local v, errs = unwrap(type_ref.type_ref, elem)
+      local v, errs = decode(typ.typ, elem)
       result[i] = v
       merge_errors(errors, prefix_errors(errs, "[" .. (i - 1) .. "]"))
     end
     return result, errors
   end
 
-  --- Unwrap a value.
-  -- @param type_ref The type of the value (same as what was passed to the reader).
-  -- @param rawval The {addr, value, error} as produced by mempeep.reader.
-  -- @return The unwrapped plain Lua value (or nil on failure) and a flat list of context-prefixed error strings.
-  unwrap = function(type_ref, rawval)
-    if rawval == nil or rawval.value == nil then
-      local errors = rawval and rawval.error and { rawval.error } or {}
+  --- Decode a reading.
+  -- @param typ The type of the reading (same as what was passed to the reader).
+  -- @param reading The {addr, value, error} table produced by mempeep.reader.
+  -- @return The decoded plain Lua value (or nil if no value is available),
+  --         and a flat list of context-prefixed error strings.
+  decode = function(typ, reading)
+    local u = assert(decoders[typ.kind], "decoder: unknown type kind: " .. typ.kind)
+
+    if reading == nil or reading.value == nil then
+      local errors = reading and reading.error and { reading.error } or {}
       return nil, errors
     end
-    local u = unwrappers[type_ref.kind]
-    if not u then
-      error("unwrapper: unknown type kind: " .. type_ref.kind)
+
+    -- Honour partial readings: decode whatever value is present, then
+    -- prepend any error from the reading itself before returning.
+    local value, errors = u(typ, reading.value)
+
+    if reading.error then
+      table.insert(errors, 1, reading.error)
     end
-    return u(type_ref, rawval.value)
+
+    return value, errors
   end
 
-  return unwrap
+  return decode
 end
 
-local unwrapper = {}
+local decoder = {}
 
-unwrapper.new = new
+decoder.new = new
 
-return unwrapper
+return decoder

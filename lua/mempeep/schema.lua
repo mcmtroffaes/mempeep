@@ -1,7 +1,7 @@
---- Computes sizes of type_refs and field offsets of structs.
--- @module mempeep.compute
+--- Computes sizes of types and field offsets of structs.
+-- @module mempeep.schema
 
---- Creates a compute instance bound to a specific pointer size and struct array.
+--- Creates a schema instance bound to a specific pointer size and struct array.
 -- Offsets are resolved eagerly at construction time.
 -- Structs must be declared before any struct that embeds them inline;
 -- pointer-typed fields are fine in any order.
@@ -17,10 +17,10 @@ local function new(pointer_size, structs)
   local resolved_fields = {}
   local resolved_sizes = {}
 
-  local function sizeof(type_ref)
-    local kind = type_ref.kind
+  local function sizeof(typ)
+    local kind = typ.kind
     if kind == "primitive" then
-      return type_ref.size
+      return typ.size
     elseif kind == "ptr" then
       return pointer_size
     elseif kind == "circular_list" then
@@ -28,21 +28,19 @@ local function new(pointer_size, structs)
     elseif kind == "vector" then
       return pointer_size * 2
     elseif kind == "array" then
-      return sizeof(type_ref.type_ref) * type_ref.count
+      return sizeof(typ.typ) * typ.count
     elseif kind == "struct" then
-      local i = struct_index[type_ref.name]
+      local i = struct_index[typ.name]
       if not i then
-        error("compute.sizeof: unknown struct '" .. type_ref.name .. "'")
+        error("schema.sizeof: unknown struct '" .. typ.name .. "'")
       end
       local size = resolved_sizes[i]
       if not size then
-        error(
-          "compute.sizeof: struct '" .. type_ref.name .. "' has not been resolved yet (declare it earlier in the array)"
-        )
+        error("schema.sizeof: struct '" .. typ.name .. "' has not been resolved yet (declare it earlier in the array)")
       end
       return size
     else
-      error("compute.sizeof: unknown type kind '" .. tostring(kind) .. "'")
+      error("schema.sizeof: unknown type kind '" .. tostring(kind) .. "'")
     end
   end
 
@@ -56,7 +54,7 @@ local function new(pointer_size, structs)
         if desc.n <= cursor then
           error(
             string.format(
-              "compute: D.offset(%d) in struct '%s' would not move cursor forwards (currently at %d)",
+              "schema: D.offset(%d) in struct '%s' would not move cursor forwards (currently at %d)",
               desc.n,
               s.name,
               cursor
@@ -67,42 +65,43 @@ local function new(pointer_size, structs)
       elseif desc.kind == "field" then
         field_list[#field_list + 1] = {
           name = desc.name,
-          type_ref = desc.type_ref,
+          typ = desc.typ,
           offset = cursor,
+          opts = desc.opts,
         }
-        cursor = cursor + sizeof(desc.type_ref)
+        cursor = cursor + sizeof(desc.typ)
       else
-        error("compute: unknown descriptor kind '" .. tostring(desc.kind) .. "' in struct '" .. s.name .. "'")
+        error("schema: unknown descriptor kind '" .. tostring(desc.kind) .. "' in struct '" .. s.name .. "'")
       end
     end
     resolved_fields[i] = field_list
     resolved_sizes[i] = cursor
   end
 
-  --- Returns an array of {name, type_ref, offset} for each field in the named struct.
+  --- Returns an array of {name, typ, offset, opts} for each field in the named struct.
   -- Pad and offset descriptors are excluded.
   -- offset is the byte offset from the start of the struct to the start of the field.
   -- @param struct_name Name of the struct.
-  -- @return Array of field descriptor tables.
+  -- @return Array of field tables.
   local function fields(struct_name)
     local i = struct_index[struct_name]
     if not i then
-      error("compute.fields: unknown struct '" .. struct_name .. "'")
+      error("schema.fields: unknown struct '" .. struct_name .. "'")
     end
     return resolved_fields[i]
   end
 
-  local compute = {}
+  local schema = {}
 
-  compute.pointer_size = pointer_size
-  compute.sizeof = sizeof
-  compute.fields = fields
+  schema.pointer_size = pointer_size
+  schema.sizeof = sizeof
+  schema.fields = fields
 
-  return compute
+  return schema
 end
 
-local compute = {}
+local schema = {}
 
-compute.new = new
+schema.new = new
 
-return compute
+return schema

@@ -19,69 +19,84 @@ D.offset = function(n)
   return { kind = "offset", n = n }
 end
 
-D.field = function(name, type_ref, opts)
-  return { kind = "field", name = name, type_ref = type_ref, opts = opts }
+D.field = function(name, typ, opts)
+  return { kind = "field", name = name, typ = typ, opts = opts }
 end
 
 D.struct = function(name, descriptors)
   return { name = name, descriptors = descriptors }
 end
 
-local function assert_valid_circular_list_type_ref(type_ref, struct_by_name)
+local function assert_valid_circular_list_typ(typ, struct_index)
+  local next_field = typ.next_field
   local struct = assert(
-    struct_by_name[type_ref.name],
-    "D.assert_valid: circular_list references unknown struct '" .. type_ref.name .. "'"
+    struct_index[typ.typ.name],
+    "D.assert_valid: circular_list references unknown struct '" .. typ.typ.name .. "'"
   )
   for _, desc in ipairs(struct.descriptors) do
-    if desc.kind == "field" and desc.name == "next" then
-      if desc.type_ref.kind ~= "ptr" or not desc.type_ref.weak or desc.type_ref.optional then
+    if desc.kind == "field" and desc.name == next_field then
+      if desc.typ.kind ~= "ptr" or not desc.typ.weak or desc.typ.optional then
         error(
-          "D.assert_valid: circular_list 'next' field "
+          "D.assert_valid: circular_list '"
+            .. next_field
+            .. "' field "
             .. "in struct '"
             .. struct.name
-            .. "' must be a ptr, got: "
-            .. desc.type_ref.kind
+            .. "' must be a non-optional weak ptr, got kind: "
+            .. desc.typ.kind
+            .. (
+              desc.typ.kind == "ptr"
+                and (", optional=" .. tostring(desc.typ.optional) .. ", weak=" .. tostring(desc.typ.weak))
+              or ""
+            )
         )
       end
-      local next_type = desc.type_ref.type_ref
-      if next_type.kind ~= "struct" or next_type.name ~= struct.name then
-        error("D.assert_valid: circular_list 'next' field " .. "must be a ptr to struct '" .. struct.name .. "'")
+      local next_typ = desc.typ.typ
+      if next_typ.kind ~= "struct" or next_typ.name ~= struct.name then
+        error(
+          "D.assert_valid: circular_list '"
+            .. next_field
+            .. "' field "
+            .. "must be a ptr to struct '"
+            .. struct.name
+            .. "'"
+        )
       end
       return -- found and valid
     end
   end
-  error("D.assert_valid: circular_list 'next' field " .. "not found in struct '" .. struct.name .. "'")
+  error("D.assert_valid: circular_list '" .. next_field .. "' field " .. "not found in struct '" .. struct.name .. "'")
 end
 
 --- Assert that an array of struct descriptors is valid.
--- Checks that all type_refs are well-formed and that all cross-references
+-- Checks that all types are well-formed and that all cross-references
 -- between structs are satisfied.  Operates on the raw descriptor arrays,
 -- before any sizes or offsets are computed.
 -- @param structs Array of structs (each element built with D.struct(...)).
 -- @return structs if valid.
 D.assert_valid = function(structs)
-  local struct_by_name = {}
+  local struct_index = {}
   for _, s in ipairs(structs) do
-    struct_by_name[s.name] = s
+    struct_index[s.name] = s
   end
   for _, s in ipairs(structs) do
     for _, desc in ipairs(assert(s.descriptors, "D.assert_valid: struct is missing descriptors")) do
       if desc.kind == "field" then
-        local tr = assert(desc.type_ref, "D.assert_valid: descriptor is missing type_ref")
-        T.assert_valid(tr)
-        if tr.kind == "struct" then
+        local typ = assert(desc.typ, "D.assert_valid: descriptor is missing typ")
+        T.assert_valid(typ)
+        if typ.kind == "struct" then
           assert(
-            struct_by_name[tr.name],
+            struct_index[typ.name],
             "D.assert_valid: struct '"
               .. s.name
               .. "' field '"
               .. desc.name
               .. "' references unknown struct '"
-              .. tr.name
+              .. typ.name
               .. "'"
           )
-        elseif tr.kind == "circular_list" then
-          assert_valid_circular_list_type_ref(tr.type_ref, struct_by_name)
+        elseif typ.kind == "circular_list" then
+          assert_valid_circular_list_typ(typ, struct_index)
         end
       end
     end
