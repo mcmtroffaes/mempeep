@@ -5,6 +5,8 @@
 -- compute is an instance produced by mempeep.compute.new(pointer_size, structs).
 --
 -- read_bytes(addr, size) is a function that reads size bytes at addr, returning them as a string.
+-- The returned string *must* have length size.
+-- Returns nil if the memory is not readable.
 --
 -- read(addr, type_ref) returns {addr, value, error}.
 -- error is a string if an error occurred, nil otherwise.
@@ -15,6 +17,16 @@ local function new(compute, read_bytes)
   local ptr_size = compute.pointer_size
 
   local read -- forward declaration for mutual recursion
+
+  -- Read a pointer-sized integer from addr. Returns nil on failure.
+  local function read_pointer(addr)
+    local s = read_bytes(addr, ptr_size)
+    if s == nil then
+      return nil
+    end
+    local fmt = "<i" .. ptr_size
+    return string.unpack(fmt, s)
+  end
 
   local readers = {
 
@@ -33,7 +45,7 @@ local function new(compute, read_bytes)
     circular_list = function(addr, type_ref)
       local sub_type = type_ref.type_ref
       local items = {}
-      local head = mem.pointer(addr)
+      local head = read_pointer(addr)
       if head == nil then
         return { addr = addr, value = nil, error = "Invalid head pointer" }
       elseif head ~= 0 then
@@ -58,7 +70,7 @@ local function new(compute, read_bytes)
     end,
 
     ptr = function(addr, type_ref)
-      local p = mem.pointer(addr)
+      local p = read_pointer(addr)
       if p == nil then
         return { addr = addr, value = nil, error = "Could not read pointer" }
       end
@@ -79,7 +91,7 @@ local function new(compute, read_bytes)
       if s == nil then
         return { addr = addr, value = nil, error = "Could not read " .. type_ref.name }
       end
-      val = type_ref.decode(s)
+      local val = type_ref.decode(s)
       return { addr = addr, value = val }
     end,
 
@@ -93,8 +105,8 @@ local function new(compute, read_bytes)
     end,
 
     vector = function(addr, type_ref)
-      local begin_ptr = mem.pointer(addr)
-      local end_ptr = mem.pointer(addr + ptr_size)
+      local begin_ptr = read_pointer(addr)
+      local end_ptr = read_pointer(addr + ptr_size)
       local sub_type = type_ref.type_ref
       if begin_ptr == nil or end_ptr == nil then
         return { addr = addr, value = nil, error = "Invalid vector pointers" }
@@ -115,17 +127,6 @@ local function new(compute, read_bytes)
       return { addr = addr, value = items }
     end,
   }
-
-  -- Scalar kinds delegate directly to the matching mem function.
-  for _, kind in ipairs({ "float", "i8", "i16", "i32", "i64" }) do
-    readers[kind] = function(addr, type_ref)
-      local v = mem[kind](addr)
-      if v == nil then
-        return { addr = addr, value = nil, error = "Could not read " .. kind }
-      end
-      return { addr = addr, value = v }
-    end
-  end
 
   read = function(addr, type_ref)
     if addr == nil then
