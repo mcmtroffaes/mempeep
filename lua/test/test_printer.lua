@@ -27,7 +27,7 @@ do
     local print_rawval = printer.new({})
 
     local lines = capture(function()
-        print_rawval(T.i32(), nil, 0, "field")
+        print_rawval(T.i32, nil, 0, "field")
     end)
     assert(#lines == 1)
     assert(any_line(lines, "nil"))
@@ -38,7 +38,7 @@ do
     local print_rawval = printer.new({})
 
     local lines = capture(function()
-        print_rawval(T.i32(), {addr = 0x100, value = nil}, 0, "field")
+        print_rawval(T.i32, {addr = 0x100, value = nil}, 0, "field")
     end)
     assert(any_line(lines, "nil"))
 end
@@ -48,7 +48,7 @@ do
     local print_rawval = printer.new({})
 
     local lines = capture(function()
-        print_rawval(T.i32(), {addr = 0x100, value = nil, error = "Could not read i32"}, 0, "v")
+        print_rawval(T.i32, {addr = 0x100, value = nil, error = "Could not read i32"}, 0, "v")
     end)
     assert(any_line(lines, "ERROR:"))
     assert(any_line(lines, "Could not read i32"))
@@ -59,7 +59,7 @@ do
     local print_rawval = printer.new({})
 
     local lines = capture(function()
-        print_rawval(T.i32(), {addr = 0xABCD1234, value = 42}, 0, nil)
+        print_rawval(T.i32, {addr = 0xABCD1234, value = 42}, 0, nil)
     end)
     assert(any_line(lines, "ABCD1234"))
 end
@@ -69,7 +69,7 @@ do
     local print_rawval = printer.new({})
 
     local lines = capture(function()
-        print_rawval(T.i32(), nil, 0, nil)
+        print_rawval(T.i32, nil, 0, nil)
     end)
     assert(any_line(lines, "--------"))
 end
@@ -79,7 +79,7 @@ do
     local print_rawval = printer.new({})
 
     local lines = capture(function()
-        print_rawval(T.i32(), {addr = 0x100, value = 7}, 0, "my_label")
+        print_rawval(T.i32, {addr = 0x100, value = 7}, 0, "my_label")
     end)
     assert(any_line(lines, "my_label"))
 end
@@ -89,7 +89,7 @@ do
     local print_rawval = printer.new({})
 
     local lines = capture(function()
-        print_rawval(T.i32(), {addr = 0x100, value = 7}, 0, nil)
+        print_rawval(T.i32, {addr = 0x100, value = 7}, 0, nil)
     end)
     assert(#lines == 1)
     -- line should not contain a spurious ": "
@@ -124,7 +124,7 @@ do
 
     local lines = capture(function()
         -- T.ptr is weak=true
-        print_rawval(T.ptr(T.i32()), {addr = 0x900, value = 0xDEAD}, 0, "p")
+        print_rawval(T.ptr(T.i32), {addr = 0x900, value = 0xDEAD}, 0, "p")
     end)
     -- string.format("0x%X", 0xDEAD) -> "0xDEAD"
     assert(any_line(lines, "0xDEAD"))
@@ -135,7 +135,7 @@ do
     local print_rawval = printer.new({})
 
     local lines = capture(function()
-        print_rawval(T.optional_ptr(T.i32()), {addr = 0x930, value = 0x1234}, 0, "p")
+        print_rawval(T.optional_ptr(T.i32), {addr = 0x930, value = 0x1234}, 0, "p")
     end)
     assert(any_line(lines, "0x1234"))
 end
@@ -146,7 +146,7 @@ do
 
     local inner_rawval = {addr = 0xA00, value = 77}
     local lines = capture(function()
-        print_rawval(T.ref(T.i32()), {addr = 0x940, value = inner_rawval}, 0, "r")
+        print_rawval(T.ref(T.i32), {addr = 0x940, value = inner_rawval}, 0, "r")
     end)
     assert(any_line(lines, "ptr"))
     assert(any_line(lines, "77"))
@@ -157,8 +157,8 @@ end
 -- print_rawval: struct prints name then one line per field
 do
     local point = D.struct("Point", {
-        D.field("x", T.i32()),
-        D.field("y", T.i32()),
+        D.field("x", T.i32),
+        D.field("y", T.i32),
     })
     local print_rawval = printer.new({point})
 
@@ -184,8 +184,8 @@ end
 -- print_rawval: struct field with opts.print == false is suppressed
 do
     local s = D.struct("HideField", {
-        D.field("visible", T.i32()),
-        D.field("hidden",  T.i32(), {print = false}),
+        D.field("visible", T.i32),
+        D.field("hidden",  T.i32, {print = false}),
     })
     local print_rawval = printer.new({s})
 
@@ -216,7 +216,7 @@ do
         }
     }
     local lines = capture(function()
-        print_rawval(T.array(T.i32(), 3), rawval, 0, "arr")
+        print_rawval(T.array(T.i32, 3), rawval, 0, "arr")
     end)
     assert(any_line(lines, "array(3)"))
     assert(any_line(lines, "10"))
@@ -231,7 +231,7 @@ do
     local print_rawval = printer.new({})
 
     local lines = capture(function()
-        print_rawval(T.array(T.i32(), 0), {addr = 0xC00, value = {}}, 0, nil)
+        print_rawval(T.array(T.i32, 0), {addr = 0xC00, value = {}}, 0, nil)
     end)
     assert(any_line(lines, "array(0)"))
     assert(#lines == 1)
@@ -249,7 +249,7 @@ do
         }
     }
     local lines = capture(function()
-        print_rawval(T.vector(T.i32()), rawval, 0, "vec")
+        print_rawval(T.vector(T.i32), rawval, 0, "vec")
     end)
     assert(any_line(lines, "vector(2)"))
     assert(any_line(lines, "100"))
@@ -263,7 +263,7 @@ do
     local print_rawval = printer.new({})
 
     local lines = capture(function()
-        print_rawval(T.vector(T.i32()), {addr = 0xF00, value = {}}, 0, nil)
+        print_rawval(T.vector(T.i32), {addr = 0xF00, value = {}}, 0, nil)
     end)
     assert(any_line(lines, "vector(0)"))
     assert(#lines == 1)
@@ -272,7 +272,7 @@ end
 -- print_rawval: circular_list prints "circular_list(N)" header and elements
 do
     local node = D.struct("PNode", {
-        D.field("value", T.i32()),
+        D.field("value", T.i32),
         D.field("next",  T.ptr(T.struct("PNode"))),
     })
     local print_rawval = printer.new({node})
@@ -303,7 +303,7 @@ do
     local print_rawval = printer.new({})
 
     local lines = capture(function()
-        print_rawval(T.i32(), {addr = 0x100, value = 55, error = "partial"}, 0, "v")
+        print_rawval(T.i32, {addr = 0x100, value = 55, error = "partial"}, 0, "v")
     end)
     assert(any_line(lines, "ERROR:"))
     assert(any_line(lines, "55"))
@@ -343,7 +343,7 @@ do
     local print_rawval = printer.new({})
 
     local lines = capture(function()
-        print_rawval(T.i32(), {addr = 0x100, value = 1})
+        print_rawval(T.i32, {addr = 0x100, value = 1})
     end)
     assert(#lines == 1)
 end

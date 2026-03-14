@@ -79,12 +79,12 @@ end
 -- ---------------------------------------------------------------------------
 
 do
-    local structs = { D.struct("S", { D.field("v", T.i32()) }) }
+    local structs = { D.struct("S", { D.field("v", T.i32) }) }
     local c   = compute.new(4, structs)
     local mem = make_mem(4, { {0x100, le(42, 4)} })
     local read = reader.new(c, mem)
 
-    local r = read(0x100, T.i32())
+    local r = read(0x100, T.i32)
     assert(r.value == 42)
     assert(r.addr  == 0x100)
     assert(r.error == nil)
@@ -124,7 +124,7 @@ do
     local mem = make_mem(4, {})
     local read = reader.new(c, mem)
 
-    local r = read(0x999, T.i32())
+    local r = read(0x999, T.i32)
     assert(r.value == nil)
     assert(r.error ~= nil)
 end
@@ -135,7 +135,7 @@ do
     local mem = make_mem(4, {})
     local read = reader.new(c, mem)
 
-    local r = read(nil, T.i32())
+    local r = read(nil, T.i32)
     assert(r.value == nil)
     assert(r.error ~= nil)
 end
@@ -182,8 +182,8 @@ end
 
 do
     local point = D.struct("Point", {
-        D.field("x", T.i32()),
-        D.field("y", T.i32()),
+        D.field("x", T.i32),
+        D.field("y", T.i32),
     })
     local c   = compute.new(4, {point})
     local mem = make_mem(4, {
@@ -201,9 +201,9 @@ end
 -- Struct with pad
 do
     local padded = D.struct("Padded", {
-        D.field("a", T.i32()),
+        D.field("a", T.i32),
         D.pad(4),
-        D.field("b", T.i32()),
+        D.field("b", T.i32),
     })
     local c   = compute.new(4, {padded})
     -- a at 0, pad 4 bytes, b at 8
@@ -220,9 +220,9 @@ end
 -- Struct with D.offset
 do
     local s = D.struct("Sparse", {
-        D.field("a", T.i32()),
+        D.field("a", T.i32),
         D.offset(16),
-        D.field("b", T.i32()),
+        D.field("b", T.i32),
     })
     local c   = compute.new(4, {s})
     local mem = make_mem(4, {
@@ -246,7 +246,7 @@ do
     local mem = make_mem(4, { {0x900, le(0xABCD, 4)} })
     local read = reader.new(c, mem)
 
-    local r = read(0x900, T.ptr(T.i32()))
+    local r = read(0x900, T.ptr(T.i32))
     assert(r.value == 0xABCD)
     assert(r.error == nil)
 end
@@ -257,7 +257,7 @@ do
     local mem = make_mem(4, { {0x910, le(0, 4)} })
     local read = reader.new(c, mem)
 
-    local r = read(0x910, T.ptr(T.i32()))
+    local r = read(0x910, T.ptr(T.i32))
     assert(r.value == nil)
     assert(r.error ~= nil)
 end
@@ -268,7 +268,7 @@ do
     local mem = make_mem(4, { {0x920, le(0, 4)} })
     local read = reader.new(c, mem)
 
-    local r = read(0x920, T.optional_ptr(T.i32()))
+    local r = read(0x920, T.optional_ptr(T.i32))
     assert(r.value == nil)
     assert(r.error == nil)
 end
@@ -279,7 +279,7 @@ do
     local mem = make_mem(4, { {0x930, le(0x1234, 4)} })
     local read = reader.new(c, mem)
 
-    local r = read(0x930, T.optional_ptr(T.i32()))
+    local r = read(0x930, T.optional_ptr(T.i32))
     assert(r.value == 0x1234)
 end
 
@@ -293,7 +293,7 @@ do
     })
     local read = reader.new(c, mem)
 
-    local r = read(0x940, T.ref(T.i32()))
+    local r = read(0x940, T.ref(T.i32))
     assert(r.error == nil)
     assert(r.value ~= nil)
     local inner = r.value
@@ -307,7 +307,7 @@ do
     local mem = make_mem(4, { {0x950, le(0, 4)} })
     local read = reader.new(c, mem)
 
-    local r = read(0x950, T.ref(T.i32()))
+    local r = read(0x950, T.ref(T.i32))
     assert(r.value == nil)
     assert(r.error ~= nil)
 end
@@ -318,7 +318,7 @@ do
     local mem = make_mem(4, { {0x960, le(0, 4)} })
     local read = reader.new(c, mem)
 
-    local r = read(0x960, T.optional_ref(T.i32()))
+    local r = read(0x960, T.optional_ref(T.i32))
     assert(r.value == nil)
     assert(r.error == nil)
 end
@@ -332,7 +332,7 @@ do
     })
     local read = reader.new(c, mem)
 
-    local r = read(0x970, T.optional_ref(T.i32()))
+    local r = read(0x970, T.optional_ref(T.i32))
     assert(r.error == nil)
     assert(r.value ~= nil)
     assert(r.value.value == 55)
@@ -350,7 +350,7 @@ do
     })
     local read = reader.new(c, mem)
 
-    local r = read(0xC00, T.array(T.i32(), 3))
+    local r = read(0xC00, T.array(T.i32, 3))
     assert(r.error == nil)
     assert(#r.value == 3)
     assert(r.value[1].value == 10)
@@ -391,7 +391,7 @@ do
     })
     local read = reader.new(c, mem)
 
-    local r = read(0xE00, T.vector(T.i32()))
+    local r = read(0xE00, T.vector(T.i32))
     assert(r.error == nil)
     assert(#r.value == 3)
     assert(r.value[1].value == 100)
@@ -407,7 +407,7 @@ do
     })
     local read = reader.new(c, mem)
 
-    local r = read(0xF00, T.vector(T.i32()))
+    local r = read(0xF00, T.vector(T.i32))
     assert(r.error == nil)
     assert(#r.value == 0)
 end
@@ -421,7 +421,7 @@ do
     })
     local read = reader.new(c, mem)
 
-    local r = read(0x1F00, T.vector(T.i32()))
+    local r = read(0x1F00, T.vector(T.i32))
     assert(r.value == nil)
     assert(r.error ~= nil)
 end
@@ -432,7 +432,7 @@ do
     local mem = make_mem(4, {})
     local read = reader.new(c, mem)
 
-    local r = read(0xDEAD, T.vector(T.i32()))
+    local r = read(0xDEAD, T.vector(T.i32))
     assert(r.value == nil)
     assert(r.error ~= nil)
 end
@@ -451,7 +451,7 @@ do
     -- C at 0x3020: value=3, next=0x3010 (back to head)
 
     local node = D.struct("Node", {
-        D.field("value", T.i32()),
+        D.field("value", T.i32),
         D.field("next",  T.ptr(T.struct("Node"))),
     })
     D.assert_valid({node})
@@ -482,7 +482,7 @@ end
 -- Empty circular list (head pointer is null)
 do
     local node = D.struct("NodeE", {
-        D.field("value", T.i32()),
+        D.field("value", T.i32),
         D.field("next",  T.ptr(T.struct("NodeE"))),
     })
     local c   = compute.new(4, {node})
@@ -497,7 +497,7 @@ end
 -- Unreadable head pointer
 do
     local node = D.struct("NodeU", {
-        D.field("value", T.i32()),
+        D.field("value", T.i32),
         D.field("next",  T.ptr(T.struct("NodeU"))),
     })
     local c   = compute.new(4, {node})
@@ -515,12 +515,12 @@ end
 
 do
     local inner = D.struct("Inner2", {
-        D.field("a", T.i32()),
-        D.field("b", T.i32()),
+        D.field("a", T.i32),
+        D.field("b", T.i32),
     })
     local outer = D.struct("Outer2", {
         D.field("inner", T.struct("Inner2")),
-        D.field("c",     T.i32()),
+        D.field("c",     T.i32),
     })
     local c   = compute.new(4, {inner, outer})
     local mem = make_mem(4, {

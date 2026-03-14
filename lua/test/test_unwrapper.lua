@@ -6,7 +6,7 @@ local unwrapper = require("mempeep.unwrapper")
 do
     local structs = {}
     local unwrap = unwrapper.new(structs)
-    local v, errs = unwrap(T.i32(), nil)
+    local v, errs = unwrap(T.i32, nil)
     assert(v == nil)
     assert(#errs == 0)
 end
@@ -15,7 +15,7 @@ end
 do
     local structs = {}
     local unwrap = unwrapper.new(structs)
-    local v, errs = unwrap(T.i32(), {addr = 0x100, value = nil})
+    local v, errs = unwrap(T.i32, {addr = 0x100, value = nil})
     assert(v == nil)
     assert(#errs == 0)
 end
@@ -24,7 +24,7 @@ end
 do
     local structs = {}
     local unwrap = unwrapper.new(structs)
-    local v, errs = unwrap(T.i32(), {addr = 0x100, value = nil, error = "Could not read i32"})
+    local v, errs = unwrap(T.i32, {addr = 0x100, value = nil, error = "Could not read i32"})
     assert(v == nil)
     assert(#errs == 1)
     assert(errs[1] == "Could not read i32")
@@ -35,7 +35,7 @@ do
     local structs = {}
     local unwrap = unwrapper.new(structs)
 
-    local v, errs = unwrap(T.i32(), {addr = 0x100, value = 42})
+    local v, errs = unwrap(T.i32, {addr = 0x100, value = 42})
     assert(v == 42)
     assert(#errs == 0)
 
@@ -70,7 +70,7 @@ do
     local structs = {}
     local unwrap = unwrapper.new(structs)
     -- T.ptr is weak=true
-    local v, errs = unwrap(T.ptr(T.i32()), {addr = 0x900, value = 0xABCD})
+    local v, errs = unwrap(T.ptr(T.i32), {addr = 0x900, value = 0xABCD})
     assert(v == 0xABCD)
     assert(#errs == 0)
 end
@@ -79,7 +79,7 @@ end
 do
     local structs = {}
     local unwrap = unwrapper.new(structs)
-    local v, errs = unwrap(T.optional_ptr(T.i32()), {addr = 0x920, value = nil})
+    local v, errs = unwrap(T.optional_ptr(T.i32), {addr = 0x920, value = nil})
     assert(v == nil)
     assert(#errs == 0)
 end
@@ -90,7 +90,7 @@ do
     local unwrap = unwrapper.new(structs)
     -- T.ref is weak=false; value is the inner rawval for the pointee
     local inner_rawval = {addr = 0xA00, value = 77}
-    local v, errs = unwrap(T.ref(T.i32()), {addr = 0x940, value = inner_rawval})
+    local v, errs = unwrap(T.ref(T.i32), {addr = 0x940, value = inner_rawval})
     assert(v == 77)
     assert(#errs == 0)
 end
@@ -100,7 +100,7 @@ do
     local structs = {}
     local unwrap = unwrapper.new(structs)
     local null_rawval = {addr = 0x950, value = nil, error = "Null pointer"}
-    local v, errs = unwrap(T.ref(T.i32()), {addr = 0x940, value = null_rawval})
+    local v, errs = unwrap(T.ref(T.i32), {addr = 0x940, value = null_rawval})
     assert(v == nil)
     assert(#errs == 1)
     assert(errs[1] == "Null pointer")
@@ -110,7 +110,7 @@ end
 do
     local structs = {}
     local unwrap = unwrapper.new(structs)
-    local v, errs = unwrap(T.optional_ref(T.i32()), {addr = 0x960, value = nil})
+    local v, errs = unwrap(T.optional_ref(T.i32), {addr = 0x960, value = nil})
     assert(v == nil)
     assert(#errs == 0)
 end
@@ -118,8 +118,8 @@ end
 -- unwrap: struct -> flat table of plain values, no errors
 do
     local point = D.struct("Point", {
-        D.field("x", T.i32()),
-        D.field("y", T.i32()),
+        D.field("x", T.i32),
+        D.field("y", T.i32),
     })
     local structs = {point}
     local unwrap = unwrapper.new(structs)
@@ -141,8 +141,8 @@ end
 -- unwrap: struct with a failing field -> partial result, error is context-prefixed
 do
     local point = D.struct("Point", {
-        D.field("x", T.i32()),
-        D.field("y", T.i32()),
+        D.field("x", T.i32),
+        D.field("y", T.i32),
     })
     local structs = {point}
     local unwrap = unwrapper.new(structs)
@@ -186,7 +186,7 @@ do
             {addr = 0xC08, value = 30},
         }
     }
-    local v, errs = unwrap(T.array(T.i32(), 3), rawval)
+    local v, errs = unwrap(T.array(T.i32, 3), rawval)
     assert(#v == 3)
     assert(v[1] == 10)
     assert(v[2] == 20)
@@ -207,7 +207,7 @@ do
             {addr = 0xC08, value = 30},
         }
     }
-    local v, errs = unwrap(T.array(T.i32(), 3), rawval)
+    local v, errs = unwrap(T.array(T.i32, 3), rawval)
     assert(v[1] == 10)
     assert(v[2] == nil)
     assert(v[3] == 30)
@@ -228,7 +228,7 @@ do
             {addr = 0xE18, value = 300},
         }
     }
-    local v, errs = unwrap(T.vector(T.i32()), rawval)
+    local v, errs = unwrap(T.vector(T.i32), rawval)
     assert(#v == 3)
     assert(v[1] == 100)
     assert(v[2] == 200)
@@ -241,7 +241,7 @@ do
     local unwrap = unwrapper.new({})
 
     local rawval = {addr = 0xF00, value = {}}
-    local v, errs = unwrap(T.vector(T.i32()), rawval)
+    local v, errs = unwrap(T.vector(T.i32), rawval)
     assert(type(v) == "table")
     assert(#v == 0)
     assert(#errs == 0)
@@ -250,7 +250,7 @@ end
 -- unwrap: circular_list -> plain table of values
 do
     local node = D.struct("CNode", {
-        D.field("val", T.i32()),
+        D.field("val", T.i32),
         D.field("next",  T.ptr(T.struct("CNode"))),
     })
     local unwrap = unwrapper.new({node})
@@ -277,7 +277,7 @@ end
 -- unwrap: empty circular_list -> empty table, no errors
 do
     local node = D.struct("ENode", {
-        D.field("value", T.i32()),
+        D.field("value", T.i32),
         D.field("next",  T.ptr(T.struct("ENode"))),
     })
     local structs = {node}
@@ -302,12 +302,12 @@ end
 -- unwrap: nested struct -> nested plain tables
 do
     local inner = D.struct("Inner", {
-        D.field("a", T.i32()),
-        D.field("b", T.i32()),
+        D.field("a", T.i32),
+        D.field("b", T.i32),
     })
     local outer = D.struct("Outer", {
         D.field("inner", T.struct("Inner")),
-        D.field("c",     T.i32()),
+        D.field("c",     T.i32),
     })
     local structs = {inner, outer}
     local unwrap = unwrapper.new(structs)
@@ -335,7 +335,7 @@ end
 -- unwrap: error prefixes are nested for deeply nested failures
 do
     local inner = D.struct("DeepInner", {
-        D.field("x", T.i32()),
+        D.field("x", T.i32),
     })
     local outer = D.struct("DeepOuter", {
         D.field("inner", T.struct("DeepInner")),
