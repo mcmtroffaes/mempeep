@@ -7,15 +7,15 @@ using namespace mempeep;
 
 static_assert(
 	std::is_same_v<
-	mempeep::detail::field_type_t<D::Field<&Entity::pos> >,
-	Pos
+	mempeep::detail::field_type_t<D::Field<&Pos::x> >,
+	int
 	>
 	);
 
 static_assert(
 	std::is_same_v<
-	mempeep::detail::field_type_t<D::Field<&State::tick> >,
-	int
+	mempeep::detail::field_type_t<D::Field<&Entity::pos> >,
+	Pos
 	>
 	);
 
