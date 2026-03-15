@@ -88,11 +88,68 @@ local function new(pointer_size, structs)
     return resolved_fields[i]
   end
 
+  --- Print all structs in C++ style syntax.
+  local function dump()
+    local function get_typ_name(typ)
+      local dispatch = {
+        array = function(typ)
+          return "array<" .. get_typ_name(typ.typ) .. ", " .. typ.count .. ">"
+        end,
+        circular_list = function(typ)
+          return "circular_list<" .. get_typ_name(typ.typ) .. ">"
+        end,
+        ptr = function(typ)
+          return get_typ_name(typ.typ) .. "*"
+        end,
+        primitive = function(typ)
+          return typ.name ~= "string" and typ.name or "char[" .. typ.size .. "]"
+        end,
+        struct = function(typ)
+          return typ.name
+        end,
+        vector = function(typ)
+          return "vector<" .. get_typ_name(typ.typ) .. ">"
+        end,
+      }
+      return dispatch[typ.kind](typ)
+    end
+
+    local function dump_field(field_info)
+      print(string.format("  %-24s %-24s  // offset 0x%02X", field_info.typ, field_info.name .. ";", field_info.offset))
+    end
+
+    local function dump_struct(struct_name, size, field_infos)
+      print(string.format("struct %s {", struct_name))
+      print(string.format("  // size 0x%02X", size))
+      for _, field_info in ipairs(field_infos) do
+        dump_field(field_info)
+      end
+      print("};")
+    end
+
+    print("static_assert(sizeof(void*) == " .. pointer_size .. ")")
+    print("template <typename T>")
+    dump_struct("vector", 8, {
+      { typ = "T*", name = "begin", offset = 0 },
+      { typ = "T*", name = "end", offset = 4 },
+    })
+    for _, struct in ipairs(structs) do
+      -- everything should be resolved by now, use assert for extra safety
+      local size = assert(resolved_sizes[assert(struct_index[struct.name])])
+      local field_infos = {}
+      for i, field in ipairs(fields(struct.name)) do
+        field_infos[i] = { typ = get_typ_name(field.typ), name = field.name, offset = field.offset }
+      end
+      dump_struct(struct.name, size, field_infos)
+    end
+  end
+
   local schema = {}
 
   schema.pointer_size = pointer_size
   schema.sizeof = sizeof
   schema.fields = fields
+  schema.dump = dump
 
   return schema
 end
