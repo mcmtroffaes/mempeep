@@ -1,13 +1,13 @@
 --- Computes sizes of types and field offsets of structs.
 -- @module mempeep.schema
 
---- Creates a schema instance bound to a specific pointer size and struct array.
+--- Creates a schema instance bound to a specific pointer size and array of struct descriptors.
 -- Offsets are resolved eagerly at construction time.
 -- Structs must be declared before any struct that embeds them inline;
 -- pointer-typed fields are fine in any order.
--- @param pointer_size Byte size of a pointer in the target process (4 or 8).
+-- @param pointer_size Byte size of a pointer (4 or 8).
 -- @param structs Array of structs produced by D.struct(...).
--- @return Table with sizeof, fields, and pointer_size.
+-- @return Table with dump, fields, pointer_size, and sizeof.
 local function new(pointer_size, structs)
   local struct_index = {}
   for i, s in ipairs(structs) do
@@ -46,18 +46,18 @@ local function new(pointer_size, structs)
     local cursor = 0
     for _, desc in ipairs(s.descriptors) do
       if desc.kind == "pad" then
+        assert(desc.n > 0, string.format("schema: D.pad(%d) in struct '%s' must be strictly positive", desc.n, s.name))
         cursor = cursor + desc.n
       elseif desc.kind == "offset" then
-        if desc.n <= cursor then
-          error(
-            string.format(
-              "schema: D.offset(%d) in struct '%s' would not move cursor forwards (currently at %d)",
-              desc.n,
-              s.name,
-              cursor
-            )
+        assert(
+          desc.n > cursor,
+          string.format(
+            "schema: D.offset(%d) in struct '%s' would not move cursor forwards (currently at %d)",
+            desc.n,
+            s.name,
+            cursor
           )
-        end
+        )
         cursor = desc.n
       elseif desc.kind == "field" then
         field_list[#field_list + 1] = {
