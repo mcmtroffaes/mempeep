@@ -1,0 +1,6 @@
+add_executable(test_D "test_D.cpp")
+target_link_libraries(test_D PRIVATE mempeep)
+add_executable(test_D_member_ptr_type "test_D_member_ptr_type.cpp")
+target_link_libraries(test_D_member_ptr_type PRIVATE mempeep)
+add_executable(test_D_field_type "test_D_field_type.cpp")
+target_link_libraries(test_D_field_type PRIVATE mempeep)
