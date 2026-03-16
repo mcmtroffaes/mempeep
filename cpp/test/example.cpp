@@ -13,11 +13,15 @@ namespace mempeep {
 template <auto Member>
 struct Field {};
 
-template <std::size_t N>
-struct Pad {};
+template <std::intptr_t N>
+struct Pad {
+  static_assert(N > 0);
+};
 
-template <std::size_t N>
-struct Offset {};
+template <std::intptr_t N>
+struct Offset {
+  static_assert(N > 0);
+};
 
 template <typename... Items>
 struct Layout {};
