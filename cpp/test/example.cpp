@@ -128,7 +128,7 @@ template <std::size_t N>
 struct ReadRemoteMock {
   char data[N]{};
 
-  bool operator()(void *buffer, intptr_t offset, std::size_t size) const {
+  bool operator()(void* buffer, intptr_t offset, std::size_t size) const {
     if (!buffer) return false;
     if (offset < 0) return false;
     auto uoffset = static_cast<std::size_t>(offset);
