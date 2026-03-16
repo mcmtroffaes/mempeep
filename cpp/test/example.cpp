@@ -1,9 +1,8 @@
-#include <cassert>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
-#include <functional>
-#include <type_traits>
+#include <cassert>      // assert
+#include <cstdint>      // std::intptr_t
+#include <cstring>      // std::memcpy
+#include <functional>   // std::function
+#include <type_traits>  // std::void_t, ...
 
 namespace mempeep {
 
