@@ -1,0 +1,17 @@
+BasedOnStyle: Google
+Standard: Latest
+BinPackArguments: false
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: true
+AlignAfterOpenBracket: BlockIndent
+IndentWidth: 2
+ContinuationIndentWidth: 2
+BracedInitializerIndentWidth: 2
+IndentAccessModifiers: false
+AccessModifierOffset: -2
+AlignOperands: Align
+BreakBeforeBinaryOperators: true
+SeparateDefinitionBlocks: Always
+SortIncludes: CaseSensitive
+SortUsingDeclarations: Lexicographic
+UseTab: Never

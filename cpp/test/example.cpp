@@ -28,10 +28,11 @@ struct Layout {};
 template <typename T>
 struct Remote;  // user specialization
 
-using ReadRemote = std::function<bool(void *,      // buffer
-                                      intptr_t,    // offset
-                                      std::size_t  // size
-                                      )>;
+using ReadRemote = std::function<bool(
+  void *,      // buffer
+  intptr_t,    // offset
+  std::size_t  // size
+)>;
 
 // ============================================================
 // Helpers
@@ -74,8 +75,9 @@ constexpr void apply_size_rule(Item, std::size_t &) {
   // can't just write static_assert(false, ...) because we only want
   // the compiler to evaluate this (and thus assert an error)
   // when the template is instantiated
-  static_assert(always_false<Item>::value,
-                "Unsupported layout item in Layout<>");
+  static_assert(
+    always_false<Item>::value, "Unsupported layout item in Layout<>"
+  );
 }
 
 template <std::size_t N>
@@ -121,26 +123,34 @@ template <typename T>
 T read(const ReadRemote &read_remote, intptr_t base);
 
 template <typename T, typename Item>
-void apply_read_rule(T &out, const ReadRemote &read_remote, intptr_t base,
-                     std::size_t &cursor) {
+void apply_read_rule(
+  T &out, const ReadRemote &read_remote, intptr_t base, std::size_t &cursor
+) {
   static_assert(always_false<Item>::value, "Unsupported layout item");
 }
 
 template <typename T, std::size_t N>
-void apply_read_rule(Pad<N>, T &, const ReadRemote &, intptr_t,
-                     std::size_t &cursor) {
+void apply_read_rule(
+  Pad<N>, T &, const ReadRemote &, intptr_t, std::size_t &cursor
+) {
   cursor += N;
 }
 
 template <typename T, std::size_t N>
-void apply_read_rule(Offset<N>, T &, const ReadRemote &, intptr_t,
-                     std::size_t &cursor) {
+void apply_read_rule(
+  Offset<N>, T &, const ReadRemote &, intptr_t, std::size_t &cursor
+) {
   cursor = N;
 }
 
 template <typename T, auto Member>
-void apply_read_rule(Field<Member>, T &out, const ReadRemote &read_remote,
-                     intptr_t base, std::size_t &cursor) {
+void apply_read_rule(
+  Field<Member>,
+  T &out,
+  const ReadRemote &read_remote,
+  intptr_t base,
+  std::size_t &cursor
+) {
   using member_type = typename member_pointer_traits<Member>::member_type;
 
   auto remote_offset = base + static_cast<intptr_t>(cursor);
@@ -151,8 +161,9 @@ void apply_read_rule(Field<Member>, T &out, const ReadRemote &read_remote,
     cursor += remote_size<member_type>();
   } else {
     if (!read_remote(&field, remote_offset, sizeof(member_type))) {
-      throw ReadError("failed to read field at remote offset " +
-                      std::to_string(cursor));
+      throw ReadError(
+        "failed to read field at remote offset " + std::to_string(cursor)
+      );
     }
     cursor += sizeof(member_type);
   }
@@ -212,8 +223,11 @@ struct Remote<Pos> {
 
 template <>
 struct Remote<Player> {
-  using layout = Layout<Offset<8>, Field<&Player::health>, Offset<16>,
-                        Field<&Player::pos>>;
+  using layout = Layout<
+    Offset<8>,
+    Field<&Player::health>,
+    Offset<16>,
+    Field<&Player::pos>>;
 };
 
 static_assert(remote_size<Pos>() == 16);
