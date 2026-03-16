@@ -70,6 +70,7 @@ struct ReadError : std::runtime_error {
 template <typename T>
 constexpr std::size_t remote_size();
 
+// if Item is not specialized then we must have an invalid item in Layout
 template <typename Item>
 constexpr void apply_size_rule(Item, std::size_t &) {
   // can't just write static_assert(false, ...) because we only want
@@ -122,10 +123,9 @@ constexpr std::size_t remote_size() {
 template <typename T>
 T read(const ReadRemote &read_remote, intptr_t base);
 
+// if Item is not specialized then we must have an invalid item in Layout
 template <typename T, typename Item>
-void apply_read_rule(
-  T &out, const ReadRemote &read_remote, intptr_t base, std::size_t &cursor
-) {
+void apply_read_rule(Item, T &, const ReadRemote &, intptr_t, std::size_t &) {
   static_assert(always_false<Item>::value, "Unsupported layout item");
 }
 
@@ -233,14 +233,20 @@ struct Remote<Player> {
 static_assert(remote_size<Pos>() == 16);
 static_assert(remote_size<Player>() == 32);
 
+// fails to compile: int not allowed in Layout (TODO test error message is ok)
+// struct Bad1 {};
+// template <> struct Remote<Bad1> { using layout = Layout<int>; };
+// static_assert(remote_size<Bad1>() == 0);
+
 int main() {
   // set up remote buffer
   ReadRemoteMock<40> buf{};
   buf.write_int(18, 123);
   buf.write_int(26, 11);
   buf.write_int(34, 22);
-  // read and check
-  Player player = read<Player>(buf, 10);
+  // fails to compile (TODO test error message is ok)
+  // read<Bad1>(buf, 0);
+  auto player = read<Player>(buf, 10);
   assert(player.health == 123);
   assert(player.pos.x == 11);
   assert(player.pos.y == 22);
