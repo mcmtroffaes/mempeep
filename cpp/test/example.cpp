@@ -5,9 +5,7 @@
 #include <functional>
 #include <stdexcept>
 #include <string>
-#include <tuple>
 #include <type_traits>
-#include <utility>
 
 // ============================================================
 // Public API
@@ -28,11 +26,7 @@ struct Layout {};
 template <typename T>
 struct Remote;  // user specialization
 
-using ReadRemote = std::function<bool(
-  void *,      // buffer
-  intptr_t,    // offset
-  std::size_t  // size
-)>;
+using ReadRemote = std::function<bool(void*, intptr_t, std::size_t)>;
 
 // ============================================================
 // Helpers
@@ -41,7 +35,7 @@ using ReadRemote = std::function<bool(
 template <auto>
 struct member_pointer_traits;
 
-template <typename Class, typename Member, Member Class::*Ptr>
+template <typename Class, typename Member, Member Class::* Ptr>
 struct member_pointer_traits<Ptr> {
   using class_type = Class;
   using member_type = Member;
@@ -56,9 +50,6 @@ inline constexpr bool has_remote_v = false;
 template <typename T>
 inline constexpr bool has_remote_v<T, std::void_t<remote_layout_t<T>>> = true;
 
-template <typename T>
-struct always_false : std::false_type {};
-
 struct ReadError : std::runtime_error {
   using std::runtime_error::runtime_error;
 };
@@ -69,24 +60,24 @@ struct ReadError : std::runtime_error {
 
 // forward declaration for recursive read in Field
 template <typename T>
-intptr_t read(T &, const ReadRemote &, intptr_t);
+intptr_t read(T& out, const ReadRemote& read_remote, intptr_t base);
 
 // if Item is not specialized then we must have an invalid item in Layout
 template <typename T, typename Item>
-intptr_t apply_read_rule(Item, T &, const ReadRemote &, intptr_t, intptr_t) {
-  static_assert(always_false<Item>::value, "Unsupported layout item");
+intptr_t apply_read_rule(Item, T&, const ReadRemote&, intptr_t, intptr_t) {
+  static_assert(!std::is_same_v<Item, Item>, "Unsupported layout item");
 }
 
 template <typename T, std::size_t N>
-intptr_t apply_read_rule(
-  Pad<N>, T &, const ReadRemote &, intptr_t, intptr_t cursor
+constexpr intptr_t apply_read_rule(
+  Pad<N>, T&, const ReadRemote&, intptr_t, intptr_t cursor
 ) {
   return cursor + N;
 }
 
 template <typename T, std::size_t N>
-intptr_t apply_read_rule(
-  Offset<N>, T &, const ReadRemote &, intptr_t base, intptr_t
+constexpr intptr_t apply_read_rule(
+  Offset<N>, T&, const ReadRemote&, intptr_t base, intptr_t
 ) {
   return base + N;
 }
@@ -94,40 +85,39 @@ intptr_t apply_read_rule(
 template <typename T, auto Member>
 intptr_t apply_read_rule(
   Field<Member>,
-  T &out,
-  const ReadRemote &read_remote,
+  T& out,
+  const ReadRemote& read_remote,
   intptr_t base,
   intptr_t cursor
 ) {
   using member_type = typename member_pointer_traits<Member>::member_type;
-  auto &field = out.*Member;
+  auto& field = out.*Member;
   if constexpr (has_remote_v<member_type>) {
     // read returns the new cursor after the nested struct
-    return read<member_type>(field, read_remote, cursor);
+    return read(field, read_remote, cursor);
   } else {
-    if (!read_remote(&field, cursor, sizeof(member_type))) {
+    if (!read_remote(&field, cursor, sizeof(field)))
       throw ReadError(
         "failed to read at remote address " + std::to_string(cursor)
       );
-    }
-    return cursor + sizeof(member_type);
+    return cursor + sizeof(field);
   }
 }
 
 template <typename T, typename... Items>
 intptr_t read_layout(
-  Layout<Items...>, T &out, const ReadRemote &read_remote, intptr_t base
+  Layout<Items...>, T& out, const ReadRemote& read_remote, intptr_t base
 ) {
-  // fold from first to last item
   intptr_t cursor = base;
+  // fold from first to last item
   ((cursor = apply_read_rule(Items{}, out, read_remote, base, cursor)), ...);
   return cursor;
 }
 
 template <typename T>
-intptr_t read(T &out, const ReadRemote &read_remote, intptr_t base) {
+intptr_t read(T& out, const ReadRemote& read_remote, intptr_t base) {
   static_assert(has_remote_v<T>, "Remote<T> must be specialized");
-  return read_layout<T>(remote_layout_t<T>{}, out, read_remote, base);
+  return read_layout(remote_layout_t<T>{}, out, read_remote, base);
 }
 
 // ============================================================
@@ -136,7 +126,7 @@ intptr_t read(T &out, const ReadRemote &read_remote, intptr_t base) {
 
 template <std::size_t N>
 struct ReadRemoteMock {
-  char data[N];
+  char data[N]{};
 
   bool operator()(void *buffer, intptr_t offset, std::size_t size) const {
     if (!buffer) return false;
@@ -147,15 +137,14 @@ struct ReadRemoteMock {
     return true;
   }
 
-  auto write_int(std::size_t off, int v) {
-    assert(off + sizeof(v) < N);
+  void write_int(std::size_t off, int v) {
+    assert(off + sizeof(v) <= N);
     std::memcpy(data + off, &v, sizeof(v));
-  };
+  }
 };
 
 struct Pos {
-  int x;
-  int y;
+  int x, y;
 };
 
 struct Player {
@@ -178,15 +167,14 @@ struct Remote<Player> {
 };
 
 int main() {
-  // set up remote buffer
   ReadRemoteMock<40> buf{};
   buf.write_int(18, 123);
   buf.write_int(26, 11);
   buf.write_int(34, 22);
-  // fails to compile (TODO test error message is ok)
-  // Bad1 bad1{}; read(bad1, buf, 0);
+
   Player player{};
   read(player, buf, 10);
+
   assert(player.health == 123);
   assert(player.pos.x == 11);
   assert(player.pos.y == 22);
