@@ -46,9 +46,9 @@ struct Remote;
  * and returns cursor advanced by size.
  * Responsible for pointer validation, handling overflows, etc.
  *
- * @param cursor Source location in remote memory.
+ * @param cursor Remote source.
  * @param size Number of bytes to copy.
- * @param buffer The native destination buffer.
+ * @param buffer Native destination.
  * @return An integer result after processing.
  */
 using ReadRemote = std::function<intptr_t(intptr_t, intptr_t, void*)>;
@@ -81,7 +81,7 @@ inline constexpr bool has_remote_v = false;
 template <typename T>
 inline constexpr bool has_remote_v<T, std::void_t<remote_layout_t<T>>> = true;
 
-// if Item is not specialized then we must have an invalid item in Layout
+// If Item is not specialized then we must have an invalid item in Layout.
 template <typename T, typename Item>
 intptr_t apply_read_rule(Item, const ReadRemote&, intptr_t, intptr_t, T&) {
   static_assert(!std::is_same_v<Item, Item>, "Unsupported layout item");
@@ -168,7 +168,7 @@ struct ReadRemoteMock {
   char data[N]{};
 
   intptr_t operator()(intptr_t cursor, intptr_t size, void* buffer) const {
-    // handle overflow/underflow first
+    // handle overflow/underflow
     assert(
       size >= 0 && size < N && cursor >= 0 && cursor < N && size <= N - cursor
     );
