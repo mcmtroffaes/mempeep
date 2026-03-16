@@ -26,7 +26,10 @@ struct Layout {};
 template <typename T>
 struct Remote;  // user specialization
 
-using ReadRemote = std::function<bool(void*, intptr_t, std::size_t)>;
+// Reads memory of given size into buffer (if not null),
+// and returns cursor advanced by size.
+// Caller is responsible for pointer validation, handling overflows, etc.
+using ReadRemote = std::function<intptr_t(void*, intptr_t, intptr_t)>;
 
 // ============================================================
 // Helpers
@@ -69,17 +72,17 @@ intptr_t apply_read_rule(Item, T&, const ReadRemote&, intptr_t, intptr_t) {
 }
 
 template <typename T, std::size_t N>
-constexpr intptr_t apply_read_rule(
-  Pad<N>, T&, const ReadRemote&, intptr_t, intptr_t cursor
+intptr_t apply_read_rule(
+  Pad<N>, T&, const ReadRemote& read_remote, intptr_t, intptr_t cursor
 ) {
-  return cursor + N;
+  return read_remote(nullptr, cursor, N);
 }
 
 template <typename T, std::size_t N>
 constexpr intptr_t apply_read_rule(
-  Offset<N>, T&, const ReadRemote&, intptr_t base, intptr_t
+  Offset<N>, T&, const ReadRemote& read_remote, intptr_t base, intptr_t
 ) {
-  return base + N;
+  return read_remote(nullptr, base, N);
 }
 
 template <typename T, auto Member>
@@ -96,11 +99,7 @@ intptr_t apply_read_rule(
     // read returns the new cursor after the nested struct
     return read(field, read_remote, cursor);
   } else {
-    if (!read_remote(&field, cursor, sizeof(field)))
-      throw ReadError(
-        "failed to read at remote address " + std::to_string(cursor)
-      );
-    return cursor + sizeof(field);
+    return read_remote(&field, cursor, sizeof(field));
   }
 }
 
@@ -124,20 +123,22 @@ intptr_t read(T& out, const ReadRemote& read_remote, intptr_t base) {
 // example
 // ============================================================
 
-template <std::size_t N>
+#include <iostream>
+
+template <intptr_t N>
 struct ReadRemoteMock {
   char data[N]{};
 
-  bool operator()(void* buffer, intptr_t offset, std::size_t size) const {
-    if (!buffer) return false;
-    if (offset < 0) return false;
-    auto uoffset = static_cast<std::size_t>(offset);
-    if (uoffset > N || size > N - uoffset) return false;
-    std::memcpy(buffer, data + uoffset, size);
-    return true;
+  intptr_t operator()(void* buffer, intptr_t cursor, intptr_t size) const {
+    // handle overflow/underflow first
+    assert(
+      size >= 0 && size < N && cursor >= 0 && cursor < N && size <= N - cursor
+    );
+    if (buffer) std::memcpy(buffer, data + cursor, size);
+    return cursor + size;
   }
 
-  void write_int(std::size_t off, int v) {
+  void write_int(intptr_t off, int v) {
     assert(off + sizeof(v) <= N);
     std::memcpy(data + off, &v, sizeof(v));
   }
@@ -167,7 +168,7 @@ struct Remote<Player> {
 };
 
 int main() {
-  ReadRemoteMock<40> buf{};
+  ReadRemoteMock<48> buf{};
   buf.write_int(18, 123);
   buf.write_int(26, 11);
   buf.write_int(34, 22);
