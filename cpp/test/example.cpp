@@ -3,8 +3,6 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
-#include <stdexcept>
-#include <string>
 #include <type_traits>
 
 // ============================================================
@@ -52,10 +50,6 @@ inline constexpr bool has_remote_v = false;
 
 template <typename T>
 inline constexpr bool has_remote_v<T, std::void_t<remote_layout_t<T>>> = true;
-
-struct ReadError : std::runtime_error {
-  using std::runtime_error::runtime_error;
-};
 
 // ============================================================
 // read
