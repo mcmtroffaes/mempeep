@@ -127,20 +127,20 @@ void apply_read_rule(T &out, const ReadRemote &read_remote, intptr_t base,
 }
 
 template <typename T, std::size_t N>
-void apply_read_rule(T &, const ReadRemote &, intptr_t, std::size_t &cursor,
-                     Pad<N> = {}) {
+void apply_read_rule(Pad<N>, T &, const ReadRemote &, intptr_t,
+                     std::size_t &cursor) {
   cursor += N;
 }
 
 template <typename T, std::size_t N>
-void apply_read_rule(T &, const ReadRemote &, intptr_t, std::size_t &cursor,
-                     Offset<N> = {}) {
+void apply_read_rule(Offset<N>, T &, const ReadRemote &, intptr_t,
+                     std::size_t &cursor) {
   cursor = N;
 }
 
 template <typename T, auto Member>
-void apply_read_rule(T &out, const ReadRemote &read_remote, intptr_t base,
-                     std::size_t &cursor, Field<Member> = {}) {
+void apply_read_rule(Field<Member>, T &out, const ReadRemote &read_remote,
+                     intptr_t base, std::size_t &cursor) {
   using member_type = typename member_pointer_traits<Member>::member_type;
 
   auto remote_offset = base + static_cast<intptr_t>(cursor);
@@ -159,17 +159,17 @@ void apply_read_rule(T &out, const ReadRemote &read_remote, intptr_t base,
 }
 
 template <typename T, typename... Items>
-T read_layout(const ReadRemote &read_remote, intptr_t base, Layout<Items...>) {
+T read_layout(Layout<Items...>, const ReadRemote &read_remote, intptr_t base) {
   T out{};
   std::size_t cursor = 0;
-  (apply_read_rule(out, read_remote, base, cursor, Items{}), ...);
+  (apply_read_rule(Items{}, out, read_remote, base, cursor), ...);
   return out;
 }
 
 template <typename T>
 T read(const ReadRemote &read_remote, intptr_t base) {
   static_assert(has_remote_v<T>, "Remote<T> must be specialized");
-  return read_layout<T>(read_remote, base, remote_layout_t<T>{});
+  return read_layout<T>(remote_layout_t<T>{}, read_remote, base);
 }
 
 // ============================================================
