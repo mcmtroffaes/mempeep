@@ -180,16 +180,25 @@ struct Memory {
 };
 
 /**
- * @brief Check LayoutOf<T>::layout exists.
+ * @brief Does T have a custom layout?
+ *
+ * Checks if LayoutOf<T>::layout exists.
  */
 template <typename T>
-concept HasLayout = requires { typename LayoutOf<T>::layout; };
+concept IsCustomLayout = requires { typename LayoutOf<T>::layout; };
+
+/**
+ * @brief Does T have a standard layout (and no custom layout)?
+ */
+template <typename T>
+concept IsStandardLayout = std::is_standard_layout_v<T> && !IsCustomLayout<T>;
 
 /**
  * @brief Shorthand for LayoutOf<T>::layout.
  */
 template <typename T>
-using layout_t = typename LayoutOf<T>::layout;
+  requires IsCustomLayout<T>
+using custom_layout_t = typename LayoutOf<T>::layout;
 
 // Forward declaration to support recursive reading.
 template <std::size_t SizeOfPtr, typename T>
@@ -391,8 +400,8 @@ intptr_t read_layout(
 template <std::size_t SizeOfPtr, typename T>
   requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
-  if constexpr (HasLayout<T>) {
-    return detail::read_layout(layout_t<T>{}, memory, base, target);
+  if constexpr (IsCustomLayout<T>) {
+    return detail::read_layout(custom_layout_t<T>{}, memory, base, target);
   } else {
     return memory.read(base, sizeof(target), &target);
   }
