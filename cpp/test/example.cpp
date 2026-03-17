@@ -67,43 +67,41 @@ struct Layout {};
 template <typename T>
 struct LayoutOf;
 
-/**
- * @brief Copy remote memory to a native buffer and advance remote pointer.
- *
- * To be implemented by the user.
- * Reads memory of given size into buffer (if valid),
- * and returns cursor advanced by size (or invalid cursor if read failed).
- * If size is also null, simply checks that cursor is valid.
- * The implementation is responsible for error handling (pointer validation,
- * handling overflows, etc.). This allows the user to decide if they want to
- * keep try reading remote layouts even after some errors.
- *
- * If you want to read as much as possible:
- * - Pick an invalid pointer value as a sentinel to indicate error (i.e. 0).
- * - Return the sentinel if the read fails for any reason.
- * - If given the sentinel as source pointer, return it immediately (skip read).
- *
- * If you want to fail as quickly as possible, raise an exception.
- *
- * @param cursor Remote source pointer.
- * @param size   Number of bytes to copy.
- * @param buffer Native destination buffer.
- * @return       Updated remote pointer.
- */
 using MemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
 /**
  * @brief Remote memory abstraction layer.
  *
  * Encapsulates reading as well as the size of remote pointers.
- * The read function handles all pointer arithmetic and validation.
  */
 template <std::size_t SizeOfPtr>
 struct Memory {
-  MemoryRead read = [](intptr_t cursor, intptr_t size, void* buffer) {
-    // simplest implementation: no reading, no error checking
-    return cursor + size;
-  };
+  /**
+   * @brief User-provided memory read function
+   *
+   * This function is responsible for reading a block of memory from a remote
+   * source.
+   *
+   * @param cursor Remote source pointer.
+   * @param size   Number of bytes to copy (zero if just checking cursor).
+   * @param buffer Native destination buffer (null if just advancing cursor).
+   * @return       Updated remote pointer.
+   *
+   * @note
+   * - This function must perform all necessary validation and error
+   * checking internally.
+   * - It is the responsibility of the implementation to handle pointer
+   * validation, overflow detection, and error conditions.
+   * - If an error occurs during reading, the function may return a sentinel
+   *   value (such as 0) to signal failure. In that case, future calls to this
+   * function with this sentinel value as the cursor may be made, and the
+   * function should be prepared to handle this appropriately. Alternatively,
+   * the function may raise an exception to abort the reading process.
+   * - The library does not perform any validation or error checking on the
+   * return value; it simply calls this function according to the specified
+   * layout.
+   */
+  MemoryRead read;
 };
 
 /**
@@ -276,19 +274,23 @@ intptr_t read_layout(
 // ============================================================
 
 /**
- * @brief Read native type T from remote memory using LayoutOf<T>::layout.
+ * @brief Reads data from remote memory into a native object based on a
+ * specified layout.
  *
- * Note that the implementation only uses memory.read for advancing the
- * pointer. In particular, both Pad and Offset are implemented by a call to
- * memory.read.
+ * @tparam SizeOfPtr Size of remote pointers (4 for 32-bit, 8 for 64-bit).
+ * @tparam T The native type to deserialize into.
+ * @param memory The memory abstraction providing the `MemoryRead` function.
+ * @param cursor The current remote memory pointer.
+ * @param target The native object to populate.
+ * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  *
- * Consequently, all error handling concerning pointer overflows or invalid
- * pointers is delegated to memory.read.
- *
- * @param memory  Manages remote memory.
- * @param base    Remote base pointer of the struct.
- * @param target  Native destination.
- * @return        The outcome of the final read call.
+ * @note
+ * - This function does not perform any validation or error checking.
+ * - It simply calls the user-provided `MemoryRead` function repeatedly.
+ * - It is mandatory that the `MemoryRead` implementation performs all
+ * validation and error handling.
+ * - If `MemoryRead` reports failure by returning a sentinel like 0,
+ * it must be prepared to handle such sentinel cursor values appropriately.
  */
 template <std::size_t SizeOfPtr, typename T>
   requires HasLayout<T>
