@@ -200,9 +200,15 @@ template <typename T>
   requires IsCustomLayout<T>
 using custom_layout_t = typename LayoutOf<T>::layout;
 
+template <std::size_t SizeOfPtr, typename T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr> && IsStandardLayout<T>
+intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
+  return memory.read(base, sizeof(target), &target);
+};
+
 // Forward declaration to support recursive reading.
 template <std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
+  requires IsSupportedSizeOfPtr<SizeOfPtr> && IsCustomLayout<T>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target);
 
 namespace detail {
@@ -398,13 +404,9 @@ intptr_t read_layout(
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
 template <std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
+  requires IsSupportedSizeOfPtr<SizeOfPtr> && IsCustomLayout<T>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
-  if constexpr (IsCustomLayout<T>) {
-    return detail::read_layout(custom_layout_t<T>{}, memory, base, target);
-  } else {
-    return memory.read(base, sizeof(target), &target);
-  }
+  return detail::read_layout(custom_layout_t<T>{}, memory, base, target);
 }
 
 }  // namespace mempeep
