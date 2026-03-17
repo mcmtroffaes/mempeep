@@ -187,15 +187,13 @@ struct RemoteMemoryReadMock {
 
   intptr_t operator()(intptr_t cursor, intptr_t size, void* buffer) const {
     // handle overflow/underflow
-    assert(
-      size >= 0 && size < N && cursor >= 0 && cursor < N && size <= N - cursor
-    );
-    if (buffer) std::memcpy(buffer, data + cursor, size);
+    assert(size >= 0 && size <= N && cursor >= 0 && cursor <= N - size);
+    if (buffer && size) std::memcpy(buffer, data + cursor, size);
     return cursor + size;
   }
 
   void write_int(intptr_t off, int v) {
-    assert(off + sizeof(v) <= N);
+    assert(sizeof(v) <= N && off >= 0 && off <= N - sizeof(v));
     std::memcpy(data + off, &v, sizeof(v));
   }
 };
