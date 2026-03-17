@@ -16,6 +16,13 @@ template <intptr_t N>
 concept PositiveIntPtr = (N > 0);
 
 /**
+ * @brief For tagging layout items.
+ *
+ * The LayoutItem concept selects those types that have this tag.
+ */
+struct layout_item_tag {};
+
+/**
  * @brief Represents a specific member (field) of a struct/class.
  * @tparam MemberPtr The native field to deserialize into.
  *
@@ -24,7 +31,7 @@ concept PositiveIntPtr = (N > 0);
  */
 template <auto MemberPtr>
 struct Field {
-  using layout_item_tag = void;
+  using layout_item_tag = layout_item_tag;
 };
 
 /**
@@ -33,7 +40,7 @@ struct Field {
 template <intptr_t N>
   requires PositiveIntPtr<N>
 struct Pad {
-  using layout_item_tag = void;
+  using layout_item_tag = layout_item_tag;
 };
 
 /**
@@ -42,7 +49,7 @@ struct Pad {
 template <intptr_t N>
   requires PositiveIntPtr<N>
 struct Offset {
-  using layout_item_tag = void;
+  using layout_item_tag = layout_item_tag;
 };
 
 /**
@@ -51,7 +58,7 @@ struct Offset {
  */
 template <auto MemberPtr>
 struct FieldRef {
-  using layout_item_tag = void;
+  using layout_item_tag = layout_item_tag;
 };
 
 /**
@@ -61,7 +68,7 @@ struct FieldRef {
  */
 template <auto MemberPtr>
 struct FieldOptionalRef {
-  using layout_item_tag = void;
+  using layout_item_tag = layout_item_tag;
 };
 
 /**
@@ -72,7 +79,7 @@ struct FieldOptionalRef {
  */
 template <auto MemberPtr>
 struct FieldPtr {
-  using layout_item_tag = void;
+  using layout_item_tag = layout_item_tag;
 };
 
 /**
@@ -83,7 +90,7 @@ struct FieldPtr {
  */
 template <auto MemberPtr>
 struct FieldOptionalPtr {
-  using layout_item_tag = void;
+  using layout_item_tag = layout_item_tag;
 };
 
 template <typename T>
