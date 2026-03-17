@@ -162,14 +162,19 @@ namespace detail {
 // Helpers
 // ============================================================
 
-template <auto>
-struct member_pointer_traits;
+template <auto MemberPtr>
+struct member_pointer_traits {
+  static_assert(false, "Expected member pointer");
+};
 
 template <typename C, typename T, T C::* MemberPtr>
 struct member_pointer_traits<MemberPtr> {
   using class_type = C;
   using member_type = T;
 };
+
+template <auto MemberPtr>
+using member_type_t = typename member_pointer_traits<MemberPtr>::member_type;
 
 template <std::size_t Size>
 struct signed_int {
@@ -249,7 +254,7 @@ intptr_t read_layout_item(
   intptr_t cursor,
   T& target
 ) {
-  using member_type = typename member_pointer_traits<MemberPtr>::member_type;
+  using member_type = member_type_t<MemberPtr>;
   auto& field = target.*MemberPtr;
   if constexpr (HasLayout<member_type>) {
     return read(memory, cursor, field);
@@ -266,7 +271,7 @@ intptr_t read_layout_item(
   intptr_t cursor,
   T& target
 ) {
-  using member_type = typename member_pointer_traits<MemberPtr>::member_type;
+  using member_type = member_type_t<MemberPtr>;
   static_assert(
     std::is_same_v<member_type, intptr_t>,
     "FieldOptionalPtr needs member type to be intptr_t"
@@ -283,7 +288,7 @@ intptr_t read_layout_item(
   intptr_t cursor,
   T& target
 ) {
-  using member_type = typename member_pointer_traits<MemberPtr>::member_type;
+  using member_type = member_type_t<MemberPtr>;
   static_assert(
     std::is_same_v<member_type, intptr_t>,
     "FieldPtr needs member type to be intptr_t"
