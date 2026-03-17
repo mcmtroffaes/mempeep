@@ -19,6 +19,24 @@ template <auto MemberPtr>
 concept IsMemberObjectPointer
   = std::is_member_object_pointer_v<decltype(MemberPtr)>;
 
+template <auto MemberPtr>
+  requires IsMemberObjectPointer<MemberPtr>
+struct member_pointer_traits;
+
+template <typename C, typename T, T C::* MemberPtr>
+struct member_pointer_traits<MemberPtr> {
+  using class_type = C;
+  using member_type = T;
+};
+
+template <auto MemberPtr>
+  requires IsMemberObjectPointer<MemberPtr>
+using member_type_t = typename member_pointer_traits<MemberPtr>::member_type;
+
+template <auto MemberPtr, typename T>
+concept IsMemberTypeSame = IsMemberObjectPointer<MemberPtr>
+                           && std::is_same_v<member_type_t<MemberPtr>, T>;
+
 /**
  * @brief For tagging layout items.
  *
@@ -85,7 +103,7 @@ struct FieldOptionalRef {
  *   FieldPtr<&Class::member>
  */
 template <auto MemberPtr>
-  requires IsMemberObjectPointer<MemberPtr>
+  requires IsMemberTypeSame<MemberPtr, intptr_t>
 struct FieldPtr {
   using layout_item_tag = layout_item_tag;
 };
@@ -97,7 +115,7 @@ struct FieldPtr {
  *   FieldOptionalPtr<&Class::member>
  */
 template <auto MemberPtr>
-  requires IsMemberObjectPointer<MemberPtr>
+  requires IsMemberTypeSame<MemberPtr, intptr_t>
 struct FieldOptionalPtr {
   using layout_item_tag = layout_item_tag;
 };
@@ -220,20 +238,6 @@ namespace detail {
 // Helpers
 // ============================================================
 
-template <auto MemberPtr>
-  requires IsMemberObjectPointer<MemberPtr>
-struct member_pointer_traits;
-
-template <typename C, typename T, T C::* MemberPtr>
-struct member_pointer_traits<MemberPtr> {
-  using class_type = C;
-  using member_type = T;
-};
-
-template <auto MemberPtr>
-  requires IsMemberObjectPointer<MemberPtr>
-using member_type_t = typename member_pointer_traits<MemberPtr>::member_type;
-
 template <typename T>
 struct optional_traits {
   static_assert(false, "Expected std::optional<T>");
@@ -281,8 +285,6 @@ intptr_t read_optional_ptr(
   const MemoryRead& memory_read, intptr_t cursor, intptr_t& target
 ) {
   signed_int_t<SizeOfPtr> ptr{};
-  static_assert(sizeof(ptr) == SizeOfPtr);
-  static_assert(sizeof(intptr_t) >= SizeOfPtr);
   cursor = memory_read(cursor, sizeof(ptr), &ptr);
   target = static_cast<intptr_t>(ptr);
   return cursor;
@@ -296,14 +298,6 @@ intptr_t read_ptr(
   cursor = read_optional_ptr<SizeOfPtr>(memory_read, cursor, target);
   memory_read(target, 0, nullptr);  // check target is valid
   return cursor;
-}
-
-template <typename Item, std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read_layout_item(
-  Item, const Memory<SizeOfPtr>&, intptr_t, intptr_t, T&
-) {
-  static_assert(false, "Unsupported layout item");
 }
 
 template <std::size_t N, std::size_t SizeOfPtr, typename T>
@@ -337,7 +331,8 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires IsMemberObjectPointer<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
+  requires IsMemberTypeSame<MemberPtr, intptr_t>
+           && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   FieldOptionalPtr<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
@@ -346,16 +341,13 @@ intptr_t read_layout_item(
   T& target
 ) {
   using member_type = member_type_t<MemberPtr>;
-  static_assert(
-    std::is_same_v<member_type, intptr_t>,
-    "FieldOptionalPtr needs member type to be intptr_t"
-  );
   auto& field = target.*MemberPtr;
   return read_optional_ptr<SizeOfPtr>(memory.read, cursor, field);
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires IsMemberObjectPointer<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
+  requires IsMemberTypeSame<MemberPtr, intptr_t>
+           && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   FieldPtr<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
@@ -364,10 +356,6 @@ intptr_t read_layout_item(
   T& target
 ) {
   using member_type = member_type_t<MemberPtr>;
-  static_assert(
-    std::is_same_v<member_type, intptr_t>,
-    "FieldPtr needs member type to be intptr_t"
-  );
   auto& field = target.*MemberPtr;
   return read_ptr<SizeOfPtr>(memory.read, cursor, field);
 }
