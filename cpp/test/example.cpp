@@ -34,9 +34,10 @@ struct Layout {};
  *
  *   template <>
  *   struct Remote<Pos> {
- *     using layout = Layout<Field<&Pos::x>, Field<&Pos::y>, Field<&Pos::z>>;
+ *     using layout = Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>;
  *   };
-};
+ * 
+ * Valid items in a layout are Field<&Class::member>, Pad<N>, and Offset<N>.
  */
 template <typename T>
 struct Remote;
@@ -47,12 +48,22 @@ struct Remote;
  * To be implemented by the user.
  * Reads memory of given size into buffer (if not null),
  * and returns cursor advanced by size.
- * Responsible for pointer validation, handling overflows, etc.
+ * The implementation is responsible for error handling (pointer validation,
+ * handling overflows, etc.). This allows the user to decide if they want to
+ * keep try reading remote layouts even after some errors.
  *
- * @param cursor Remote source.
+ * If you want to read as much as possible:
+ * - Pick an invalid pointer value as a sentinel to indicate error (i.e. 0).
+ * - Return the sentinel if the read fails for any reason.
+ * - If given the sentinel as source pointer, return it immediately (skip read).
+ *
+ * If you want to fail as quickly as possible, raise an exception.
+ *
+ * @param cursor Remote source pointer.
  * @param size Number of bytes to copy.
- * @param buffer Native destination.
- * @return New cursor position after the read, or a sentinel indicating the read failed.
+ * @param buffer Native destination buffer.
+ * @return New cursor position after the read, or a sentinel indicating the read
+ * failed.
  */
 using ReadRemote = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
