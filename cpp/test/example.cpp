@@ -7,10 +7,10 @@
 namespace mempeep {
 
 // ============================================================
-// Public API: Layout & RemoteMemoryRead
+// Public API: Layout, StructLayout, ReadMemory
 // ============================================================
 
-template <auto Member>
+template <auto MemberPtr>
 struct Field {};
 
 template <std::intptr_t N>
@@ -23,6 +23,14 @@ struct Offset {
   static_assert(N > 0);
 };
 
+/**
+ * @brief Defines a remote layout.
+ *
+ * Each item must be a Field, Pad, or Offset.
+ * Example:
+ *
+ *   Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>
+ */
 template <typename... Items>
 struct Layout {};
 
@@ -33,14 +41,14 @@ struct Layout {};
  * Example:
  *
  *   template <>
- *   struct Remote<Pos> {
+ *   struct StructLayout<Pos> {
  *     using layout = Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>;
  *   };
  *
  * Valid items in a layout are Field<&Class::member>, Pad<N>, and Offset<N>.
  */
 template <typename T>
-struct Remote;
+struct StructLayout;
 
 /**
  * @brief Copy remote memory to a native buffer and advance remote pointer.
@@ -60,23 +68,28 @@ struct Remote;
  * If you want to fail as quickly as possible, raise an exception.
  *
  * @param cursor Remote source pointer.
- * @param size Number of bytes to copy.
+ * @param size   Number of bytes to copy.
  * @param buffer Native destination buffer.
- * @return New cursor position after the read, or a sentinel indicating the read
- * failed.
+ * @return       Updated remote pointer.
  */
-using RemoteMemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
+using ReadMemory = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
+/**
+ * @brief Check StuctLayout<T>::layout exists.
+ */
 template <typename T, typename... Items>
-concept HasRemoteLayout = requires { typename Remote<T>::layout; };
+concept HasLayout = requires { typename StructLayout<T>::layout; };
 
+/**
+ * @brief Shorthand for StuctLayout<T>::layout.
+ */
 template <typename T>
-using remote_layout_t = typename Remote<T>::layout;
+using layout_t = typename StructLayout<T>::layout;
 
 // Forward declaration to support recursive Layout reading.
 template <typename T>
-  requires HasRemoteLayout<T>
-intptr_t read(const RemoteMemoryRead& read_remote, intptr_t base, T& out);
+  requires HasLayout<T>
+intptr_t read(const ReadMemory& read_memory, intptr_t base, T& target);
 
 namespace detail {
 
@@ -87,62 +100,60 @@ namespace detail {
 template <auto>
 struct member_pointer_traits;
 
-template <typename Class, typename Member, Member Class::* Ptr>
-struct member_pointer_traits<Ptr> {
-  using class_type = Class;
-  using member_type = Member;
+template <typename C, typename T, T C::* MemberPtr>
+struct member_pointer_traits<MemberPtr> {
+  using class_type = C;
+  using member_type = T;
 };
 
 // If Item is not specialized then we must have an invalid item in Layout.
 template <typename T, typename Item>
-intptr_t apply_read_rule(
-  Item, const RemoteMemoryRead&, intptr_t, intptr_t, T&
-) {
+intptr_t read_layout_item(Item, const ReadMemory&, intptr_t, intptr_t, T&) {
   static_assert(!std::is_same_v<Item, Item>, "Unsupported layout item");
 }
 
 // Specialization for Pad<N>.
 template <typename T, std::size_t N>
-intptr_t apply_read_rule(
-  Pad<N>, const RemoteMemoryRead& read_remote, intptr_t, intptr_t cursor, T&
+intptr_t read_layout_item(
+  Pad<N>, const ReadMemory& read_memory, intptr_t, intptr_t cursor, T&
 ) {
-  return read_remote(cursor, N, nullptr);
+  return read_memory(cursor, N, nullptr);
 }
 
 // Specialization for Offset<N>.
 template <typename T, std::size_t N>
-intptr_t apply_read_rule(
-  Offset<N>, const RemoteMemoryRead& read_remote, intptr_t base, intptr_t, T&
+intptr_t read_layout_item(
+  Offset<N>, const ReadMemory& read_memory, intptr_t base, intptr_t, T&
 ) {
-  return read_remote(base, N, nullptr);
+  return read_memory(base, N, nullptr);
 }
 
 // Specialization for Field<Member>.
-template <typename T, auto Member>
-intptr_t apply_read_rule(
-  Field<Member>,
-  const RemoteMemoryRead& read_remote,
+template <typename T, auto MemberPtr>
+intptr_t read_layout_item(
+  Field<MemberPtr>,
+  const ReadMemory& read_memory,
   intptr_t base,
   intptr_t cursor,
-  T& out
+  T& target
 ) {
-  using member_type = typename member_pointer_traits<Member>::member_type;
-  auto& field = out.*Member;
-  if constexpr (HasRemoteLayout<member_type>) {
-    // read returns the new cursor after the nested struct
-    return read(read_remote, cursor, field);
+  using member_type = typename member_pointer_traits<MemberPtr>::member_type;
+  auto& field = target.*MemberPtr;
+  if constexpr (HasLayout<member_type>) {
+    return read(read_memory, cursor, field);
   } else {
-    return read_remote(cursor, sizeof(field), &field);
+    return read_memory(cursor, sizeof(field), &field);
   }
 }
 
 template <typename T, typename... Items>
 intptr_t read_layout(
-  Layout<Items...>, const RemoteMemoryRead& read_remote, intptr_t base, T& out
+  Layout<Items...>, const ReadMemory& read_memory, intptr_t base, T& target
 ) {
   intptr_t cursor = base;
   // fold from first to last item
-  ((cursor = apply_read_rule(Items{}, read_remote, base, cursor, out)), ...);
+  ((cursor = read_layout_item(Items{}, read_memory, base, cursor, target)),
+   ...);
   return cursor;
 }
 
@@ -153,24 +164,24 @@ intptr_t read_layout(
 // ============================================================
 
 /**
- * @brief Read native type T from remote memory using Remote<T>::layout.
+ * @brief Read native type T from remote memory using StructLayout<T>::layout.
  *
- * Note that the implementation only uses read_remote for advancing the pointer.
- * In particular, both Pad and Offset are implemented by a call
- * to read_remote.
+ * Note that the implementation only uses read_memory for advancing the
+ * pointer. In particular, both Pad and Offset are implemented by a call to
+ * read_memory.
  *
  * Consequently, all error handling concerning pointer overflows or invalid
- * pointers is delegated to read_remote.
+ * pointers is delegated to read_memory.
  *
- * @param read_remote Function for reading bytes from remote memory.
- * @param base        Remote base pointer of the struct.
- * @param out         Native destination.
- * @return            The outcome of the final read_remote call.
+ * @param read_memory Function for reading bytes from remote memory.
+ * @param base               Remote base pointer of the struct.
+ * @param target             Native destination.
+ * @return                   The outcome of the final read_memory call.
  */
 template <typename T>
-  requires HasRemoteLayout<T>
-intptr_t read(const RemoteMemoryRead& read_remote, intptr_t base, T& out) {
-  return detail::read_layout(remote_layout_t<T>{}, read_remote, base, out);
+  requires HasLayout<T>
+intptr_t read(const ReadMemory& read_memory, intptr_t base, T& target) {
+  return detail::read_layout(layout_t<T>{}, read_memory, base, target);
 }
 
 }  // namespace mempeep
@@ -182,7 +193,7 @@ intptr_t read(const RemoteMemoryRead& read_remote, intptr_t base, T& out) {
 #include <iostream>
 
 template <intptr_t N>
-struct RemoteMemoryReadMock {
+struct ReadMemoryMock {
   char data[N]{};
 
   intptr_t operator()(intptr_t cursor, intptr_t size, void* buffer) const {
@@ -192,9 +203,9 @@ struct RemoteMemoryReadMock {
     return cursor + size;
   }
 
-  void write_int(intptr_t off, int v) {
-    assert(sizeof(v) <= N && off >= 0 && off <= N - sizeof(v));
-    std::memcpy(data + off, &v, sizeof(v));
+  void write_int(intptr_t offset, int value) {
+    assert(sizeof(value) <= N && offset >= 0 && offset <= N - sizeof(value));
+    std::memcpy(data + offset, &value, sizeof(value));
   }
 };
 
@@ -208,12 +219,12 @@ struct Player {
 };
 
 template <>
-struct mempeep::Remote<Pos> {
+struct mempeep::StructLayout<Pos> {
   using layout = Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>, Pad<4>>;
 };
 
 template <>
-struct mempeep::Remote<Player> {
+struct mempeep::StructLayout<Player> {
   using layout = Layout<
     Offset<8>,
     Field<&Player::health>,
@@ -222,7 +233,7 @@ struct mempeep::Remote<Player> {
 };
 
 int main() {
-  RemoteMemoryReadMock<48> buf{};
+  ReadMemoryMock<48> buf{};
   buf.write_int(18, 123);
   buf.write_int(26, 11);
   buf.write_int(34, 22);
