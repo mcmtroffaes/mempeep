@@ -355,7 +355,7 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
+  requires IsMemberObjectPointer<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   FieldPtr<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
