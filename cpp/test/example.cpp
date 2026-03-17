@@ -98,7 +98,7 @@ intptr_t apply_read_rule(
 
 // Specialization for Offset<N>.
 template <typename T, std::size_t N>
-constexpr intptr_t apply_read_rule(
+intptr_t apply_read_rule(
   Offset<N>, const ReadRemote& read_remote, intptr_t base, intptr_t, T&
 ) {
   return read_remote(base, N, nullptr);
