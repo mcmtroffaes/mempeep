@@ -73,6 +73,7 @@ struct LayoutOf;
  * To be implemented by the user.
  * Reads memory of given size into buffer (if not null),
  * and returns cursor advanced by size.
+ * If size is also null, simply checks that cursor is valid.
  * The implementation is responsible for error handling (pointer validation,
  * handling overflows, etc.). This allows the user to decide if they want to
  * keep try reading remote layouts even after some errors.
@@ -91,17 +92,11 @@ struct LayoutOf;
  */
 using MemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
-using MemoryHandleNullPtr = std::function<intptr_t(intptr_t)>;
-
 template <std::size_t SizeOfPtr>
 struct Memory {
   MemoryRead read = [](intptr_t cursor, intptr_t size, void* buffer) {
     // simplest implementation: no reading, no error checking
     return cursor + size;
-  };
-  MemoryHandleNullPtr handle_null_ptr = [](intptr_t cursor) {
-    // simplest implementation: do nothing
-    return cursor;
   };
 };
 
@@ -177,14 +172,11 @@ intptr_t read_optional_ptr(
 
 template <std::size_t SizeOfPtr>
 intptr_t read_ptr(
-  const MemoryRead& memory_read,
-  const MemoryHandleNullPtr& memory_handle_null_ptr,
-  intptr_t cursor,
-  intptr_t& target
+  const MemoryRead& memory_read, intptr_t cursor, intptr_t& target
 ) {
-  return memory_handle_null_ptr(
-    read_optional_ptr<SizeOfPtr>(memory_read, cursor, target)
-  );
+  cursor = read_optional_ptr<SizeOfPtr>(memory_read, cursor, target);
+  memory_read(target, 0, nullptr);  // check target is valid
+  return cursor;
 }
 
 template <typename Item, std::size_t SizeOfPtr, typename T>
@@ -256,7 +248,7 @@ intptr_t read_layout_item(
     "FieldPtr needs member type to be intptr_t"
   );
   auto& field = target.*MemberPtr;
-  return read_ptr(memory, cursor, field);
+  return read_ptr<SizeOfPtr>(memory.read, cursor, field);
 }
 
 template <typename... Items, std::size_t SizeOfPtr, typename T>
@@ -331,6 +323,7 @@ struct Player {
   int health;
   Pos pos;
   intptr_t target_ptr;
+  intptr_t weapon_ptr;
 };
 
 template <>
@@ -345,7 +338,8 @@ struct mempeep::LayoutOf<Player> {
     Field<&Player::health>,
     Offset<16>,
     Field<&Player::pos>,
-    FieldOptionalPtr<&Player::target_ptr>>;
+    FieldOptionalPtr<&Player::target_ptr>,
+    FieldPtr<&Player::weapon_ptr>>;
 };
 
 int main() {
@@ -353,12 +347,9 @@ int main() {
   memory_read.write(18, int32_t(123));
   memory_read.write(26, int32_t(11));
   memory_read.write(34, int32_t(22));
-  memory_read.write(42, int16_t(4));
-  auto handle_null_ptr = [](intptr_t cursor) {
-    assert(false);
-    return cursor;
-  };
-  auto memory = mempeep::Memory<2>{memory_read, handle_null_ptr};
+  memory_read.write(42, int16_t(-4));  // invalid target_ptr but it is not checked
+  memory_read.write(44, int16_t(5));
+  auto memory = mempeep::Memory<2>{memory_read};
 
   Player player{};
   mempeep::read(memory, 10, player);
@@ -366,5 +357,6 @@ int main() {
   assert(player.health == 123);
   assert(player.pos.x == 11);
   assert(player.pos.y == 22);
-  assert(player.target_ptr == 4);
+  assert(player.target_ptr == -4);
+  assert(player.weapon_ptr == 5);
 }
