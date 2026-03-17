@@ -15,6 +15,10 @@ namespace mempeep {
 template <intptr_t N>
 concept PositiveIntPtr = (N > 0);
 
+template <auto MemberPtr>
+concept MemberObjectPointer
+  = std::is_member_object_pointer_v<decltype(MemberPtr)>;
+
 /**
  * @brief For tagging layout items.
  *
@@ -30,6 +34,7 @@ struct layout_item_tag {};
  *   Field<&Class::member>
  */
 template <auto MemberPtr>
+  requires MemberObjectPointer<MemberPtr>
 struct Field {
   using layout_item_tag = layout_item_tag;
 };
@@ -57,6 +62,7 @@ struct Offset {
  * @tparam MemberPtr The native field to deserialize the pointee into.
  */
 template <auto MemberPtr>
+  requires MemberObjectPointer<MemberPtr>
 struct FieldRef {
   using layout_item_tag = layout_item_tag;
 };
@@ -67,6 +73,7 @@ struct FieldRef {
  *                   Must have type std::optional<T>.
  */
 template <auto MemberPtr>
+  requires MemberObjectPointer<MemberPtr>
 struct FieldOptionalRef {
   using layout_item_tag = layout_item_tag;
 };
@@ -78,6 +85,7 @@ struct FieldOptionalRef {
  *   FieldPtr<&Class::member>
  */
 template <auto MemberPtr>
+  requires MemberObjectPointer<MemberPtr>
 struct FieldPtr {
   using layout_item_tag = layout_item_tag;
 };
@@ -89,6 +97,7 @@ struct FieldPtr {
  *   FieldOptionalPtr<&Class::member>
  */
 template <auto MemberPtr>
+  requires MemberObjectPointer<MemberPtr>
 struct FieldOptionalPtr {
   using layout_item_tag = layout_item_tag;
 };
@@ -188,9 +197,8 @@ namespace detail {
 // ============================================================
 
 template <auto MemberPtr>
-struct member_pointer_traits {
-  static_assert(false, "Expected member pointer");
-};
+  requires MemberObjectPointer<MemberPtr>
+struct member_pointer_traits;
 
 template <typename C, typename T, T C::* MemberPtr>
 struct member_pointer_traits<MemberPtr> {
