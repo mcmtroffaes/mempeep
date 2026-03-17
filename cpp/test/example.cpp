@@ -44,82 +44,6 @@ concept IsMemberTypeSame = IsMemberObjectPointer<MemberPtr>
  */
 struct layout_item_tag {};
 
-/**
- * @brief Represents a specific member (field) of a struct/class.
- * @tparam MemberPtr The native field to deserialize into.
- *
- * Usage:
- *   Field<&Class::member>
- */
-template <auto MemberPtr>
-  requires IsMemberObjectPointer<MemberPtr>
-struct Field {
-  using layout_item_tag = layout_item_tag;
-};
-
-/**
- * @brief Padding bytes to relative to the current position in the layout.
- */
-template <intptr_t N>
-  requires IsPositiveIntPtr<N>
-struct Pad {
-  using layout_item_tag = layout_item_tag;
-};
-
-/**
- * @brief Offset (in bytes) relative to the base position of the layout.
- */
-template <intptr_t N>
-  requires IsPositiveIntPtr<N>
-struct Offset {
-  using layout_item_tag = layout_item_tag;
-};
-
-/**
- * @brief A pointer that is guaranteed to be valid.
- * @tparam MemberPtr The native field to deserialize the pointee into.
- */
-template <auto MemberPtr>
-  requires IsMemberObjectPointer<MemberPtr>
-struct FieldRef {
-  using layout_item_tag = layout_item_tag;
-};
-
-/**
- * @brief A pointer that may be invalid.
- * @tparam MemberPtr The native field to deserialize the pointee into.
- *                   Must have type std::optional<T>.
- */
-template <auto MemberPtr>
-  requires IsMemberObjectPointer<MemberPtr>
-struct FieldOptionalRef {
-  using layout_item_tag = layout_item_tag;
-};
-
-/**
- * @brief Remote pointer (as an intptr_t) that is guaranteed to be valid.
- *
- * Usage:
- *   FieldPtr<&Class::member>
- */
-template <auto MemberPtr>
-  requires IsMemberTypeSame<MemberPtr, intptr_t>
-struct FieldPtr {
-  using layout_item_tag = layout_item_tag;
-};
-
-/**
- * @brief Remote pointer (as an intptr_t) that may be invalid.
- *
- * Usage:
- *   FieldOptionalPtr<&Class::member>
- */
-template <auto MemberPtr>
-  requires IsMemberTypeSame<MemberPtr, intptr_t>
-struct FieldOptionalPtr {
-  using layout_item_tag = layout_item_tag;
-};
-
 template <typename T>
 concept IsLayoutItem = requires { typename T::layout_item_tag; };
 
@@ -153,6 +77,110 @@ struct Layout {};
  */
 template <typename T>
 struct LayoutOf;
+
+/**
+ * @brief Does T have a custom layout?
+ *
+ * Checks if LayoutOf<T>::layout exists.
+ */
+template <typename T>
+concept IsCustomLayout = requires { typename LayoutOf<T>::layout; };
+
+/**
+ * @brief Shorthand for LayoutOf<T>::layout.
+ */
+template <typename T>
+  requires IsCustomLayout<T>
+using custom_layout_t = typename LayoutOf<T>::layout;
+
+/**
+ * @brief Does T have a standard layout (and no custom layout)?
+ */
+template <typename T>
+concept IsStandardLayout = std::is_standard_layout_v<T> && !IsCustomLayout<T>;
+
+template <typename T>
+concept IsAnyLayout = std::is_standard_layout_v<T> || IsCustomLayout<T>;
+
+template <auto MemberPtr>
+concept IsMemberTypeAnyLayout
+  = IsMemberObjectPointer<MemberPtr> && IsAnyLayout<member_type_t<MemberPtr>>;
+
+/**
+ * @brief Represents a specific member (field) of a struct/class.
+ * @tparam MemberPtr The native field to deserialize into.
+ *
+ * Usage:
+ *   Field<&Class::member>
+ */
+template <auto MemberPtr>
+  requires IsMemberTypeAnyLayout<MemberPtr>
+struct Field {
+  using layout_item_tag = layout_item_tag;
+};
+
+/**
+ * @brief Padding bytes to relative to the current position in the layout.
+ */
+template <intptr_t N>
+  requires IsPositiveIntPtr<N>
+struct Pad {
+  using layout_item_tag = layout_item_tag;
+};
+
+/**
+ * @brief Offset (in bytes) relative to the base position of the layout.
+ */
+template <intptr_t N>
+  requires IsPositiveIntPtr<N>
+struct Offset {
+  using layout_item_tag = layout_item_tag;
+};
+
+/**
+ * @brief A pointer that is guaranteed to be valid.
+ * @tparam MemberPtr The native field to deserialize the pointee into.
+ */
+template <auto MemberPtr>
+  requires IsMemberTypeAnyLayout<MemberPtr>
+struct FieldRef {
+  using layout_item_tag = layout_item_tag;
+};
+
+/**
+ * @brief A pointer that may be invalid.
+ * @tparam MemberPtr The native field to deserialize the pointee into.
+ *                   Must have type std::optional<T>.
+ */
+template <auto MemberPtr>
+  requires IsMemberTypeAnyLayout<MemberPtr>  // TODO actually we need IsMemberTypeOptionalAnyLayout
+struct FieldOptionalRef {
+  using layout_item_tag = layout_item_tag;
+};
+
+/**
+ * @brief Remote pointer (as an intptr_t) that is guaranteed to be valid.
+ *
+ * Usage:
+ *   FieldPtr<&Class::member>
+ */
+template <auto MemberPtr>
+  requires IsMemberTypeSame<MemberPtr, intptr_t>
+struct FieldPtr {
+  using layout_item_tag = layout_item_tag;
+};
+
+/**
+ * @brief Remote pointer (as an intptr_t) that may be invalid.
+ *
+ * Usage:
+ *   FieldOptionalPtr<&Class::member>
+ */
+template <auto MemberPtr>
+  requires IsMemberTypeSame<MemberPtr, intptr_t>
+struct FieldOptionalPtr {
+  using layout_item_tag = layout_item_tag;
+};
 
 using MemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
@@ -199,27 +227,6 @@ struct Memory {
    */
   MemoryRead read;
 };
-
-/**
- * @brief Does T have a custom layout?
- *
- * Checks if LayoutOf<T>::layout exists.
- */
-template <typename T>
-concept IsCustomLayout = requires { typename LayoutOf<T>::layout; };
-
-/**
- * @brief Does T have a standard layout (and no custom layout)?
- */
-template <typename T>
-concept IsStandardLayout = std::is_standard_layout_v<T> && !IsCustomLayout<T>;
-
-/**
- * @brief Shorthand for LayoutOf<T>::layout.
- */
-template <typename T>
-  requires IsCustomLayout<T>
-using custom_layout_t = typename LayoutOf<T>::layout;
 
 template <std::size_t SizeOfPtr, typename T>
   requires IsSupportedSizeOfPtr<SizeOfPtr> && IsStandardLayout<T>
@@ -317,7 +324,7 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires IsMemberObjectPointer<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
+  requires IsMemberTypeAnyLayout<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   Field<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
