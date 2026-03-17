@@ -128,7 +128,7 @@ intptr_t read_layout_item(
   return read_memory(base, N, nullptr);
 }
 
-// Specialization for Field<Member>.
+// Specialization for Field<MemberPtr>.
 template <typename T, auto MemberPtr>
 intptr_t read_layout_item(
   Field<MemberPtr>,
