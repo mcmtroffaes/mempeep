@@ -52,7 +52,7 @@ struct Remote;
  * @param cursor Remote source.
  * @param size Number of bytes to copy.
  * @param buffer Native destination.
- * @return An integer result after processing.
+ * @return New cursor position after the read, or a sentinel indicating the read failed.
  */
 using ReadRemote = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
