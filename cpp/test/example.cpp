@@ -12,6 +12,9 @@ namespace mempeep {
 // Public API: Layout, LayoutOf, ReadMemory
 // ============================================================
 
+template <intptr_t N>
+concept PositiveIntPtr = (N > 0);
+
 /**
  * @brief Represents a specific member (field) of a struct/class.
  * @tparam MemberPtr The native field to deserialize into.
@@ -20,22 +23,26 @@ namespace mempeep {
  *   Field<&Class::member>
  */
 template <auto MemberPtr>
-struct Field {};
+struct Field {
+  using layout_item_tag = void;
+};
 
 /**
  * @brief Padding bytes to relative to the current position in the layout.
  */
-template <std::intptr_t N>
+template <intptr_t N>
+  requires PositiveIntPtr<N>
 struct Pad {
-  static_assert(N > 0);
+  using layout_item_tag = void;
 };
 
 /**
  * @brief Offset (in bytes) relative to the base position of the layout.
  */
-template <std::intptr_t N>
+template <intptr_t N>
+  requires PositiveIntPtr<N>
 struct Offset {
-  static_assert(N > 0);
+  using layout_item_tag = void;
 };
 
 /**
@@ -43,7 +50,9 @@ struct Offset {
  * @tparam MemberPtr The native field to deserialize the pointee into.
  */
 template <auto MemberPtr>
-struct FieldRef {};
+struct FieldRef {
+  using layout_item_tag = void;
+};
 
 /**
  * @brief A pointer that may be invalid.
@@ -51,7 +60,9 @@ struct FieldRef {};
  *                   Must have type std::optional<T>.
  */
 template <auto MemberPtr>
-struct FieldOptionalRef {};
+struct FieldOptionalRef {
+  using layout_item_tag = void;
+};
 
 /**
  * @brief Remote pointer (as an intptr_t) that is guaranteed to be valid.
@@ -60,7 +71,9 @@ struct FieldOptionalRef {};
  *   FieldPtr<&Class::member>
  */
 template <auto MemberPtr>
-struct FieldPtr {};
+struct FieldPtr {
+  using layout_item_tag = void;
+};
 
 /**
  * @brief Remote pointer (as an intptr_t) that may be invalid.
@@ -69,7 +82,12 @@ struct FieldPtr {};
  *   FieldOptionalPtr<&Class::member>
  */
 template <auto MemberPtr>
-struct FieldOptionalPtr {};
+struct FieldOptionalPtr {
+  using layout_item_tag = void;
+};
+
+template <typename T>
+concept LayoutItem = requires { typename T::layout_item_tag; };
 
 /**
  * @brief Defines a remote layout.
@@ -81,7 +99,7 @@ struct FieldOptionalPtr {};
  *
  * @tparam Items Sequence of Field, Offset, and Pad types.
  */
-template <typename... Items>
+template <LayoutItem... Items>
 struct Layout {};
 
 /**
@@ -186,7 +204,7 @@ struct optional_traits<std::optional<T>> {
   using value_type = T;
 };
 
-template<typename T>
+template <typename T>
 using optional_value_t = typename optional_traits<T>::value_type;
 
 template <std::size_t Size>
@@ -306,7 +324,7 @@ intptr_t read_layout_item(
   return read_ptr<SizeOfPtr>(memory.read, cursor, field);
 }
 
-template <typename... Items, std::size_t SizeOfPtr, typename T>
+template <LayoutItem... Items, std::size_t SizeOfPtr, typename T>
 intptr_t read_layout(
   Layout<Items...>, const Memory<SizeOfPtr>& memory, intptr_t base, T& target
 ) {
