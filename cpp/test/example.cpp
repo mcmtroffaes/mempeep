@@ -3,7 +3,7 @@
 #include <cstring>      // std::memcpy
 #include <expected>     // std::expected
 #include <functional>   // std::function
-#include <type_traits>  // std::is_same_v, ...
+#include <type_traits>  // std::is_same_v
 
 namespace mempeep {
 
@@ -139,7 +139,9 @@ struct member_pointer_traits<MemberPtr> {
 };
 
 template <std::size_t Size>
-struct signed_int;
+struct signed_int {
+  static_assert(false, "Unsupported integer size");
+};
 
 template <>
 struct signed_int<1> {
@@ -189,7 +191,7 @@ template <typename Item, std::size_t SizeOfPtr, typename T>
 intptr_t read_layout_item(
   Item, const Memory<SizeOfPtr>&, intptr_t, intptr_t, T&
 ) {
-  static_assert(!std::is_same_v<Item, Item>, "Unsupported layout item");
+  static_assert(false, "Unsupported layout item");
 }
 
 template <std::size_t N, std::size_t SizeOfPtr, typename T>
