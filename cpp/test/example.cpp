@@ -71,8 +71,8 @@ struct LayoutOf;
  * @brief Copy remote memory to a native buffer and advance remote pointer.
  *
  * To be implemented by the user.
- * Reads memory of given size into buffer (if not null),
- * and returns cursor advanced by size.
+ * Reads memory of given size into buffer (if valid),
+ * and returns cursor advanced by size (or invalid cursor if read failed).
  * If size is also null, simply checks that cursor is valid.
  * The implementation is responsible for error handling (pointer validation,
  * handling overflows, etc.). This allows the user to decide if they want to
@@ -92,6 +92,12 @@ struct LayoutOf;
  */
 using MemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
+/**
+ * @brief Remote memory abstraction layer.
+ *
+ * Encapsulates reading as well as the size of remote pointers.
+ * The read function handles all pointer arithmetic and validation.
+ */
 template <std::size_t SizeOfPtr>
 struct Memory {
   MemoryRead read = [](intptr_t cursor, intptr_t size, void* buffer) {
@@ -270,17 +276,17 @@ intptr_t read_layout(
 /**
  * @brief Read native type T from remote memory using LayoutOf<T>::layout.
  *
- * Note that the implementation only uses read_memory for advancing the
+ * Note that the implementation only uses memory.read for advancing the
  * pointer. In particular, both Pad and Offset are implemented by a call to
- * read_memory.
+ * memory.read.
  *
  * Consequently, all error handling concerning pointer overflows or invalid
- * pointers is delegated to read_memory.
+ * pointers is delegated to memory.read.
  *
- * @param read_memory Function for reading bytes from remote memory.
- * @param base               Remote base pointer of the struct.
- * @param target             Native destination.
- * @return                   The outcome of the final read_memory call.
+ * @param memory  Manages remote memory.
+ * @param base    Remote base pointer of the struct.
+ * @param target  Native destination.
+ * @return        The outcome of the final read call.
  */
 template <std::size_t SizeOfPtr, typename T>
   requires HasLayout<T>
@@ -347,7 +353,7 @@ int main() {
   memory_read.write(18, int32_t(123));
   memory_read.write(26, int32_t(11));
   memory_read.write(34, int32_t(22));
-  memory_read.write(42, int16_t(-4));  // invalid target_ptr but it is not checked
+  memory_read.write(42, int16_t(-4));  // intentially invalid
   memory_read.write(44, int16_t(5));
   auto memory = mempeep::Memory<2>{memory_read};
 
