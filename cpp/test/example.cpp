@@ -36,7 +36,7 @@ struct Layout {};
  *   struct Remote<Pos> {
  *     using layout = Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>;
  *   };
- * 
+ *
  * Valid items in a layout are Field<&Class::member>, Pad<N>, and Offset<N>.
  */
 template <typename T>
@@ -152,6 +152,13 @@ intptr_t read_layout(
 
 /**
  * @brief Read native type T from remote memory using Remote<T>::layout.
+ *
+ * Note that the implementation only uses read_remote for advancing the pointer.
+ * In particular, both Pad and Offset are implemented by a call
+ * to read_remote.
+ * 
+ * Consequently, all error handling concerning pointer overflows or invalid
+ * pointers is delegated to read_remote.
  *
  * @param read_remote Function for reading bytes from remote memory.
  * @param base        Remote base pointer of the struct.
