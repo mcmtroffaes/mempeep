@@ -139,8 +139,11 @@ struct LayoutOf;
 using MemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
 template <std::size_t N>
+concept IsSupportedSizeOfInt = (N == 1 || N == 2 || N == 4 || N == 8);
+
+template <std::size_t N>
 concept IsSupportedSizeOfPtr
-  = (N == 1 || N == 2 || N == 4 || N == 8) && (N <= sizeof(intptr_t));
+  = IsSupportedSizeOfInt<N> && (N <= sizeof(intptr_t));
 
 /**
  * @brief Remote memory abstraction layer.
@@ -228,6 +231,7 @@ struct member_pointer_traits<MemberPtr> {
 };
 
 template <auto MemberPtr>
+  requires MemberObjectPointer<MemberPtr>
 using member_type_t = typename member_pointer_traits<MemberPtr>::member_type;
 
 template <typename T>
@@ -244,9 +248,8 @@ template <typename T>
 using optional_value_t = typename optional_traits<T>::value_type;
 
 template <std::size_t Size>
-struct signed_int {
-  static_assert(false, "Unsupported integer size");
-};
+  requires IsSupportedSizeOfInt<Size>
+struct signed_int;
 
 template <>
 struct signed_int<1> {
@@ -268,8 +271,9 @@ struct signed_int<8> {
   using type = std::int64_t;
 };
 
-template <std::size_t Size>
-using signed_int_t = typename signed_int<Size>::type;
+template <std::size_t SizeOfInt>
+  requires IsSupportedSizeOfInt<SizeOfInt>
+using signed_int_t = typename signed_int<SizeOfInt>::type;
 
 template <std::size_t SizeOfPtr>
   requires IsSupportedSizeOfPtr<SizeOfPtr>
@@ -319,7 +323,7 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
+  requires MemberObjectPointer<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   Field<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
@@ -333,7 +337,7 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
+  requires MemberObjectPointer<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   FieldOptionalPtr<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
@@ -351,7 +355,7 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
+  requires MemberObjectPointer<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   FieldPtr<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
