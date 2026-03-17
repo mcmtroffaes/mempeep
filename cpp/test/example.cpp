@@ -407,8 +407,8 @@ intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
 #include <iostream>
 
 template <intptr_t N>
+  requires mempeep::PositiveIntPtr<N>
 struct MemoryReadMock {
-  static_assert(N > 0);
   char data[N]{};
 
   intptr_t operator()(intptr_t cursor, intptr_t size, void* buffer) const {
