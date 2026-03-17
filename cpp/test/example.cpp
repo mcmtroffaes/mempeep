@@ -153,7 +153,8 @@ struct FieldRef {
  *                   Must have type std::optional<T>.
  */
 template <auto MemberPtr>
-  requires IsMemberTypeAnyLayout<MemberPtr>  // TODO actually we need IsMemberTypeOptionalAnyLayout
+// TODO actually we need requires IsMemberTypeOptionalAnyLayout<MemberPtr>
+  requires IsMemberTypeAnyLayout<MemberPtr>
 struct FieldOptionalRef {
   using layout_item_tag = layout_item_tag;
 };
