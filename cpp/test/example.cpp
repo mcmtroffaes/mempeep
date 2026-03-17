@@ -3,6 +3,7 @@
 #include <cstring>      // std::memcpy
 #include <expected>     // std::expected
 #include <functional>   // std::function
+#include <optional>     // std::optional
 #include <type_traits>  // std::is_same_v
 
 namespace mempeep {
@@ -175,6 +176,19 @@ struct member_pointer_traits<MemberPtr> {
 
 template <auto MemberPtr>
 using member_type_t = typename member_pointer_traits<MemberPtr>::member_type;
+
+template <typename T>
+struct optional_traits {
+  static_assert(false, "Expected std::optional<T>");
+};
+
+template <typename T>
+struct optional_traits<std::optional<T>> {
+  using value_type = T;
+};
+
+template<typename T>
+using optional_value_t = typename optional_traits<T>::value_type;
 
 template <std::size_t Size>
 struct signed_int {
