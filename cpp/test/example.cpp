@@ -11,32 +11,62 @@ namespace mempeep {
 // Public API: Layout, LayoutOf, ReadMemory
 // ============================================================
 
+/**
+ * @brief Represents a specific member (field) of a struct/class.
+ * @tparam MemberPtr The native field to deserialize into.
+ *
+ * Usage:
+ *   Field<&Class::member>
+ */
 template <auto MemberPtr>
 struct Field {};
 
+/**
+ * @brief Padding bytes to relative to the current position in the layout.
+ */
 template <std::intptr_t N>
 struct Pad {
   static_assert(N > 0);
 };
 
+/**
+ * @brief Offset (in bytes) relative to the base position of the layout.
+ */
 template <std::intptr_t N>
 struct Offset {
   static_assert(N > 0);
 };
 
-// Never null pointer, stores the pointee.
+/**
+ * @brief A pointer that is guaranteed to be valid.
+ * @tparam MemberPtr The native field to deserialize the pointee into.
+ */
 template <auto MemberPtr>
-struct FieldRef {};  // TODO implement
+struct FieldRef {};
 
-// Possible null pointer, stores the pointee via std::optional<T>.
+/**
+ * @brief A pointer that may be invalid.
+ * @tparam MemberPtr The native field to deserialize the pointee into.
+ *                   Must have type std::optional<T>.
+ */
 template <auto MemberPtr>
-struct FieldOptionalRef {};  // TODO implement
+struct FieldOptionalRef {};
 
-// Never null pointer, stores remote pointer (intptr_t).
+/**
+ * @brief Remote pointer (as an intptr_t) that is guaranteed to be valid.
+ *
+ * Usage:
+ *   FieldPtr<&Class::member>
+ */
 template <auto MemberPtr>
 struct FieldPtr {};
 
-// Possible null pointer, stores remote pointer (intptr_t).
+/**
+ * @brief Remote pointer (as an intptr_t) that may be invalid.
+ *
+ * Usage:
+ *   FieldOptionalPtr<&Class::member>
+ */
 template <auto MemberPtr>
 struct FieldOptionalPtr {};
 
@@ -47,6 +77,8 @@ struct FieldOptionalPtr {};
  * Example:
  *
  *   Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>
+ *
+ * @tparam Items Sequence of Field, Offset, and Pad types.
  */
 template <typename... Items>
 struct Layout {};
@@ -63,6 +95,8 @@ struct Layout {};
  *   };
  *
  * Valid items in a layout are Field<&Class::member>, Pad<N>, and Offset<N>.
+ *
+ * @tparam T Native struct to register the layout for.
  */
 template <typename T>
 struct LayoutOf;
@@ -73,6 +107,8 @@ using MemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
  * @brief Remote memory abstraction layer.
  *
  * Encapsulates reading as well as the size of remote pointers.
+ *
+ * @tparam SizeOfPtr Size of remote pointers (4 for 32-bit, 8 for 64-bit).
  */
 template <std::size_t SizeOfPtr>
 struct Memory {
@@ -82,24 +118,23 @@ struct Memory {
    * This function is responsible for reading a block of memory from a remote
    * source.
    *
+   * This function must perform all necessary validation and error
+   * checking internally.
+   * It is the responsibility of the implementation to handle pointer
+   * validation, overflow detection, and error conditions.
+   * If an error occurs during reading, the function may return a sentinel
+   * value (such as 0) to signal failure. In that case, future calls to this
+   * function with this sentinel value as the cursor may be made, and the
+   * function should be prepared to handle this appropriately. Alternatively,
+   * the function may raise an exception to abort the reading process.
+   * The library does not perform any validation or error checking on the
+   * return value; it simply calls this function repeatedly according to the
+   * specified layout.
+   *
    * @param cursor Remote source pointer.
    * @param size   Number of bytes to copy (zero if just checking cursor).
    * @param buffer Native destination buffer (null if just advancing cursor).
    * @return       Updated remote pointer.
-   *
-   * @note
-   * - This function must perform all necessary validation and error
-   * checking internally.
-   * - It is the responsibility of the implementation to handle pointer
-   * validation, overflow detection, and error conditions.
-   * - If an error occurs during reading, the function may return a sentinel
-   *   value (such as 0) to signal failure. In that case, future calls to this
-   * function with this sentinel value as the cursor may be made, and the
-   * function should be prepared to handle this appropriately. Alternatively,
-   * the function may raise an exception to abort the reading process.
-   * - The library does not perform any validation or error checking on the
-   * return value; it simply calls this function according to the specified
-   * layout.
    */
   MemoryRead read;
 };
@@ -277,20 +312,19 @@ intptr_t read_layout(
  * @brief Reads data from remote memory into a native object based on a
  * specified layout.
  *
+ * This function does not perform any validation or error checking.
+ * It simply calls the user-provided `MemoryRead` function repeatedly.
+ * It is mandatory that the `MemoryRead` implementation performs all
+ * validation and error handling.
+ * If `MemoryRead` reports failure by returning a sentinel like 0,
+ * it must be prepared to handle such sentinel cursor values appropriately.
+ *
  * @tparam SizeOfPtr Size of remote pointers (4 for 32-bit, 8 for 64-bit).
  * @tparam T The native type to deserialize into.
  * @param memory The memory abstraction providing the `MemoryRead` function.
  * @param cursor The current remote memory pointer.
  * @param target The native object to populate.
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
- *
- * @note
- * - This function does not perform any validation or error checking.
- * - It simply calls the user-provided `MemoryRead` function repeatedly.
- * - It is mandatory that the `MemoryRead` implementation performs all
- * validation and error handling.
- * - If `MemoryRead` reports failure by returning a sentinel like 0,
- * it must be prepared to handle such sentinel cursor values appropriately.
  */
 template <std::size_t SizeOfPtr, typename T>
   requires HasLayout<T>
