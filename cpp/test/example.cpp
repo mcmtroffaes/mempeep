@@ -7,7 +7,7 @@
 namespace mempeep {
 
 // ============================================================
-// Public API: Layout, StructLayout, ReadMemory
+// Public API: Layout, LayoutOf, ReadMemory
 // ============================================================
 
 template <auto MemberPtr>
@@ -41,14 +41,14 @@ struct Layout {};
  * Example:
  *
  *   template <>
- *   struct StructLayout<Pos> {
+ *   struct LayoutOf<Pos> {
  *     using layout = Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>;
  *   };
  *
  * Valid items in a layout are Field<&Class::member>, Pad<N>, and Offset<N>.
  */
 template <typename T>
-struct StructLayout;
+struct LayoutOf;
 
 /**
  * @brief Copy remote memory to a native buffer and advance remote pointer.
@@ -75,16 +75,16 @@ struct StructLayout;
 using ReadMemory = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
 /**
- * @brief Check StuctLayout<T>::layout exists.
+ * @brief Check LayoutOf<T>::layout exists.
  */
 template <typename T, typename... Items>
-concept HasLayout = requires { typename StructLayout<T>::layout; };
+concept HasLayout = requires { typename LayoutOf<T>::layout; };
 
 /**
- * @brief Shorthand for StuctLayout<T>::layout.
+ * @brief Shorthand for LayoutOf<T>::layout.
  */
 template <typename T>
-using layout_t = typename StructLayout<T>::layout;
+using layout_t = typename LayoutOf<T>::layout;
 
 // Forward declaration to support recursive Layout reading.
 template <typename T>
@@ -164,7 +164,7 @@ intptr_t read_layout(
 // ============================================================
 
 /**
- * @brief Read native type T from remote memory using StructLayout<T>::layout.
+ * @brief Read native type T from remote memory using LayoutOf<T>::layout.
  *
  * Note that the implementation only uses read_memory for advancing the
  * pointer. In particular, both Pad and Offset are implemented by a call to
@@ -219,12 +219,12 @@ struct Player {
 };
 
 template <>
-struct mempeep::StructLayout<Pos> {
+struct mempeep::LayoutOf<Pos> {
   using layout = Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>, Pad<4>>;
 };
 
 template <>
-struct mempeep::StructLayout<Player> {
+struct mempeep::LayoutOf<Player> {
   using layout = Layout<
     Offset<8>,
     Field<&Player::health>,
