@@ -138,6 +138,10 @@ struct LayoutOf;
 
 using MemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
+template <std::size_t N>
+concept IsSupportedSizeOfPtr
+  = (N == 1 || N == 2 || N == 4 || N == 8) && (N <= sizeof(intptr_t));
+
 /**
  * @brief Remote memory abstraction layer.
  *
@@ -146,6 +150,7 @@ using MemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
  * @tparam SizeOfPtr Size of remote pointers (4 for 32-bit, 8 for 64-bit).
  */
 template <std::size_t SizeOfPtr>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 struct Memory {
   /**
    * @brief User-provided memory read function
@@ -188,6 +193,7 @@ using layout_t = typename LayoutOf<T>::layout;
 
 // Forward declaration to support recursive reading.
 template <std::size_t SizeOfPtr, typename T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target);
 
 namespace detail {
@@ -251,6 +257,7 @@ template <std::size_t Size>
 using signed_int_t = typename signed_int<Size>::type;
 
 template <std::size_t SizeOfPtr>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_optional_ptr(
   const MemoryRead& memory_read, intptr_t cursor, intptr_t& target
 ) {
@@ -263,6 +270,7 @@ intptr_t read_optional_ptr(
 }
 
 template <std::size_t SizeOfPtr>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_ptr(
   const MemoryRead& memory_read, intptr_t cursor, intptr_t& target
 ) {
@@ -272,6 +280,7 @@ intptr_t read_ptr(
 }
 
 template <typename Item, std::size_t SizeOfPtr, typename T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   Item, const Memory<SizeOfPtr>&, intptr_t, intptr_t, T&
 ) {
@@ -279,6 +288,7 @@ intptr_t read_layout_item(
 }
 
 template <std::size_t N, std::size_t SizeOfPtr, typename T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   Pad<N>, const Memory<SizeOfPtr>& memory, intptr_t, intptr_t cursor, T&
 ) {
@@ -286,6 +296,7 @@ intptr_t read_layout_item(
 }
 
 template <std::size_t N, std::size_t SizeOfPtr, typename T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   Offset<N>, const Memory<SizeOfPtr>& memory, intptr_t base, intptr_t, T&
 ) {
@@ -293,6 +304,7 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   Field<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
@@ -306,6 +318,7 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   FieldOptionalPtr<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
@@ -323,6 +336,7 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   FieldPtr<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
@@ -340,6 +354,7 @@ intptr_t read_layout_item(
 }
 
 template <LayoutItem... Items, std::size_t SizeOfPtr, typename T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout(
   Layout<Items...>, const Memory<SizeOfPtr>& memory, intptr_t base, T& target
 ) {
@@ -374,6 +389,7 @@ intptr_t read_layout(
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
 template <std::size_t SizeOfPtr, typename T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
   if constexpr (HasLayout<T>) {
     return detail::read_layout(layout_t<T>{}, memory, base, target);
