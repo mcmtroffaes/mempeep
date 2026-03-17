@@ -13,16 +13,16 @@ namespace mempeep {
 // ============================================================
 
 template <intptr_t N>
-concept PositiveIntPtr = (N > 0);
+concept IsPositiveIntPtr = (N > 0);
 
 template <auto MemberPtr>
-concept MemberObjectPointer
+concept IsMemberObjectPointer
   = std::is_member_object_pointer_v<decltype(MemberPtr)>;
 
 /**
  * @brief For tagging layout items.
  *
- * The LayoutItem concept selects those types that have this tag.
+ * The IsLayoutItem concept selects those types that have this tag.
  */
 struct layout_item_tag {};
 
@@ -34,7 +34,7 @@ struct layout_item_tag {};
  *   Field<&Class::member>
  */
 template <auto MemberPtr>
-  requires MemberObjectPointer<MemberPtr>
+  requires IsMemberObjectPointer<MemberPtr>
 struct Field {
   using layout_item_tag = layout_item_tag;
 };
@@ -43,7 +43,7 @@ struct Field {
  * @brief Padding bytes to relative to the current position in the layout.
  */
 template <intptr_t N>
-  requires PositiveIntPtr<N>
+  requires IsPositiveIntPtr<N>
 struct Pad {
   using layout_item_tag = layout_item_tag;
 };
@@ -52,7 +52,7 @@ struct Pad {
  * @brief Offset (in bytes) relative to the base position of the layout.
  */
 template <intptr_t N>
-  requires PositiveIntPtr<N>
+  requires IsPositiveIntPtr<N>
 struct Offset {
   using layout_item_tag = layout_item_tag;
 };
@@ -62,7 +62,7 @@ struct Offset {
  * @tparam MemberPtr The native field to deserialize the pointee into.
  */
 template <auto MemberPtr>
-  requires MemberObjectPointer<MemberPtr>
+  requires IsMemberObjectPointer<MemberPtr>
 struct FieldRef {
   using layout_item_tag = layout_item_tag;
 };
@@ -73,7 +73,7 @@ struct FieldRef {
  *                   Must have type std::optional<T>.
  */
 template <auto MemberPtr>
-  requires MemberObjectPointer<MemberPtr>
+  requires IsMemberObjectPointer<MemberPtr>
 struct FieldOptionalRef {
   using layout_item_tag = layout_item_tag;
 };
@@ -85,7 +85,7 @@ struct FieldOptionalRef {
  *   FieldPtr<&Class::member>
  */
 template <auto MemberPtr>
-  requires MemberObjectPointer<MemberPtr>
+  requires IsMemberObjectPointer<MemberPtr>
 struct FieldPtr {
   using layout_item_tag = layout_item_tag;
 };
@@ -97,13 +97,13 @@ struct FieldPtr {
  *   FieldOptionalPtr<&Class::member>
  */
 template <auto MemberPtr>
-  requires MemberObjectPointer<MemberPtr>
+  requires IsMemberObjectPointer<MemberPtr>
 struct FieldOptionalPtr {
   using layout_item_tag = layout_item_tag;
 };
 
 template <typename T>
-concept LayoutItem = requires { typename T::layout_item_tag; };
+concept IsLayoutItem = requires { typename T::layout_item_tag; };
 
 /**
  * @brief Defines a remote layout.
@@ -115,7 +115,7 @@ concept LayoutItem = requires { typename T::layout_item_tag; };
  *
  * @tparam Items Sequence of Field, Offset, and Pad types.
  */
-template <LayoutItem... Items>
+template <IsLayoutItem... Items>
 struct Layout {};
 
 /**
@@ -221,7 +221,7 @@ namespace detail {
 // ============================================================
 
 template <auto MemberPtr>
-  requires MemberObjectPointer<MemberPtr>
+  requires IsMemberObjectPointer<MemberPtr>
 struct member_pointer_traits;
 
 template <typename C, typename T, T C::* MemberPtr>
@@ -231,7 +231,7 @@ struct member_pointer_traits<MemberPtr> {
 };
 
 template <auto MemberPtr>
-  requires MemberObjectPointer<MemberPtr>
+  requires IsMemberObjectPointer<MemberPtr>
 using member_type_t = typename member_pointer_traits<MemberPtr>::member_type;
 
 template <typename T>
@@ -323,7 +323,7 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires MemberObjectPointer<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
+  requires IsMemberObjectPointer<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   Field<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
@@ -337,7 +337,7 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires MemberObjectPointer<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
+  requires IsMemberObjectPointer<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   FieldOptionalPtr<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
@@ -355,7 +355,7 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires MemberObjectPointer<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   FieldPtr<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
@@ -372,7 +372,7 @@ intptr_t read_layout_item(
   return read_ptr<SizeOfPtr>(memory.read, cursor, field);
 }
 
-template <LayoutItem... Items, std::size_t SizeOfPtr, typename T>
+template <IsLayoutItem... Items, std::size_t SizeOfPtr, typename T>
   requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout(
   Layout<Items...>, const Memory<SizeOfPtr>& memory, intptr_t base, T& target
@@ -422,7 +422,7 @@ intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
 #include <iostream>
 
 template <intptr_t N>
-  requires mempeep::PositiveIntPtr<N>
+  requires mempeep::IsPositiveIntPtr<N>
 struct MemoryReadMock {
   char data[N]{};
 
