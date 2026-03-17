@@ -154,7 +154,6 @@ using layout_t = typename LayoutOf<T>::layout;
 
 // Forward declaration to support recursive Layout reading.
 template <std::size_t SizeOfPtr, typename T>
-  requires HasLayout<T>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target);
 
 namespace detail {
@@ -270,11 +269,7 @@ intptr_t read_layout_item(
 ) {
   using member_type = member_type_t<MemberPtr>;
   auto& field = target.*MemberPtr;
-  if constexpr (HasLayout<member_type>) {
-    return read(memory, cursor, field);
-  } else {
-    return memory.read(cursor, sizeof(field), &field);
-  }
+  return read(memory, cursor, field);
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
@@ -346,9 +341,12 @@ intptr_t read_layout(
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
 template <std::size_t SizeOfPtr, typename T>
-  requires HasLayout<T>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
-  return detail::read_layout(layout_t<T>{}, memory, base, target);
+  if constexpr (HasLayout<T>) {
+    return detail::read_layout(layout_t<T>{}, memory, base, target);
+  } else {
+    return memory.read(base, sizeof(target), &target);
+  }
 }
 
 }  // namespace mempeep
