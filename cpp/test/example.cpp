@@ -7,7 +7,7 @@
 namespace mempeep {
 
 // ============================================================
-// Public API: Layout & ReadRemote
+// Public API: Layout & RemoteMemoryRead
 // ============================================================
 
 template <auto Member>
@@ -65,7 +65,7 @@ struct Remote;
  * @return New cursor position after the read, or a sentinel indicating the read
  * failed.
  */
-using ReadRemote = std::function<intptr_t(intptr_t, intptr_t, void*)>;
+using RemoteMemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
 template <typename T, typename... Items>
 concept HasRemoteLayout = requires { typename Remote<T>::layout; };
@@ -76,7 +76,7 @@ using remote_layout_t = typename Remote<T>::layout;
 // Forward declaration to support recursive Layout reading.
 template <typename T>
   requires HasRemoteLayout<T>
-intptr_t read(const ReadRemote& read_remote, intptr_t base, T& out);
+intptr_t read(const RemoteMemoryRead& read_remote, intptr_t base, T& out);
 
 namespace detail {
 
@@ -95,14 +95,16 @@ struct member_pointer_traits<Ptr> {
 
 // If Item is not specialized then we must have an invalid item in Layout.
 template <typename T, typename Item>
-intptr_t apply_read_rule(Item, const ReadRemote&, intptr_t, intptr_t, T&) {
+intptr_t apply_read_rule(
+  Item, const RemoteMemoryRead&, intptr_t, intptr_t, T&
+) {
   static_assert(!std::is_same_v<Item, Item>, "Unsupported layout item");
 }
 
 // Specialization for Pad<N>.
 template <typename T, std::size_t N>
 intptr_t apply_read_rule(
-  Pad<N>, const ReadRemote& read_remote, intptr_t, intptr_t cursor, T&
+  Pad<N>, const RemoteMemoryRead& read_remote, intptr_t, intptr_t cursor, T&
 ) {
   return read_remote(cursor, N, nullptr);
 }
@@ -110,7 +112,7 @@ intptr_t apply_read_rule(
 // Specialization for Offset<N>.
 template <typename T, std::size_t N>
 intptr_t apply_read_rule(
-  Offset<N>, const ReadRemote& read_remote, intptr_t base, intptr_t, T&
+  Offset<N>, const RemoteMemoryRead& read_remote, intptr_t base, intptr_t, T&
 ) {
   return read_remote(base, N, nullptr);
 }
@@ -119,7 +121,7 @@ intptr_t apply_read_rule(
 template <typename T, auto Member>
 intptr_t apply_read_rule(
   Field<Member>,
-  const ReadRemote& read_remote,
+  const RemoteMemoryRead& read_remote,
   intptr_t base,
   intptr_t cursor,
   T& out
@@ -136,7 +138,7 @@ intptr_t apply_read_rule(
 
 template <typename T, typename... Items>
 intptr_t read_layout(
-  Layout<Items...>, const ReadRemote& read_remote, intptr_t base, T& out
+  Layout<Items...>, const RemoteMemoryRead& read_remote, intptr_t base, T& out
 ) {
   intptr_t cursor = base;
   // fold from first to last item
@@ -156,7 +158,7 @@ intptr_t read_layout(
  * Note that the implementation only uses read_remote for advancing the pointer.
  * In particular, both Pad and Offset are implemented by a call
  * to read_remote.
- * 
+ *
  * Consequently, all error handling concerning pointer overflows or invalid
  * pointers is delegated to read_remote.
  *
@@ -167,7 +169,7 @@ intptr_t read_layout(
  */
 template <typename T>
   requires HasRemoteLayout<T>
-intptr_t read(const ReadRemote& read_remote, intptr_t base, T& out) {
+intptr_t read(const RemoteMemoryRead& read_remote, intptr_t base, T& out) {
   return detail::read_layout(remote_layout_t<T>{}, read_remote, base, out);
 }
 
@@ -180,7 +182,7 @@ intptr_t read(const ReadRemote& read_remote, intptr_t base, T& out) {
 #include <iostream>
 
 template <intptr_t N>
-struct ReadRemoteMock {
+struct RemoteMemoryReadMock {
   char data[N]{};
 
   intptr_t operator()(intptr_t cursor, intptr_t size, void* buffer) const {
@@ -222,7 +224,7 @@ struct mempeep::Remote<Player> {
 };
 
 int main() {
-  ReadRemoteMock<48> buf{};
+  RemoteMemoryReadMock<48> buf{};
   buf.write_int(18, 123);
   buf.write_int(26, 11);
   buf.write_int(34, 22);
