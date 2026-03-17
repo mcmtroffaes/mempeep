@@ -56,8 +56,15 @@ struct Remote;
  */
 using ReadRemote = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
+template <typename T, typename... Items>
+concept HasRemoteLayout = requires { typename Remote<T>::layout; };
+
+template <typename T>
+using remote_layout_t = typename Remote<T>::layout;
+
 // Forward declaration to support recursive Layout reading.
 template <typename T>
+  requires HasRemoteLayout<T>
 intptr_t read(const ReadRemote& read_remote, intptr_t base, T& out);
 
 namespace detail {
@@ -74,15 +81,6 @@ struct member_pointer_traits<Ptr> {
   using class_type = Class;
   using member_type = Member;
 };
-
-template <typename T>
-using remote_layout_t = typename Remote<T>::layout;
-
-template <typename T, typename = void>
-inline constexpr bool has_remote_v = false;
-
-template <typename T>
-inline constexpr bool has_remote_v<T, std::void_t<remote_layout_t<T>>> = true;
 
 // If Item is not specialized then we must have an invalid item in Layout.
 template <typename T, typename Item>
@@ -117,7 +115,7 @@ intptr_t apply_read_rule(
 ) {
   using member_type = typename member_pointer_traits<Member>::member_type;
   auto& field = out.*Member;
-  if constexpr (has_remote_v<member_type>) {
+  if constexpr (HasRemoteLayout<member_type>) {
     // read returns the new cursor after the nested struct
     return read(read_remote, cursor, field);
   } else {
@@ -142,20 +140,17 @@ intptr_t read_layout(
 // ============================================================
 
 /**
- * @brief Read native type T from remote memory, using Remote<T>::layout if
- * needed.
+ * @brief Read native type T from remote memory using Remote<T>::layout.
  *
  * @param read_remote Function for reading bytes from remote memory.
  * @param base        Remote base pointer of the struct.
  * @param out         Native destination.
- * @return            Remote pointer to the memory right after.
+ * @return            The outcome of the final read_remote call.
  */
 template <typename T>
+  requires HasRemoteLayout<T>
 intptr_t read(const ReadRemote& read_remote, intptr_t base, T& out) {
-  static_assert(detail::has_remote_v<T>, "Remote<T> must be specialized");
-  return detail::read_layout(
-    detail::remote_layout_t<T>{}, read_remote, base, out
-  );
+  return detail::read_layout(remote_layout_t<T>{}, read_remote, base, out);
 }
 
 }  // namespace mempeep
