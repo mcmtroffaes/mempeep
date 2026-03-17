@@ -143,7 +143,7 @@ struct Memory {
 /**
  * @brief Check LayoutOf<T>::layout exists.
  */
-template <typename T, typename... Items>
+template <typename T>
 concept HasLayout = requires { typename LayoutOf<T>::layout; };
 
 /**
@@ -152,7 +152,7 @@ concept HasLayout = requires { typename LayoutOf<T>::layout; };
 template <typename T>
 using layout_t = typename LayoutOf<T>::layout;
 
-// Forward declaration to support recursive Layout reading.
+// Forward declaration to support recursive reading.
 template <std::size_t SizeOfPtr, typename T>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target);
 
