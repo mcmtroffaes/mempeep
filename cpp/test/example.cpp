@@ -178,7 +178,7 @@ template <auto M>
 struct FieldOptionalRef : LayoutItem {};
 
 /**
- * @brief Remote pointer (as an intptr_t) that is guaranteed to be valid.
+ * @brief Remote pointer (as an intptr_t).
  *
  * Usage:
  *   FieldPtr<&Class::member>
@@ -186,16 +186,6 @@ struct FieldOptionalRef : LayoutItem {};
 template <auto M>
   requires IsMemberTypeSame<M, intptr_t>
 struct FieldPtr : LayoutItem {};
-
-/**
- * @brief Remote pointer (as an intptr_t) that may be invalid.
- *
- * Usage:
- *   FieldOptionalPtr<&Class::member>
- */
-template <auto M>
-  requires IsMemberTypeSame<M, intptr_t>
-struct FieldOptionalPtr : LayoutItem {};
 
 using MemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
@@ -284,31 +274,12 @@ using signed_int_t = typename signed_int<SizeOfInt>::type;
 // Sets target to 0 if pointer is not valid.
 template <std::size_t SizeOfPtr>
   requires IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read_optional_ptr(
-  const MemoryRead& memory_read, intptr_t cursor, intptr_t& target
-) {
-  signed_int_t<SizeOfPtr> ptr{};
-  cursor = memory_read(cursor, sizeof(ptr), &ptr);
-  if (ptr != 0) {
-    // extra memory_read to validate pointer
-    target = memory_read(static_cast<intptr_t>(ptr), 0, nullptr);
-  } else {
-    // ptr == 0 is ok since optional
-    target = 0;
-  }
-  return cursor;
-}
-
-// Sets target to 0 if pointer is not valid.
-template <std::size_t SizeOfPtr>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_ptr(
   const MemoryRead& memory_read, intptr_t cursor, intptr_t& target
 ) {
   signed_int_t<SizeOfPtr> ptr{};
   cursor = memory_read(cursor, sizeof(ptr), &ptr);
-  // extra memory_read to validate pointer (even if ptr == 0, to flag error)
-  target = memory_read(static_cast<intptr_t>(ptr), 0, nullptr);
+  target = static_cast<intptr_t>(ptr);
   return cursor;
 }
 
@@ -339,20 +310,6 @@ intptr_t read_layout_item(
 ) {
   auto& field = target.*M;
   return read(memory, cursor, field);
-}
-
-template <auto M, std::size_t SizeOfPtr, HasNativeLayout T>
-  requires IsMemberTypeSame<M, intptr_t> && IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read_layout_item(
-  FieldOptionalPtr<M>,
-  const Memory<SizeOfPtr>& memory,
-  intptr_t base,
-  intptr_t cursor,
-  T& target
-) {
-  using member_type = member_type_t<M>;
-  auto& field = target.*M;
-  return read_optional_ptr<SizeOfPtr>(memory.read, cursor, field);
 }
 
 template <auto M, std::size_t SizeOfPtr, HasNativeLayout T>
@@ -396,7 +353,7 @@ intptr_t read_layout_item(
   T& target
 ) {
   intptr_t target_ptr{};
-  cursor = read_optional_ptr<SizeOfPtr>(memory.read, cursor, target_ptr);
+  cursor = read_ptr<SizeOfPtr>(memory.read, cursor, target_ptr);
   if (target_ptr) {
     auto value = member_optional_type_t<M>{};  // std::optional<...>{}
     if (read(memory, target_ptr, value)) {
@@ -507,8 +464,8 @@ struct mempeep::RegisterLayout<Player> {
     Field<&Player::health>,
     Offset<16>,
     Field<&Player::pos>,
-    FieldOptionalPtr<&Player::target_ptr>,
-    FieldOptionalPtr<&Player::shop_ptr>,
+    FieldPtr<&Player::target_ptr>,
+    FieldPtr<&Player::shop_ptr>,
     FieldPtr<&Player::weapon_ptr>,
     FieldRef<&Player::prev_pos>,
     FieldOptionalRef<&Player::tagged_pos>,
