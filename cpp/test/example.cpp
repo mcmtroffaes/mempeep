@@ -395,6 +395,23 @@ intptr_t read_layout_item(
   return read_ptr<SizeOfPtr>(memory.read, cursor, field);
 }
 
+template <auto M, std::size_t SizeOfPtr, typename T>
+  requires IsMemberTypeNativeLayout<M> && IsSupportedSizeOfPtr<SizeOfPtr>
+intptr_t read_layout_item(
+  FieldRef<M>,
+  const Memory<SizeOfPtr>& memory,
+  intptr_t base,
+  intptr_t cursor,
+  T& target
+) {
+  using member_type = member_type_t<M>;
+  intptr_t target_ptr{};
+  cursor = read_ptr<SizeOfPtr>(memory.read, cursor, target_ptr);
+  auto& field = target.*M;
+  read(memory, target_ptr, field);
+  return cursor;
+}
+
 template <IsLayoutItem... Items, std::size_t SizeOfPtr, typename T>
   requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout(
@@ -464,14 +481,16 @@ struct MemoryReadMock {
 };
 
 struct Pos {
-  int x, y;
+  int32_t x, y;
 };
 
 struct Player {
-  int health;
+  int32_t health;
   Pos pos;
   intptr_t target_ptr;
   intptr_t weapon_ptr;
+  Pos prev_pos;
+  int32_t mana;
 };
 
 template <>
@@ -487,16 +506,22 @@ struct mempeep::RegisterLayout<Player> {
     Offset<16>,
     Field<&Player::pos>,
     FieldOptionalPtr<&Player::target_ptr>,
-    FieldPtr<&Player::weapon_ptr>>;
+    FieldPtr<&Player::weapon_ptr>,
+    FieldRef<&Player::prev_pos>,
+    Field<&Player::mana>>;
 };
 
 int main() {
-  MemoryReadMock<64> memory_read{};
+  MemoryReadMock<128> memory_read{};
   memory_read.write(18, int32_t(123));
   memory_read.write(26, int32_t(11));
   memory_read.write(34, int32_t(22));
-  memory_read.write(42, int16_t(-4));  // intentially invalid
-  memory_read.write(44, int16_t(5));
+  memory_read.write(42, int16_t(-4));  // target_ptr (optional)
+  memory_read.write(44, int16_t(5));   // weapon_ptr
+  memory_read.write(46, int16_t(60));  // prev_pos pointer
+  memory_read.write(48, int32_t(47));
+  memory_read.write(60, int32_t(88));
+  memory_read.write(68, int32_t(99));
   auto memory = mempeep::Memory<2>{memory_read};
 
   Player player{};
@@ -507,4 +532,7 @@ int main() {
   assert(player.pos.y == 22);
   assert(player.target_ptr == -4);
   assert(player.weapon_ptr == 5);
+  assert(player.prev_pos.x == 88);
+  assert(player.prev_pos.y == 99);
+  assert(player.mana == 47);
 }
