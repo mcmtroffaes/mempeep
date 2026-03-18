@@ -212,7 +212,9 @@ template <
   IsPointerType PointerType,
   IsMemoryRead<PointerType> MemoryRead,
   HasNoRegisteredLayout T>
-PointerType read(const MemoryRead& memory_read, PointerType base, T& target) {
+[[nodiscard]] PointerType read(
+  const MemoryRead& memory_read, PointerType base, T& target
+) {
   return memory_read(base, sizeof(target), &target);
 };
 
@@ -221,7 +223,9 @@ template <
   IsPointerType PointerType,
   IsMemoryRead<PointerType> MemoryRead,
   HasRegisteredLayout T>
-PointerType read(const MemoryRead& memory_read, PointerType base, T& target);
+[[nodiscard]] PointerType read(
+  const MemoryRead& memory_read, PointerType base, T& target
+);
 
 namespace detail {
 
@@ -235,7 +239,7 @@ template <
   HasNativeLayout T,
   PointerType N>
   requires(N > 0)
-PointerType read_layout_item(
+[[nodiscard]] PointerType read_layout_item(
   Pad<N>, const MemoryRead& memory_read, PointerType, PointerType cursor, T&
 ) {
   return memory_read(cursor, N, nullptr);
@@ -247,7 +251,7 @@ template <
   HasNativeLayout T,
   PointerType N>
   requires(N > 0)
-PointerType read_layout_item(
+[[nodiscard]] PointerType read_layout_item(
   Offset<N>, const MemoryRead& memory_read, PointerType base, PointerType, T&
 ) {
   return memory_read(base, N, nullptr);
@@ -259,7 +263,7 @@ template <
   IsMemoryRead<PointerType> MemoryRead,
   HasNativeLayout T>
   requires IsMemberTypeNativeLayout<M>
-PointerType read_layout_item(
+[[nodiscard]] PointerType read_layout_item(
   Field<M>,
   const MemoryRead& memory_read,
   PointerType base,
@@ -276,7 +280,7 @@ template <
   IsMemoryRead<PointerType> MemoryRead,
   HasNativeLayout T>
   requires IsMemberTypeNativeLayout<M>
-PointerType read_layout_item(
+[[nodiscard]] PointerType read_layout_item(
   FieldRef<M>,
   const MemoryRead& memory_read,
   PointerType base,
@@ -286,7 +290,12 @@ PointerType read_layout_item(
   PointerType target_ptr{};
   cursor = memory_read(cursor, sizeof(target_ptr), &target_ptr);
   auto& field = target.*M;
-  if (target_ptr) read(memory_read, target_ptr, field);
+  if (target_ptr) {
+    if (!read(memory_read, target_ptr, field))
+    {
+        // TODO handle error
+    }
+  }
   return cursor;
 }
 
@@ -296,7 +305,7 @@ template <
   IsMemoryRead<PointerType> MemoryRead,
   HasNativeLayout T>
   requires IsMemberOptionalTypeNativeLayout<M>
-PointerType read_layout_item(
+[[nodiscard]] PointerType read_layout_item(
   FieldOptionalRef<M>,
   const MemoryRead& memory_read,
   PointerType base,
@@ -323,7 +332,7 @@ template <
   IsPointerType PointerType,
   IsMemoryRead<PointerType> MemoryRead,
   HasNativeLayout T>
-PointerType read_layout(
+[[nodiscard]] PointerType read_layout(
   Layout<Items...>, const MemoryRead& memory_read, PointerType base, T& target
 ) {
   PointerType cursor = base;
@@ -361,7 +370,7 @@ template <
   IsPointerType PointerType,
   IsMemoryRead<PointerType> MemoryRead,
   HasRegisteredLayout T>
-PointerType read(const MemoryRead& memory_read, PointerType base, T& target) {
+[[nodiscard]] PointerType read(const MemoryRead& memory_read, PointerType base, T& target) {
   return detail::read_layout(
     registered_layout_t<T>{}, memory_read, base, target
   );
@@ -455,7 +464,7 @@ int main() {
   memory_read.write(88, int32_t(66));   // tagged_pos.y
 
   Player player{};
-  mempeep::read(memory_read, int16_t(10), player);
+  assert(mempeep::read(memory_read, int16_t(10), player));
 
   assert(player.health == 123);
   assert(player.pos.x == 11);
