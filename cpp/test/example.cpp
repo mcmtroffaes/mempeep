@@ -273,19 +273,6 @@ namespace detail {
 // Helpers
 // ============================================================
 
-template <typename T>
-struct optional_traits {
-  static_assert(false, "Expected std::optional<T>");
-};
-
-template <typename T>
-struct optional_traits<std::optional<T>> {
-  using value_type = T;
-};
-
-template <typename T>
-using optional_value_t = typename optional_traits<T>::value_type;
-
 template <std::size_t Size>
   requires IsSupportedSizeOfInt<Size>
 struct signed_int;
