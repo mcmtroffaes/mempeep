@@ -112,7 +112,7 @@ struct RegisterLayout;
  *
  * Checks if RegisterLayout<T>::layout exists.
  */
-template <typename T, typename... Items>
+template <typename T>
 concept HasRegisteredLayout = requires { typename RegisterLayout<T>::layout; };
 
 /**
@@ -354,12 +354,15 @@ intptr_t read_layout_item(
 ) {
   intptr_t target_ptr{};
   cursor = read_ptr<SizeOfPtr>(memory.read, cursor, target_ptr);
+  auto& field = target.*M;
   if (target_ptr) {
-    auto value = member_optional_type_t<M>{};  // std::optional<...>{}
+    using U = member_optional_type_t<M>;  // std::optional<U> -> U
+    U value{};
     if (read(memory, target_ptr, value)) {
-      auto& field = target.*M;
-      field = value;
+      field = std::move(value);
     }
+  } else {
+    field.reset();
   }
   return cursor;
 }
