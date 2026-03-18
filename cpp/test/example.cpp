@@ -1,10 +1,9 @@
 #include <cassert>      // assert
 #include <cstdint>      // std::intptr_t, ...
 #include <cstring>      // std::memcpy
-#include <expected>     // std::expected
 #include <functional>   // std::function
 #include <optional>     // std::optional
-#include <type_traits>  // std::is_same_v
+#include <type_traits>  // std::is_same_v, ...
 
 namespace mempeep {
 
