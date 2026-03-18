@@ -82,7 +82,8 @@ template <IsLayoutItem... Items>
 struct Layout {};
 
 template <typename T>
-concept IsAnyLayout = std::is_standard_layout_v<T>;
+concept IsAnyLayout
+  = std::is_standard_layout_v<T> && std::is_default_constructible_v<T>;
 
 /**
  * @brief Template for registering the remote layout of a native struct.
