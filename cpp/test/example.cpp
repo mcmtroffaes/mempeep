@@ -68,7 +68,8 @@ using member_optional_type_t =
 struct LayoutItem {};
 
 template <typename T>
-concept IsLayoutItem = std::is_base_of_v<LayoutItem, T>;
+concept IsLayoutItem
+  = std::is_base_of_v<LayoutItem, T> && !std::same_as<T, LayoutItem>;
 
 /**
  * @brief Defines a remote layout.
