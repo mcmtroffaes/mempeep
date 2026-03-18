@@ -428,16 +428,15 @@ struct Player {
 
 template <>
 struct mempeep::RegisterLayout<Pos> {
-  using layout
-    = Layout<Field<&Pos::x>, Pad<int16_t(4)>, Field<&Pos::y>, Pad<int16_t(4)>>;
+  using layout = Layout<Field<&Pos::x>, Pad<4i16>, Field<&Pos::y>, Pad<4i16>>;
 };
 
 template <>
 struct mempeep::RegisterLayout<Player> {
   using layout = Layout<
-    Offset<int16_t(8)>,
+    Offset<8i16>,
     Field<&Player::health>,
-    Offset<int16_t(16)>,
+    Offset<16i16>,
     Field<&Player::pos>,
     Field<&Player::target_ptr>,
     Field<&Player::shop_ptr>,
@@ -450,23 +449,23 @@ struct mempeep::RegisterLayout<Player> {
 
 int main() {
   MemoryReadMock<128> memory_read{};
-  memory_read.write(18, int32_t(123));  // health
-  memory_read.write(26, int32_t(11));   // pos.x
-  memory_read.write(34, int32_t(22));   // pos.y
-  memory_read.write(42, int16_t(0));    // target_ptr (optional)
-  memory_read.write(44, int16_t(2));    // shop_ptr (optional)
-  memory_read.write(46, int16_t(6));    // weapon_ptr
-  memory_read.write(48, int16_t(60));   // prev_pos ref
-  memory_read.write(50, int16_t(80));   // tagged_pos ref (optional)
-  memory_read.write(52, int32_t(0));    // house_pos ref (optional)
-  memory_read.write(54, int32_t(47));   // mana
-  memory_read.write(60, int32_t(88));   // prev_pos.x
-  memory_read.write(68, int32_t(99));   // prev_pos.y
-  memory_read.write(80, int32_t(55));   // tagged_pos.x
-  memory_read.write(88, int32_t(66));   // tagged_pos.y
+  memory_read.write(18, 123i32);  // health
+  memory_read.write(26, 11i32);   // pos.x
+  memory_read.write(34, 22i32);   // pos.y
+  memory_read.write(42, 0i16);    // target_ptr (optional)
+  memory_read.write(44, 2i16);    // shop_ptr (optional)
+  memory_read.write(46, 6i16);    // weapon_ptr
+  memory_read.write(48, 60i16);   // prev_pos ref
+  memory_read.write(50, 80i16);   // tagged_pos ref (optional)
+  memory_read.write(52, 0i32);    // house_pos ref (optional)
+  memory_read.write(54, 47i32);   // mana
+  memory_read.write(60, 88i32);   // prev_pos.x
+  memory_read.write(68, 99i32);   // prev_pos.y
+  memory_read.write(80, 55i32);   // tagged_pos.x
+  memory_read.write(88, 66i32);   // tagged_pos.y
 
   Player player{};
-  assert(mempeep::read(memory_read, int16_t(10), player));
+  assert(mempeep::read(memory_read, 10i16, player));
 
   assert(player.health == 123);
   assert(player.pos.x == 11);
