@@ -81,6 +81,9 @@ concept IsLayoutItem = requires { typename T::layout_item_tag; };
 template <IsLayoutItem... Items>
 struct Layout {};
 
+template <typename T>
+concept IsAnyLayout = std::is_standard_layout_v<T>;
+
 /**
  * @brief Template for registering the remote layout of a native struct.
  *
@@ -97,6 +100,7 @@ struct Layout {};
  * @tparam T Native struct to register the layout for.
  */
 template <typename T>
+  requires IsAnyLayout<T>
 struct LayoutOf;
 
 /**
@@ -118,10 +122,7 @@ using custom_layout_t = typename LayoutOf<T>::layout;
  * @brief Does T have a standard layout (and no custom layout)?
  */
 template <typename T>
-concept IsStandardLayout = std::is_standard_layout_v<T> && !IsCustomLayout<T>;
-
-template <typename T>
-concept IsAnyLayout = std::is_standard_layout_v<T> || IsCustomLayout<T>;
+concept IsStandardLayout = IsAnyLayout<T> && !IsCustomLayout<T>;
 
 template <auto MemberPtr>
 concept IsMemberTypeAnyLayout = IsAnyLayout<member_type_t<MemberPtr>>;
