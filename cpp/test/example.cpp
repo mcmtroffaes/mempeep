@@ -7,7 +7,7 @@
 namespace mempeep {
 
 // ============================================================
-// Public API: Layout, RegisterLayout, ReadMemory
+// Public API: Layout, RegisterLayout, MemoryRead
 // ============================================================
 
 template <auto M>
@@ -145,23 +145,26 @@ struct Field : LayoutItem {};
 // Any signed integer type is permitted as remote pointer type.
 // Signed so subtracting pointers is safe.
 template <typename T>
-concept IsPointer = std::is_integral_v<T> && std::is_signed_v<T>;
+concept IsInteger = std::is_integral_v<T>;
 
-template <auto M>
-concept IsMemberTypePointer = IsPointer<member_type_t<M>>;
+template <auto N, typename MemoryRead>
+concept IsIntegerFitting
+  = IsInteger<decltype(N)>
+    && (N >= std::numeric_limits<typename MemoryRead::pointer_type>::min())
+    && (N <= std::numeric_limits<typename MemoryRead::pointer_type>::max());
 
 /**
  * @brief Padding bytes to relative to the current position in the layout.
  */
 template <auto N>
-  requires IsPointer<decltype(N)> && (N > 0)
+  requires IsInteger<decltype(N)> && (N > 0)
 struct Pad : LayoutItem {};
 
 /**
  * @brief Offset (in bytes) relative to the base position of the layout.
  */
 template <auto N>
-  requires IsPointer<decltype(N)> && (N > 0)
+  requires IsInteger<decltype(N)> && (N > 0)
 struct Offset : LayoutItem {};
 
 /**
@@ -182,6 +185,12 @@ template <auto M>
 struct FieldOptionalRef : LayoutItem {};
 
 /**
+ * @brief Extract pointer_type from MemoryRead.
+ */
+template <typename MemoryRead>
+using pointer_type_t = typename MemoryRead::pointer_type;
+
+/**
  * @brief Functor concept to read a block of memory from a remote source.
  *
  * Implementations of this functor must validate pointers, handle overflows,
@@ -198,32 +207,29 @@ struct FieldOptionalRef : LayoutItem {};
  * @param buffer Native destination buffer or `nullptr` for validation.
  * @return       `cursor + size` on success or 0 on failure.
  */
-template <typename MemoryRead, typename Pointer>
-concept IsMemoryRead
-  = IsPointer<Pointer>
-    && requires(
-      MemoryRead memory_read, Pointer cursor, Pointer size, void* buffer
-    ) {
-         { memory_read(cursor, size, buffer) } -> std::same_as<Pointer>;
-       };
+template <typename MemoryRead>
+concept IsMemoryRead = requires(
+  MemoryRead memory_read,
+  pointer_type_t<MemoryRead> cursor,
+  pointer_type_t<MemoryRead> size,
+  void* buffer
+) {
+  {
+    memory_read(cursor, size, buffer)
+  } -> std::same_as<pointer_type_t<MemoryRead>>;
+};
 
-template <
-  IsPointer Pointer,
-  IsMemoryRead<Pointer> MemoryRead,
-  HasNoRegisteredLayout T>
-[[nodiscard]] Pointer read(
-  const MemoryRead& memory_read, Pointer base, T& target
+template <IsMemoryRead MemoryRead, HasNoRegisteredLayout T>
+[[nodiscard]] pointer_type_t<MemoryRead> read(
+  const MemoryRead& memory_read, pointer_type_t<MemoryRead> base, T& target
 ) {
   return memory_read(base, sizeof(target), &target);
 };
 
 // Forward declaration to support recursive reading.
-template <
-  IsPointer Pointer,
-  IsMemoryRead<Pointer> MemoryRead,
-  HasRegisteredLayout T>
-[[nodiscard]] Pointer read(
-  const MemoryRead& memory_read, Pointer base, T& target
+template <IsMemoryRead MemoryRead, HasRegisteredLayout T>
+[[nodiscard]] pointer_type_t<MemoryRead> read(
+  const MemoryRead& memory_read, pointer_type_t<MemoryRead> base, T& target
 );
 
 namespace detail {
@@ -232,61 +238,55 @@ namespace detail {
 // Helpers
 // ============================================================
 
-template <
-  IsPointer Pointer,
-  IsMemoryRead<Pointer> MemoryRead,
-  HasNativeLayout T,
-  Pointer N>
-  requires(N > 0)
-[[nodiscard]] Pointer read_layout_item(
-  Pad<N>, const MemoryRead& memory_read, Pointer, Pointer cursor, T&
+template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T>
+  requires(IsIntegerFitting<N, MemoryRead>)  // ensure static_cast works
+[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
+  Pad<N>,
+  const MemoryRead& memory_read,
+  pointer_type_t<MemoryRead>,
+  pointer_type_t<MemoryRead> cursor,
+  T&
 ) {
-  return memory_read(cursor, N, nullptr);
+  return memory_read(
+    cursor, static_cast<pointer_type_t<MemoryRead>>(N), nullptr
+  );
 }
 
-template <
-  IsPointer Pointer,
-  IsMemoryRead<Pointer> MemoryRead,
-  HasNativeLayout T,
-  Pointer N>
-  requires(N > 0)
-[[nodiscard]] Pointer read_layout_item(
-  Offset<N>, const MemoryRead& memory_read, Pointer base, Pointer, T&
+template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T>
+  requires(IsIntegerFitting<N, MemoryRead>)  // ensure static_cast works
+[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
+  Offset<N>,
+  const MemoryRead& memory_read,
+  pointer_type_t<MemoryRead> base,
+  pointer_type_t<MemoryRead>,
+  T&
 ) {
-  return memory_read(base, N, nullptr);
+  return memory_read(base, static_cast<pointer_type_t<MemoryRead>>(N), nullptr);
 }
 
-template <
-  auto M,
-  IsPointer Pointer,
-  IsMemoryRead<Pointer> MemoryRead,
-  HasNativeLayout T>
+template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
   requires IsMemberTypeNativeLayout<M>
-[[nodiscard]] Pointer read_layout_item(
+[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   Field<M>,
   const MemoryRead& memory_read,
-  Pointer base,
-  Pointer cursor,
+  pointer_type_t<MemoryRead> base,
+  pointer_type_t<MemoryRead> cursor,
   T& target
 ) {
   auto& field = target.*M;
   return read(memory_read, cursor, field);
 }
 
-template <
-  auto M,
-  IsPointer Pointer,
-  IsMemoryRead<Pointer> MemoryRead,
-  HasNativeLayout T>
+template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
   requires IsMemberTypeNativeLayout<M>
-[[nodiscard]] Pointer read_layout_item(
+[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   FieldRef<M>,
   const MemoryRead& memory_read,
-  Pointer base,
-  Pointer cursor,
+  pointer_type_t<MemoryRead> base,
+  pointer_type_t<MemoryRead> cursor,
   T& target
 ) {
-  Pointer target_ptr{};
+  pointer_type_t<MemoryRead> target_ptr{};
   cursor = memory_read(cursor, sizeof(target_ptr), &target_ptr);
   auto& field = target.*M;
   if (target_ptr) {
@@ -297,20 +297,16 @@ template <
   return cursor;
 }
 
-template <
-  auto M,
-  IsPointer Pointer,
-  IsMemoryRead<Pointer> MemoryRead,
-  HasNativeLayout T>
+template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
   requires IsMemberOptionalTypeNativeLayout<M>
-[[nodiscard]] Pointer read_layout_item(
+[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   FieldOptionalRef<M>,
   const MemoryRead& memory_read,
-  Pointer base,
-  Pointer cursor,
+  pointer_type_t<MemoryRead> base,
+  pointer_type_t<MemoryRead> cursor,
   T& target
 ) {
-  Pointer target_ptr{};
+  pointer_type_t<MemoryRead> target_ptr{};
   cursor = memory_read(cursor, sizeof(target_ptr), &target_ptr);
   auto& field = target.*M;
   if (target_ptr) {
@@ -325,15 +321,14 @@ template <
   return cursor;
 }
 
-template <
-  IsLayoutItem... Items,
-  IsPointer Pointer,
-  IsMemoryRead<Pointer> MemoryRead,
-  HasNativeLayout T>
-[[nodiscard]] Pointer read_layout(
-  Layout<Items...>, const MemoryRead& memory_read, Pointer base, T& target
+template <IsLayoutItem... Items, IsMemoryRead MemoryRead, HasNativeLayout T>
+[[nodiscard]] pointer_type_t<MemoryRead> read_layout(
+  Layout<Items...>,
+  const MemoryRead& memory_read,
+  pointer_type_t<MemoryRead> base,
+  T& target
 ) {
-  Pointer cursor = base;
+  pointer_type_t<MemoryRead> cursor = base;
   // fold from first to last item
   ((cursor = read_layout_item(Items{}, memory_read, base, cursor, target)),
    ...);
@@ -355,7 +350,8 @@ template <
  * The `memory_read` callback must perform all validation and error handling.
  * See `MemoryRead` for more information.
  *
- * @tparam Pointer    The type of remote pointers (int32_t or int64_t).
+ * @tparam pointer_type_t<MemoryRead>    The type of remote pointers (int32_t or
+ * int64_t).
  * @tparam MemoryRead The type for the memory_read callback.
  * @tparam T          The native type to deserialize into.
  * @param memory The memory abstraction providing the `MemoryRead` function.
@@ -364,11 +360,11 @@ template <
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
 template <
-  IsPointer Pointer,
-  IsMemoryRead<Pointer> MemoryRead,
+
+  IsMemoryRead MemoryRead,
   HasRegisteredLayout T>
-[[nodiscard]] Pointer read(
-  const MemoryRead& memory_read, Pointer base, T& target
+[[nodiscard]] pointer_type_t<MemoryRead> read(
+  const MemoryRead& memory_read, pointer_type_t<MemoryRead> base, T& target
 ) {
   return detail::read_layout(
     registered_layout_t<T>{}, memory_read, base, target
@@ -388,6 +384,7 @@ template <
 template <int16_t N>
   requires(N > 0)
 struct MemoryReadMock {
+  using pointer_type = int16_t;
   std::byte data[N]{};
 
   int16_t operator()(int16_t cursor, int16_t size, void* buffer) const {
@@ -432,9 +429,9 @@ struct mempeep::RegisterLayout<Pos> {
 template <>
 struct mempeep::RegisterLayout<Player> {
   using layout = Layout<
-    Offset<8i16>,
+    Offset<8>,
     Field<&Player::health>,
-    Offset<16i16>,
+    Offset<16>,
     Field<&Player::pos>,
     Field<&Player::target_ptr>,
     Field<&Player::shop_ptr>,
