@@ -232,26 +232,21 @@ template <std::size_t SizeOfPtr>
   requires IsSupportedSizeOfPtr<SizeOfPtr>
 struct Memory {
   /**
-   * @brief User-provided memory read function.
+   * @brief Reads a block of memory from a remote source.
    *
-   * This function is responsible for reading a block of memory from a remote
-   * source.
-   *
-   * This function must perform all necessary validation and error
-   * checking internally.
-   * It is the responsibility of the implementation to handle pointer
-   * validation, overflow detection, and error conditions.
-   * If the cursor is not valid, or if otherwise an error occurs during reading,
-   * the function must return a zero cursor to signal failure. Alternatively,
-   * the function may raise an exception to abort the reading process.
-   * The library does not perform any validation or error checking on the
-   * return value; it simply calls this function repeatedly according to the
-   * specified layout.
+   * This user-implemented function must validate pointers, handle overflows,
+   * and manage read errors. On failure (invalid cursor, read error, etc.), it
+   * must return 0 or may throw an exception. The library performs no validation
+   * and repeatedly calls this function according to the memory layout. The
+   * function must handle `size == 0` or `buffer == nullptr` for pointer
+   * validation: if the range `[cursor, cursor + size)` is invalid, return 0;
+   * if valid but `buffer == nullptr`, return the `cursor + size`. Otherwise,
+   * copy `size` bytes into `buffer` and return `cursor + size`.
    *
    * @param cursor Remote source pointer.
-   * @param size   Number of bytes to copy (zero if just checking cursor).
-   * @param buffer Native destination buffer (null if just advancing cursor).
-   * @return       Updated remote pointer (cursor + size or 0).
+   * @param size   Number of bytes to read or 0 for validation.
+   * @param buffer Native destination buffer or `nullptr` for validation.
+   * @return       `cursor + size` on success or 0 on failure.
    */
   MemoryRead read;
 };
