@@ -1,5 +1,5 @@
 #include <cassert>      // assert
-#include <cstdint>      // std::intptr_t, ...
+#include <cstdint>      // std::PointerType, ...
 #include <cstring>      // std::memcpy
 #include <functional>   // std::function
 #include <optional>     // std::optional
@@ -10,9 +10,6 @@ namespace mempeep {
 // ============================================================
 // Public API: Layout, RegisterLayout, ReadMemory
 // ============================================================
-
-template <intptr_t N>
-concept IsPositiveIntPtr = (N > 0);
 
 template <auto M>
 concept IsMember = std::is_member_object_pointer_v<decltype(M)>;
@@ -146,18 +143,26 @@ template <auto M>
   requires IsMemberTypeNativeLayout<M>
 struct Field : LayoutItem {};
 
+// Any signed integer type that does not exceed native pointer width.
+// Signed so subtracting pointers is safe.
+template <typename T>
+concept IsPointerType = std::is_signed_v<T> && (sizeof(T) <= sizeof(intptr_t));
+
+template <auto M>
+concept IsMemberTypePointerType = IsPointerType<member_type_t<M>>;
+
 /**
  * @brief Padding bytes to relative to the current position in the layout.
  */
-template <intptr_t N>
-  requires IsPositiveIntPtr<N>
+template <auto N>
+  requires IsPointerType<decltype(N)> && (N > 0)
 struct Pad : LayoutItem {};
 
 /**
  * @brief Offset (in bytes) relative to the base position of the layout.
  */
-template <intptr_t N>
-  requires IsPositiveIntPtr<N>
+template <auto N>
+  requires IsPointerType<decltype(N)> && (N > 0)
 struct Offset : LayoutItem {};
 
 /**
@@ -178,64 +183,45 @@ template <auto M>
 struct FieldOptionalRef : LayoutItem {};
 
 /**
- * @brief Remote pointer (as an intptr_t).
+ * @brief Reads a block of memory from a remote source.
  *
- * Usage:
- *   FieldPtr<&Class::member>
+ * This user-implemented function must validate pointers, handle overflows,
+ * and manage read errors. On failure (invalid cursor, read error, etc.), it
+ * must return 0 or may throw an exception. The library performs no validation
+ * and repeatedly calls this function according to the memory layout. The
+ * function must handle `size == 0` or `buffer == nullptr` for pointer
+ * validation: if the range `[cursor, cursor + size)` is invalid, return 0;
+ * if valid but `buffer == nullptr`, return the `cursor + size`. Otherwise,
+ * copy `size` bytes into `buffer` and return `cursor + size`.
+ *
+ * @param cursor Remote source pointer.
+ * @param size   Number of bytes to read or 0 for validation.
+ * @param buffer Native destination buffer or `nullptr` for validation.
+ * @return       `cursor + size` on success or 0 on failure.
  */
-template <auto M>
-  requires IsMemberTypeSame<M, intptr_t>
-struct FieldPtr : LayoutItem {};
+template <typename MemoryRead, typename PointerType>
+concept IsMemoryRead
+  = IsPointerType<PointerType>
+    && requires(
+      MemoryRead memory_read, PointerType cursor, PointerType size, void* buffer
+    ) {
+         { memory_read(cursor, size, buffer) } -> std::same_as<PointerType>;
+       };
 
-using MemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
-
-template <std::size_t N>
-concept IsSupportedSizeOfInt = (N == 1 || N == 2 || N == 4 || N == 8);
-
-template <std::size_t N>
-concept IsSupportedSizeOfPtr
-  = IsSupportedSizeOfInt<N> && (N <= sizeof(intptr_t));
-
-/**
- * @brief Remote memory abstraction layer.
- *
- * Encapsulates reading as well as the size of remote pointers.
- *
- * @tparam SizeOfPtr Size of remote pointers (4 for 32-bit, 8 for 64-bit).
- */
-template <std::size_t SizeOfPtr>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
-struct Memory {
-  /**
-   * @brief Reads a block of memory from a remote source.
-   *
-   * This user-implemented function must validate pointers, handle overflows,
-   * and manage read errors. On failure (invalid cursor, read error, etc.), it
-   * must return 0 or may throw an exception. The library performs no validation
-   * and repeatedly calls this function according to the memory layout. The
-   * function must handle `size == 0` or `buffer == nullptr` for pointer
-   * validation: if the range `[cursor, cursor + size)` is invalid, return 0;
-   * if valid but `buffer == nullptr`, return the `cursor + size`. Otherwise,
-   * copy `size` bytes into `buffer` and return `cursor + size`.
-   *
-   * @param cursor Remote source pointer.
-   * @param size   Number of bytes to read or 0 for validation.
-   * @param buffer Native destination buffer or `nullptr` for validation.
-   * @return       `cursor + size` on success or 0 on failure.
-   */
-  MemoryRead read;
-};
-
-template <std::size_t SizeOfPtr, HasNoRegisteredLayout T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
-  return memory.read(base, sizeof(target), &target);
+template <
+  IsPointerType PointerType,
+  IsMemoryRead<PointerType> MemoryRead,
+  HasNoRegisteredLayout T>
+PointerType read(const MemoryRead& memory_read, PointerType base, T& target) {
+  return memory_read(base, sizeof(target), &target);
 };
 
 // Forward declaration to support recursive reading.
-template <std::size_t SizeOfPtr, HasRegisteredLayout T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target);
+template <
+  IsPointerType PointerType,
+  IsMemoryRead<PointerType> MemoryRead,
+  HasRegisteredLayout T>
+PointerType read(const MemoryRead& memory_read, PointerType base, T& target);
 
 namespace detail {
 
@@ -243,138 +229,107 @@ namespace detail {
 // Helpers
 // ============================================================
 
-template <std::size_t Size>
-  requires IsSupportedSizeOfInt<Size>
-struct signed_int;
-
-template <>
-struct signed_int<1> {
-  using type = std::int8_t;
-};
-
-template <>
-struct signed_int<2> {
-  using type = std::int16_t;
-};
-
-template <>
-struct signed_int<4> {
-  using type = std::int32_t;
-};
-
-template <>
-struct signed_int<8> {
-  using type = std::int64_t;
-};
-
-template <std::size_t SizeOfInt>
-  requires IsSupportedSizeOfInt<SizeOfInt>
-using signed_int_t = typename signed_int<SizeOfInt>::type;
-
-// Sets target to 0 if pointer is not valid.
-template <std::size_t SizeOfPtr>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read_ptr(
-  const MemoryRead& memory_read, intptr_t cursor, intptr_t& target
+template <
+  IsPointerType PointerType,
+  IsMemoryRead<PointerType> MemoryRead,
+  HasNativeLayout T,
+  PointerType N>
+  requires(N > 0)
+PointerType read_layout_item(
+  Pad<N>, const MemoryRead& memory_read, PointerType, PointerType cursor, T&
 ) {
-  signed_int_t<SizeOfPtr> ptr{};
-  cursor = memory_read(cursor, sizeof(ptr), &ptr);
-  target = static_cast<intptr_t>(ptr);
-  return cursor;
+  return memory_read(cursor, N, nullptr);
 }
 
-template <std::size_t N, std::size_t SizeOfPtr, HasNativeLayout T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read_layout_item(
-  Pad<N>, const Memory<SizeOfPtr>& memory, intptr_t, intptr_t cursor, T&
+template <
+  IsPointerType PointerType,
+  IsMemoryRead<PointerType> MemoryRead,
+  HasNativeLayout T,
+  PointerType N>
+  requires(N > 0)
+PointerType read_layout_item(
+  Offset<N>, const MemoryRead& memory_read, PointerType base, PointerType, T&
 ) {
-  return memory.read(cursor, N, nullptr);
+  return memory_read(base, N, nullptr);
 }
 
-template <std::size_t N, std::size_t SizeOfPtr, HasNativeLayout T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read_layout_item(
-  Offset<N>, const Memory<SizeOfPtr>& memory, intptr_t base, intptr_t, T&
-) {
-  return memory.read(base, N, nullptr);
-}
-
-template <auto M, std::size_t SizeOfPtr, HasNativeLayout T>
-  requires IsMemberTypeNativeLayout<M> && IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read_layout_item(
+template <
+  auto M,
+  IsPointerType PointerType,
+  IsMemoryRead<PointerType> MemoryRead,
+  HasNativeLayout T>
+  requires IsMemberTypeNativeLayout<M>
+PointerType read_layout_item(
   Field<M>,
-  const Memory<SizeOfPtr>& memory,
-  intptr_t base,
-  intptr_t cursor,
+  const MemoryRead& memory_read,
+  PointerType base,
+  PointerType cursor,
   T& target
 ) {
   auto& field = target.*M;
-  return read(memory, cursor, field);
+  return read(memory_read, cursor, field);
 }
 
-template <auto M, std::size_t SizeOfPtr, HasNativeLayout T>
-  requires IsMemberTypeSame<M, intptr_t> && IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read_layout_item(
-  FieldPtr<M>,
-  const Memory<SizeOfPtr>& memory,
-  intptr_t base,
-  intptr_t cursor,
-  T& target
-) {
-  using member_type = member_type_t<M>;
-  auto& field = target.*M;
-  return read_ptr<SizeOfPtr>(memory.read, cursor, field);
-}
-
-template <auto M, std::size_t SizeOfPtr, HasNativeLayout T>
-  requires IsMemberTypeNativeLayout<M> && IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read_layout_item(
+template <
+  auto M,
+  IsPointerType PointerType,
+  IsMemoryRead<PointerType> MemoryRead,
+  HasNativeLayout T>
+  requires IsMemberTypeNativeLayout<M>
+PointerType read_layout_item(
   FieldRef<M>,
-  const Memory<SizeOfPtr>& memory,
-  intptr_t base,
-  intptr_t cursor,
+  const MemoryRead& memory_read,
+  PointerType base,
+  PointerType cursor,
   T& target
 ) {
-  intptr_t target_ptr{};
-  cursor = read_ptr<SizeOfPtr>(memory.read, cursor, target_ptr);
+  PointerType target_ptr{};
+  cursor = memory_read(cursor, sizeof(target_ptr), &target_ptr);
   auto& field = target.*M;
-  if (target_ptr) read(memory, target_ptr, field);
+  if (target_ptr) read(memory_read, target_ptr, field);
   return cursor;
 }
 
-template <auto M, std::size_t SizeOfPtr, HasNativeLayout T>
+template <
+  auto M,
+  IsPointerType PointerType,
+  IsMemoryRead<PointerType> MemoryRead,
+  HasNativeLayout T>
   requires IsMemberOptionalTypeNativeLayout<M>
-           && IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read_layout_item(
+PointerType read_layout_item(
   FieldOptionalRef<M>,
-  const Memory<SizeOfPtr>& memory,
-  intptr_t base,
-  intptr_t cursor,
+  const MemoryRead& memory_read,
+  PointerType base,
+  PointerType cursor,
   T& target
 ) {
-  intptr_t target_ptr{};
-  cursor = read_ptr<SizeOfPtr>(memory.read, cursor, target_ptr);
+  PointerType target_ptr{};
+  cursor = memory_read(cursor, sizeof(target_ptr), &target_ptr);
   auto& field = target.*M;
   if (target_ptr) {
     using U = member_optional_type_t<M>;  // std::optional<U> -> U
     U value{};
-    if (read(memory, target_ptr, value)) {
+    if (read(memory_read, target_ptr, value)) {
       field = std::move(value);
     }
   } else {
-    field.reset();
+    field.reset();  // target_ptr == 0 so field must be {}
   }
   return cursor;
 }
 
-template <IsLayoutItem... Items, std::size_t SizeOfPtr, HasNativeLayout T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read_layout(
-  Layout<Items...>, const Memory<SizeOfPtr>& memory, intptr_t base, T& target
+template <
+  IsLayoutItem... Items,
+  IsPointerType PointerType,
+  IsMemoryRead<PointerType> MemoryRead,
+  HasNativeLayout T>
+PointerType read_layout(
+  Layout<Items...>, const MemoryRead& memory_read, PointerType base, T& target
 ) {
-  intptr_t cursor = base;
+  PointerType cursor = base;
   // fold from first to last item
-  ((cursor = read_layout_item(Items{}, memory, base, cursor, target)), ...);
+  ((cursor = read_layout_item(Items{}, memory_read, base, cursor, target)),
+   ...);
   return cursor;
 }
 
@@ -402,10 +357,14 @@ intptr_t read_layout(
  * @param target The native object to populate.
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
-template <std::size_t SizeOfPtr, HasRegisteredLayout T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr>
-intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
-  return detail::read_layout(registered_layout_t<T>{}, memory, base, target);
+template <
+  IsPointerType PointerType,
+  IsMemoryRead<PointerType> MemoryRead,
+  HasRegisteredLayout T>
+PointerType read(const MemoryRead& memory_read, PointerType base, T& target) {
+  return detail::read_layout(
+    registered_layout_t<T>{}, memory_read, base, target
+  );
 }
 
 }  // namespace mempeep
@@ -416,12 +375,13 @@ intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
 
 #include <iostream>
 
-template <intptr_t N>
-  requires mempeep::IsPositiveIntPtr<N>
+// example with 16 bit pointers, for fun
+template <int16_t N>
+  requires(N > 0)
 struct MemoryReadMock {
   std::byte data[N]{};
 
-  intptr_t operator()(intptr_t cursor, intptr_t size, void* buffer) const {
+  int16_t operator()(int16_t cursor, int16_t size, void* buffer) const {
     // handle overflow/underflow (note: cursor 0 is not valid)
     std::cout << "read: " << cursor << " " << size << std::endl;
     if (!(size >= 0 && size <= N && cursor >= 1 && cursor <= N - size)) {
@@ -433,7 +393,7 @@ struct MemoryReadMock {
   }
 
   template <typename T>
-  void write(intptr_t offset, T value) {
+  void write(int16_t offset, T value) {
     assert(sizeof(value) <= N && offset >= 1 && offset <= N - sizeof(value));
     std::memcpy(data + offset, &value, sizeof(value));
   }
@@ -446,9 +406,9 @@ struct Pos {
 struct Player {
   int32_t health;
   Pos pos;
-  intptr_t target_ptr;
-  intptr_t shop_ptr;
-  intptr_t weapon_ptr;
+  int16_t target_ptr;
+  int16_t shop_ptr;
+  int16_t weapon_ptr;
   Pos prev_pos;
   std::optional<Pos> tagged_pos;
   std::optional<Pos> house_pos;
@@ -457,19 +417,20 @@ struct Player {
 
 template <>
 struct mempeep::RegisterLayout<Pos> {
-  using layout = Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>, Pad<4>>;
+  using layout
+    = Layout<Field<&Pos::x>, Pad<int16_t(4)>, Field<&Pos::y>, Pad<int16_t(4)>>;
 };
 
 template <>
 struct mempeep::RegisterLayout<Player> {
   using layout = Layout<
-    Offset<8>,
+    Offset<int16_t(8)>,
     Field<&Player::health>,
-    Offset<16>,
+    Offset<int16_t(16)>,
     Field<&Player::pos>,
-    FieldPtr<&Player::target_ptr>,
-    FieldPtr<&Player::shop_ptr>,
-    FieldPtr<&Player::weapon_ptr>,
+    Field<&Player::target_ptr>,
+    Field<&Player::shop_ptr>,
+    Field<&Player::weapon_ptr>,
     FieldRef<&Player::prev_pos>,
     FieldOptionalRef<&Player::tagged_pos>,
     FieldOptionalRef<&Player::house_pos>,
@@ -492,10 +453,9 @@ int main() {
   memory_read.write(68, int32_t(99));   // prev_pos.y
   memory_read.write(80, int32_t(55));   // tagged_pos.x
   memory_read.write(88, int32_t(66));   // tagged_pos.y
-  auto memory = mempeep::Memory<2>{memory_read};
 
   Player player{};
-  mempeep::read(memory, 10, player);
+  mempeep::read(memory_read, int16_t(10), player);
 
   assert(player.health == 123);
   assert(player.pos.x == 11);
