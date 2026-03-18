@@ -337,7 +337,7 @@ intptr_t read_ptr(
   return cursor;
 }
 
-template <std::size_t N, std::size_t SizeOfPtr, typename T>
+template <std::size_t N, std::size_t SizeOfPtr, HasNativeLayout T>
   requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   Pad<N>, const Memory<SizeOfPtr>& memory, intptr_t, intptr_t cursor, T&
@@ -345,7 +345,7 @@ intptr_t read_layout_item(
   return memory.read(cursor, N, nullptr);
 }
 
-template <std::size_t N, std::size_t SizeOfPtr, typename T>
+template <std::size_t N, std::size_t SizeOfPtr, HasNativeLayout T>
   requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   Offset<N>, const Memory<SizeOfPtr>& memory, intptr_t base, intptr_t, T&
@@ -353,7 +353,7 @@ intptr_t read_layout_item(
   return memory.read(base, N, nullptr);
 }
 
-template <auto M, std::size_t SizeOfPtr, typename T>
+template <auto M, std::size_t SizeOfPtr, HasNativeLayout T>
   requires IsMemberTypeNativeLayout<M> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   Field<M>,
@@ -366,7 +366,7 @@ intptr_t read_layout_item(
   return read(memory, cursor, field);
 }
 
-template <auto M, std::size_t SizeOfPtr, typename T>
+template <auto M, std::size_t SizeOfPtr, HasNativeLayout T>
   requires IsMemberTypeSame<M, intptr_t> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   FieldOptionalPtr<M>,
@@ -380,7 +380,7 @@ intptr_t read_layout_item(
   return read_optional_ptr<SizeOfPtr>(memory.read, cursor, field);
 }
 
-template <auto M, std::size_t SizeOfPtr, typename T>
+template <auto M, std::size_t SizeOfPtr, HasNativeLayout T>
   requires IsMemberTypeSame<M, intptr_t> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   FieldPtr<M>,
@@ -394,7 +394,7 @@ intptr_t read_layout_item(
   return read_ptr<SizeOfPtr>(memory.read, cursor, field);
 }
 
-template <auto M, std::size_t SizeOfPtr, typename T>
+template <auto M, std::size_t SizeOfPtr, HasNativeLayout T>
   requires IsMemberTypeNativeLayout<M> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   FieldRef<M>,
@@ -411,7 +411,7 @@ intptr_t read_layout_item(
   return cursor;
 }
 
-template <IsLayoutItem... Items, std::size_t SizeOfPtr, typename T>
+template <IsLayoutItem... Items, std::size_t SizeOfPtr, HasNativeLayout T>
   requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout(
   Layout<Items...>, const Memory<SizeOfPtr>& memory, intptr_t base, T& target
