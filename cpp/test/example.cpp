@@ -241,10 +241,8 @@ struct Memory {
    * checking internally.
    * It is the responsibility of the implementation to handle pointer
    * validation, overflow detection, and error conditions.
-   * If an error occurs during reading, the function may return a sentinel
-   * value (such as 0) to signal failure. In that case, future calls to this
-   * function with this sentinel value as the cursor may be made, and the
-   * function should be prepared to handle this appropriately. Alternatively,
+   * If the cursor is not valid, or if otherwise an error occurs during reading,
+   * the function must return 0 to signal failure. Alternatively,
    * the function may raise an exception to abort the reading process.
    * The library does not perform any validation or error checking on the
    * return value; it simply calls this function repeatedly according to the
@@ -316,6 +314,7 @@ template <std::size_t SizeOfInt>
   requires IsSupportedSizeOfInt<SizeOfInt>
 using signed_int_t = typename signed_int<SizeOfInt>::type;
 
+// Sets target to 0 if pointer is not valid.
 template <std::size_t SizeOfPtr>
   requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_optional_ptr(
@@ -323,17 +322,26 @@ intptr_t read_optional_ptr(
 ) {
   signed_int_t<SizeOfPtr> ptr{};
   cursor = memory_read(cursor, sizeof(ptr), &ptr);
-  target = static_cast<intptr_t>(ptr);
+  if (ptr != 0) {
+    // extra memory_read to validate pointer
+    target = memory_read(static_cast<intptr_t>(ptr), 0, nullptr);
+  } else {
+    // ptr == 0 is ok since optional
+    target = 0;
+  }
   return cursor;
 }
 
+// Sets target to 0 if pointer is not valid.
 template <std::size_t SizeOfPtr>
   requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_ptr(
   const MemoryRead& memory_read, intptr_t cursor, intptr_t& target
 ) {
-  cursor = read_optional_ptr<SizeOfPtr>(memory_read, cursor, target);
-  memory_read(target, 0, nullptr);  // check target is valid
+  signed_int_t<SizeOfPtr> ptr{};
+  cursor = memory_read(cursor, sizeof(ptr), &ptr);
+  // extra memory_read to validate pointer (even if ptr == 0, to flag error)
+  target = memory_read(static_cast<intptr_t>(ptr), 0, nullptr);
   return cursor;
 }
 
@@ -403,11 +411,32 @@ intptr_t read_layout_item(
   intptr_t cursor,
   T& target
 ) {
-  using member_type = member_type_t<M>;
   intptr_t target_ptr{};
   cursor = read_ptr<SizeOfPtr>(memory.read, cursor, target_ptr);
   auto& field = target.*M;
-  read(memory, target_ptr, field);
+  if (target_ptr) read(memory, target_ptr, field);
+  return cursor;
+}
+
+template <auto M, std::size_t SizeOfPtr, HasNativeLayout T>
+  requires IsMemberOptionalTypeNativeLayout<M>
+           && IsSupportedSizeOfPtr<SizeOfPtr>
+intptr_t read_layout_item(
+  FieldOptionalRef<M>,
+  const Memory<SizeOfPtr>& memory,
+  intptr_t base,
+  intptr_t cursor,
+  T& target
+) {
+  intptr_t target_ptr{};
+  cursor = read_optional_ptr<SizeOfPtr>(memory.read, cursor, target_ptr);
+  if (target_ptr) {
+    auto value = member_optional_type_t<M>{};  // std::optional<...>{}
+    if (read(memory, target_ptr, value)) {
+      auto& field = target.*M;
+      field = value;
+    }
+  }
   return cursor;
 }
 
@@ -466,15 +495,19 @@ struct MemoryReadMock {
   char data[N]{};
 
   intptr_t operator()(intptr_t cursor, intptr_t size, void* buffer) const {
-    // handle overflow/underflow
-    assert(size >= 0 && size <= N && cursor >= 0 && cursor <= N - size);
+    // handle overflow/underflow (note: cursor 0 is not valid)
+    std::cout << "read: " << cursor << " " << size << std::endl;
+    if (!(size >= 0 && size <= N && cursor >= 1 && cursor <= N - size)) {
+      std::cerr << "error" << std::endl;
+      return 0;
+    }
     if (buffer && size) std::memcpy(buffer, data + cursor, size);
     return cursor + size;
   }
 
   template <typename T>
   void write(intptr_t offset, T value) {
-    assert(sizeof(value) <= N && offset >= 0 && offset <= N - sizeof(value));
+    assert(sizeof(value) <= N && offset >= 1 && offset <= N - sizeof(value));
     std::memcpy(data + offset, &value, sizeof(value));
   }
 };
@@ -487,8 +520,11 @@ struct Player {
   int32_t health;
   Pos pos;
   intptr_t target_ptr;
+  intptr_t shop_ptr;
   intptr_t weapon_ptr;
   Pos prev_pos;
+  std::optional<Pos> tagged_pos;
+  std::optional<Pos> house_pos;
   int32_t mana;
 };
 
@@ -505,22 +541,30 @@ struct mempeep::RegisterLayout<Player> {
     Offset<16>,
     Field<&Player::pos>,
     FieldOptionalPtr<&Player::target_ptr>,
+    FieldOptionalPtr<&Player::shop_ptr>,
     FieldPtr<&Player::weapon_ptr>,
     FieldRef<&Player::prev_pos>,
+    FieldOptionalRef<&Player::tagged_pos>,
+    FieldOptionalRef<&Player::house_pos>,
     Field<&Player::mana>>;
 };
 
 int main() {
   MemoryReadMock<128> memory_read{};
-  memory_read.write(18, int32_t(123));
-  memory_read.write(26, int32_t(11));
-  memory_read.write(34, int32_t(22));
-  memory_read.write(42, int16_t(-4));  // target_ptr (optional)
-  memory_read.write(44, int16_t(5));   // weapon_ptr
-  memory_read.write(46, int16_t(60));  // prev_pos pointer
-  memory_read.write(48, int32_t(47));
-  memory_read.write(60, int32_t(88));
-  memory_read.write(68, int32_t(99));
+  memory_read.write(18, int32_t(123));  // health
+  memory_read.write(26, int32_t(11));   // pos.x
+  memory_read.write(34, int32_t(22));   // pos.y
+  memory_read.write(42, int16_t(0));    // target_ptr (optional)
+  memory_read.write(44, int16_t(2));    // shop_ptr (optional)
+  memory_read.write(46, int16_t(6));    // weapon_ptr
+  memory_read.write(48, int16_t(60));   // prev_pos ref
+  memory_read.write(50, int16_t(80));   // tagged_pos ref (optional)
+  memory_read.write(52, int32_t(0));    // house_pos ref (optional)
+  memory_read.write(54, int32_t(47));   // mana
+  memory_read.write(60, int32_t(88));   // prev_pos.x
+  memory_read.write(68, int32_t(99));   // prev_pos.y
+  memory_read.write(80, int32_t(55));   // tagged_pos.x
+  memory_read.write(88, int32_t(66));   // tagged_pos.y
   auto memory = mempeep::Memory<2>{memory_read};
 
   Player player{};
@@ -529,9 +573,14 @@ int main() {
   assert(player.health == 123);
   assert(player.pos.x == 11);
   assert(player.pos.y == 22);
-  assert(player.target_ptr == -4);
-  assert(player.weapon_ptr == 5);
+  assert(player.target_ptr == 0);
+  assert(player.shop_ptr == 2);
+  assert(player.weapon_ptr == 6);
   assert(player.prev_pos.x == 88);
   assert(player.prev_pos.y == 99);
   assert(player.mana == 47);
+  assert(player.tagged_pos.has_value());
+  assert(player.tagged_pos->x == 55);
+  assert(player.tagged_pos->y == 66);
+  assert(!player.house_pos.has_value());
 }
