@@ -182,9 +182,9 @@ template <auto M>
 struct FieldOptionalRef : LayoutItem {};
 
 /**
- * @brief Reads a block of memory from a remote source.
+ * @brief Functor concept to read a block of memory from a remote source.
  *
- * This user-implemented function must validate pointers, handle overflows,
+ * Implementations of this functor must validate pointers, handle overflows,
  * and manage read errors. On failure (invalid cursor, read error, etc.), it
  * must return 0 or may throw an exception. The library performs no validation
  * and repeatedly calls this function according to the memory layout. The
@@ -352,13 +352,12 @@ template <
  *
  * This function does not perform any validation or error checking.
  * It simply calls the user-provided `MemoryRead` function repeatedly.
- * It is mandatory that the `MemoryRead` implementation performs all
- * validation and error handling.
- * If `MemoryRead` reports failure by returning a sentinel like 0,
- * it must be prepared to handle such sentinel cursor values appropriately.
+ * The `memory_read` callback must perform all validation and error handling.
+ * See `MemoryRead` for more information.
  *
- * @tparam SizeOfPtr Size of remote pointers (4 for 32-bit, 8 for 64-bit).
- * @tparam T The native type to deserialize into.
+ * @tparam Pointer    The type of remote pointers (int32_t or int64_t).
+ * @tparam MemoryRead The type for the memory_read callback.
+ * @tparam T          The native type to deserialize into.
  * @param memory The memory abstraction providing the `MemoryRead` function.
  * @param cursor The current remote memory pointer.
  * @param target The native object to populate.
