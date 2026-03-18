@@ -65,12 +65,10 @@ using member_optional_type_t =
  *
  * The IsLayoutItem concept selects those types that have this tag.
  */
-struct layout_item_tag {};
+struct LayoutItem {};
 
 template <typename T>
-concept IsLayoutItem = requires {
-  typename T::layout_item_tag;
-} && std::same_as<typename T::layout_item_tag, layout_item_tag>;
+concept IsLayoutItem = std::is_base_of_v<LayoutItem, T>;
 
 /**
  * @brief Defines a remote layout.
@@ -145,27 +143,21 @@ concept IsMemberOptionalTypeNativeLayout
  */
 template <auto M>
   requires IsMemberTypeNativeLayout<M>
-struct Field {
-  using layout_item_tag = layout_item_tag;
-};
+struct Field : LayoutItem {};
 
 /**
  * @brief Padding bytes to relative to the current position in the layout.
  */
 template <intptr_t N>
   requires IsPositiveIntPtr<N>
-struct Pad {
-  using layout_item_tag = layout_item_tag;
-};
+struct Pad : LayoutItem {};
 
 /**
  * @brief Offset (in bytes) relative to the base position of the layout.
  */
 template <intptr_t N>
   requires IsPositiveIntPtr<N>
-struct Offset {
-  using layout_item_tag = layout_item_tag;
-};
+struct Offset : LayoutItem {};
 
 /**
  * @brief A pointer that is guaranteed to be valid.
@@ -173,9 +165,7 @@ struct Offset {
  */
 template <auto M>
   requires IsMemberTypeNativeLayout<M>
-struct FieldRef {
-  using layout_item_tag = layout_item_tag;
-};
+struct FieldRef : LayoutItem {};
 
 /**
  * @brief A pointer that may be invalid.
@@ -184,9 +174,7 @@ struct FieldRef {
  */
 template <auto M>
   requires IsMemberOptionalTypeNativeLayout<M>
-struct FieldOptionalRef {
-  using layout_item_tag = layout_item_tag;
-};
+struct FieldOptionalRef : LayoutItem {};
 
 /**
  * @brief Remote pointer (as an intptr_t) that is guaranteed to be valid.
@@ -196,9 +184,7 @@ struct FieldOptionalRef {
  */
 template <auto M>
   requires IsMemberTypeSame<M, intptr_t>
-struct FieldPtr {
-  using layout_item_tag = layout_item_tag;
-};
+struct FieldPtr : LayoutItem {};
 
 /**
  * @brief Remote pointer (as an intptr_t) that may be invalid.
@@ -208,9 +194,7 @@ struct FieldPtr {
  */
 template <auto M>
   requires IsMemberTypeSame<M, intptr_t>
-struct FieldOptionalPtr {
-  using layout_item_tag = layout_item_tag;
-};
+struct FieldOptionalPtr : LayoutItem {};
 
 using MemoryRead = std::function<intptr_t(intptr_t, intptr_t, void*)>;
 
