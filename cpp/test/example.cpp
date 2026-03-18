@@ -14,49 +14,51 @@ namespace mempeep {
 template <intptr_t N>
 concept IsPositiveIntPtr = (N > 0);
 
-template <auto MemberPtr>
-concept IsMemberObjectPointer
-  = std::is_member_object_pointer_v<decltype(MemberPtr)>;
+template <auto M>
+concept IsMember = std::is_member_object_pointer_v<decltype(M)>;
 
-template <auto MemberPtr>
-  requires IsMemberObjectPointer<MemberPtr>
-struct member_pointer_traits;
+template <auto M>
+  requires IsMember<M>
+struct member_traits;
 
-template <typename C, typename T, T C::* MemberPtr>
-struct member_pointer_traits<MemberPtr> {
+template <typename C, typename T, T C::* M>
+struct member_traits<M> {
   using member_type = T;
 };
 
-template <auto MemberPtr>
-  requires IsMemberObjectPointer<MemberPtr>
-using member_type_t = typename member_pointer_traits<MemberPtr>::member_type;
+template <auto M>
+  requires IsMember<M>
+using member_type_t = typename member_traits<M>::member_type;
 
-template <auto MemberPtr, typename T>
-concept IsMemberTypeSame = std::is_same_v<member_type_t<MemberPtr>, T>;
+template <auto M, typename T>
+concept IsMemberTypeSame = std::is_same_v<member_type_t<M>, T>;
 
 // helper to detect std::optional
 template <typename T>
-struct is_std_optional : std::false_type {};
+struct is_optional : std::false_type {};
 
 template <typename U>
-struct is_std_optional<std::optional<U>> : std::true_type {};
+struct is_optional<std::optional<U>> : std::true_type {};
 
-template <auto MemberPtr>
-concept IsMemberTypeOptional = is_std_optional<member_type_t<MemberPtr>>::value;
+template <typename T>
+concept IsOptional = is_optional<T>::value;
 
-template <auto MemberPtr>
-  requires IsMemberTypeOptional<MemberPtr>
-struct member_pointer_optional_traits;
+template <auto M>
+concept IsMemberTypeOptional = IsOptional<member_type_t<M>>;
 
-template <typename C, typename U, std::optional<U> C::* MemberPtr>
-struct member_pointer_optional_traits<MemberPtr> {
+template <auto M>
+  requires IsMemberTypeOptional<M>
+struct member_optional_traits;
+
+template <typename C, typename U, std::optional<U> C::* M>
+struct member_optional_traits<M> {
   using member_optional_type = U;
 };
 
-template <auto MemberPtr>
-  requires IsMemberTypeOptional<MemberPtr>
+template <auto M>
+  requires IsMemberTypeOptional<M>
 using member_optional_type_t =
-  typename member_pointer_optional_traits<MemberPtr>::member_optional_type;
+  typename member_optional_traits<M>::member_optional_type;
 
 /**
  * @brief For tagging layout items.
@@ -129,22 +131,22 @@ using registered_layout_t = typename RegisterLayout<T>::layout;
 template <typename T>
 concept HasNoRegisteredLayout = HasNativeLayout<T> && !HasRegisteredLayout<T>;
 
-template <auto MemberPtr>
-concept IsMemberTypeNativeLayout = HasNativeLayout<member_type_t<MemberPtr>>;
+template <auto M>
+concept IsMemberTypeNativeLayout = HasNativeLayout<member_type_t<M>>;
 
-template <auto MemberPtr>
+template <auto M>
 concept IsMemberOptionalTypeNativeLayout
-  = HasNativeLayout<member_optional_type_t<MemberPtr>>;
+  = HasNativeLayout<member_optional_type_t<M>>;
 
 /**
  * @brief Represents a specific member (field) of a struct/class.
- * @tparam MemberPtr The native field to deserialize into.
+ * @tparam M The native field to deserialize into.
  *
  * Usage:
  *   Field<&Class::member>
  */
-template <auto MemberPtr>
-  requires IsMemberTypeNativeLayout<MemberPtr>
+template <auto M>
+  requires IsMemberTypeNativeLayout<M>
 struct Field {
   using layout_item_tag = layout_item_tag;
 };
@@ -169,21 +171,21 @@ struct Offset {
 
 /**
  * @brief A pointer that is guaranteed to be valid.
- * @tparam MemberPtr The native field to deserialize the pointee into.
+ * @tparam M The native field to deserialize the pointee into.
  */
-template <auto MemberPtr>
-  requires IsMemberTypeNativeLayout<MemberPtr>
+template <auto M>
+  requires IsMemberTypeNativeLayout<M>
 struct FieldRef {
   using layout_item_tag = layout_item_tag;
 };
 
 /**
  * @brief A pointer that may be invalid.
- * @tparam MemberPtr The native field to deserialize the pointee into.
+ * @tparam M The native field to deserialize the pointee into.
  *                   Must have type std::optional<T>.
  */
-template <auto MemberPtr>
-  requires IsMemberOptionalTypeNativeLayout<MemberPtr>
+template <auto M>
+  requires IsMemberOptionalTypeNativeLayout<M>
 struct FieldOptionalRef {
   using layout_item_tag = layout_item_tag;
 };
@@ -194,8 +196,8 @@ struct FieldOptionalRef {
  * Usage:
  *   FieldPtr<&Class::member>
  */
-template <auto MemberPtr>
-  requires IsMemberTypeSame<MemberPtr, intptr_t>
+template <auto M>
+  requires IsMemberTypeSame<M, intptr_t>
 struct FieldPtr {
   using layout_item_tag = layout_item_tag;
 };
@@ -206,8 +208,8 @@ struct FieldPtr {
  * Usage:
  *   FieldOptionalPtr<&Class::member>
  */
-template <auto MemberPtr>
-  requires IsMemberTypeSame<MemberPtr, intptr_t>
+template <auto M>
+  requires IsMemberTypeSame<M, intptr_t>
 struct FieldOptionalPtr {
   using layout_item_tag = layout_item_tag;
 };
@@ -353,48 +355,45 @@ intptr_t read_layout_item(
   return memory.read(base, N, nullptr);
 }
 
-template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires IsMemberTypeNativeLayout<MemberPtr>
-           && IsSupportedSizeOfPtr<SizeOfPtr>
+template <auto M, std::size_t SizeOfPtr, typename T>
+  requires IsMemberTypeNativeLayout<M> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
-  Field<MemberPtr>,
+  Field<M>,
   const Memory<SizeOfPtr>& memory,
   intptr_t base,
   intptr_t cursor,
   T& target
 ) {
-  using member_type = member_type_t<MemberPtr>;
-  auto& field = target.*MemberPtr;
+  using member_type = member_type_t<M>;
+  auto& field = target.*M;
   return read(memory, cursor, field);
 }
 
-template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires IsMemberTypeSame<MemberPtr, intptr_t>
-           && IsSupportedSizeOfPtr<SizeOfPtr>
+template <auto M, std::size_t SizeOfPtr, typename T>
+  requires IsMemberTypeSame<M, intptr_t> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
-  FieldOptionalPtr<MemberPtr>,
+  FieldOptionalPtr<M>,
   const Memory<SizeOfPtr>& memory,
   intptr_t base,
   intptr_t cursor,
   T& target
 ) {
-  using member_type = member_type_t<MemberPtr>;
-  auto& field = target.*MemberPtr;
+  using member_type = member_type_t<M>;
+  auto& field = target.*M;
   return read_optional_ptr<SizeOfPtr>(memory.read, cursor, field);
 }
 
-template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires IsMemberTypeSame<MemberPtr, intptr_t>
-           && IsSupportedSizeOfPtr<SizeOfPtr>
+template <auto M, std::size_t SizeOfPtr, typename T>
+  requires IsMemberTypeSame<M, intptr_t> && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
-  FieldPtr<MemberPtr>,
+  FieldPtr<M>,
   const Memory<SizeOfPtr>& memory,
   intptr_t base,
   intptr_t cursor,
   T& target
 ) {
-  using member_type = member_type_t<MemberPtr>;
-  auto& field = target.*MemberPtr;
+  using member_type = member_type_t<M>;
+  auto& field = target.*M;
   return read_ptr<SizeOfPtr>(memory.read, cursor, field);
 }
 
