@@ -258,15 +258,15 @@ struct Memory {
   MemoryRead read;
 };
 
-template <std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr> && HasNoRegisteredLayout<T>
+template <std::size_t SizeOfPtr, HasNoRegisteredLayout T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
   return memory.read(base, sizeof(target), &target);
 };
 
 // Forward declaration to support recursive reading.
-template <std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr> && HasRegisteredLayout<T>
+template <std::size_t SizeOfPtr, HasRegisteredLayout T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target);
 
 namespace detail {
@@ -433,8 +433,8 @@ intptr_t read_layout(
  * @param target The native object to populate.
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
-template <std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr> && HasRegisteredLayout<T>
+template <std::size_t SizeOfPtr, HasRegisteredLayout T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
   return detail::read_layout(registered_layout_t<T>{}, memory, base, target);
 }
