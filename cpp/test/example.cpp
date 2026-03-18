@@ -362,7 +362,6 @@ intptr_t read_layout_item(
   intptr_t cursor,
   T& target
 ) {
-  using member_type = member_type_t<M>;
   auto& field = target.*M;
   return read(memory, cursor, field);
 }
