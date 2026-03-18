@@ -66,7 +66,9 @@ using member_optional_type_t =
 struct layout_item_tag {};
 
 template <typename T>
-concept IsLayoutItem = requires { typename T::layout_item_tag; };
+concept IsLayoutItem = requires {
+  typename T::layout_item_tag;
+} && std::same_as<typename T::layout_item_tag, layout_item_tag>;
 
 /**
  * @brief Defines a remote layout.
