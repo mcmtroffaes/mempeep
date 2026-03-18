@@ -1,5 +1,5 @@
 #include <cassert>      // assert
-#include <cstdint>      // std::PointerType, ...
+#include <cstdint>      // std::intptr_t, ...
 #include <cstring>      // std::memcpy
 #include <functional>   // std::function
 #include <optional>     // std::optional
@@ -146,7 +146,8 @@ struct Field : LayoutItem {};
 // Any signed integer type that does not exceed native pointer width.
 // Signed so subtracting pointers is safe.
 template <typename T>
-concept IsPointerType = std::is_signed_v<T> && (sizeof(T) <= sizeof(intptr_t));
+concept IsPointerType = std::is_integral_v<T> && std::is_signed_v<T>
+                        && (sizeof(T) <= sizeof(intptr_t));
 
 template <auto M>
 concept IsMemberTypePointerType = IsPointerType<member_type_t<M>>;
