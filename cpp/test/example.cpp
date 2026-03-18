@@ -3,7 +3,7 @@
 #include <cstring>      // std::memcpy
 #include <functional>   // std::function
 #include <optional>     // std::optional
-#include <type_traits>  // std::is_same_v, ...
+#include <type_traits>  // std::same_as, ...
 
 namespace mempeep {
 
@@ -292,9 +292,8 @@ template <
   cursor = memory_read(cursor, sizeof(target_ptr), &target_ptr);
   auto& field = target.*M;
   if (target_ptr) {
-    if (!read(memory_read, target_ptr, field))
-    {
-        // TODO handle error
+    if (!read(memory_read, target_ptr, field)) {
+      // TODO handle error
     }
   }
   return cursor;
@@ -371,7 +370,9 @@ template <
   IsPointerType PointerType,
   IsMemoryRead<PointerType> MemoryRead,
   HasRegisteredLayout T>
-[[nodiscard]] PointerType read(const MemoryRead& memory_read, PointerType base, T& target) {
+[[nodiscard]] PointerType read(
+  const MemoryRead& memory_read, PointerType base, T& target
+) {
   return detail::read_layout(
     registered_layout_t<T>{}, memory_read, base, target
   );
