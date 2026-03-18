@@ -114,9 +114,7 @@ struct RegisterLayout;
  * Checks if RegisterLayout<T>::layout exists.
  */
 template <typename T, typename... Items>
-concept HasRegisteredLayout = requires {
-  typename RegisterLayout<T>::layout;
-} && std::same_as<typename T::layout, Layout<Items...>>;
+concept HasRegisteredLayout = requires { typename RegisterLayout<T>::layout; };
 
 /**
  * @brief Shorthand for RegisterLayout<T>::layout.
