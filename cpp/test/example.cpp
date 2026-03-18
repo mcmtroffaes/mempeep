@@ -8,7 +8,7 @@
 namespace mempeep {
 
 // ============================================================
-// Public API: Layout, LayoutOf, ReadMemory
+// Public API: Layout, RegisterLayout, ReadMemory
 // ============================================================
 
 template <intptr_t N>
@@ -84,7 +84,7 @@ template <IsLayoutItem... Items>
 struct Layout {};
 
 template <typename T>
-concept IsAnyLayout
+concept HasNativeLayout
   = std::is_standard_layout_v<T> && std::is_default_constructible_v<T>;
 
 /**
@@ -94,7 +94,7 @@ concept IsAnyLayout
  * Example:
  *
  *   template <>
- *   struct LayoutOf<Pos> {
+ *   struct RegisterLayout<Pos> {
  *     using layout = Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>;
  *   };
  *
@@ -103,36 +103,38 @@ concept IsAnyLayout
  * @tparam T Native struct to register the layout for.
  */
 template <typename T>
-  requires IsAnyLayout<T>
-struct LayoutOf;
+  requires HasNativeLayout<T>
+struct RegisterLayout;
 
 /**
  * @brief Does T have a custom layout?
  *
- * Checks if LayoutOf<T>::layout exists.
+ * Checks if RegisterLayout<T>::layout exists.
  */
-template <typename T>
-concept IsCustomLayout = requires { typename LayoutOf<T>::layout; };
+template <typename T, typename... Items>
+concept HasRegisteredLayout = requires {
+  typename RegisterLayout<T>::layout;
+} && std::same_as<typename T::layout, Layout<Items...>>;
 
 /**
- * @brief Shorthand for LayoutOf<T>::layout.
+ * @brief Shorthand for RegisterLayout<T>::layout.
  */
 template <typename T>
-  requires IsCustomLayout<T>
-using custom_layout_t = typename LayoutOf<T>::layout;
+  requires HasRegisteredLayout<T>
+using registered_layout_t = typename RegisterLayout<T>::layout;
 
 /**
  * @brief Does T have a standard layout (and no custom layout)?
  */
 template <typename T>
-concept IsStandardLayout = IsAnyLayout<T> && !IsCustomLayout<T>;
+concept HasNoRegisteredLayout = HasNativeLayout<T> && !HasRegisteredLayout<T>;
 
 template <auto MemberPtr>
-concept IsMemberTypeAnyLayout = IsAnyLayout<member_type_t<MemberPtr>>;
+concept IsMemberTypeNativeLayout = HasNativeLayout<member_type_t<MemberPtr>>;
 
 template <auto MemberPtr>
-concept IsMemberOptionalTypeAnyLayout
-  = IsAnyLayout<member_optional_type_t<MemberPtr>>;
+concept IsMemberOptionalTypeNativeLayout
+  = HasNativeLayout<member_optional_type_t<MemberPtr>>;
 
 /**
  * @brief Represents a specific member (field) of a struct/class.
@@ -142,7 +144,7 @@ concept IsMemberOptionalTypeAnyLayout
  *   Field<&Class::member>
  */
 template <auto MemberPtr>
-  requires IsMemberTypeAnyLayout<MemberPtr>
+  requires IsMemberTypeNativeLayout<MemberPtr>
 struct Field {
   using layout_item_tag = layout_item_tag;
 };
@@ -170,7 +172,7 @@ struct Offset {
  * @tparam MemberPtr The native field to deserialize the pointee into.
  */
 template <auto MemberPtr>
-  requires IsMemberTypeAnyLayout<MemberPtr>
+  requires IsMemberTypeNativeLayout<MemberPtr>
 struct FieldRef {
   using layout_item_tag = layout_item_tag;
 };
@@ -181,7 +183,7 @@ struct FieldRef {
  *                   Must have type std::optional<T>.
  */
 template <auto MemberPtr>
-  requires IsMemberOptionalTypeAnyLayout<MemberPtr>
+  requires IsMemberOptionalTypeNativeLayout<MemberPtr>
 struct FieldOptionalRef {
   using layout_item_tag = layout_item_tag;
 };
@@ -257,14 +259,14 @@ struct Memory {
 };
 
 template <std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr> && IsStandardLayout<T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr> && HasNoRegisteredLayout<T>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
   return memory.read(base, sizeof(target), &target);
 };
 
 // Forward declaration to support recursive reading.
 template <std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr> && IsCustomLayout<T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr> && HasRegisteredLayout<T>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target);
 
 namespace detail {
@@ -352,7 +354,8 @@ intptr_t read_layout_item(
 }
 
 template <auto MemberPtr, std::size_t SizeOfPtr, typename T>
-  requires IsMemberTypeAnyLayout<MemberPtr> && IsSupportedSizeOfPtr<SizeOfPtr>
+  requires IsMemberTypeNativeLayout<MemberPtr>
+           && IsSupportedSizeOfPtr<SizeOfPtr>
 intptr_t read_layout_item(
   Field<MemberPtr>,
   const Memory<SizeOfPtr>& memory,
@@ -431,9 +434,9 @@ intptr_t read_layout(
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
 template <std::size_t SizeOfPtr, typename T>
-  requires IsSupportedSizeOfPtr<SizeOfPtr> && IsCustomLayout<T>
+  requires IsSupportedSizeOfPtr<SizeOfPtr> && HasRegisteredLayout<T>
 intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
-  return detail::read_layout(custom_layout_t<T>{}, memory, base, target);
+  return detail::read_layout(registered_layout_t<T>{}, memory, base, target);
 }
 
 }  // namespace mempeep
@@ -475,12 +478,12 @@ struct Player {
 };
 
 template <>
-struct mempeep::LayoutOf<Pos> {
+struct mempeep::RegisterLayout<Pos> {
   using layout = Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>, Pad<4>>;
 };
 
 template <>
-struct mempeep::LayoutOf<Player> {
+struct mempeep::RegisterLayout<Player> {
   using layout = Layout<
     Offset<8>,
     Field<&Player::health>,
