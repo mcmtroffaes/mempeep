@@ -474,7 +474,7 @@ intptr_t read(const Memory<SizeOfPtr>& memory, intptr_t base, T& target) {
 template <intptr_t N>
   requires mempeep::IsPositiveIntPtr<N>
 struct MemoryReadMock {
-  char data[N]{};
+  std::byte data[N]{};
 
   intptr_t operator()(intptr_t cursor, intptr_t size, void* buffer) const {
     // handle overflow/underflow (note: cursor 0 is not valid)
