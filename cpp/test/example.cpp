@@ -25,7 +25,6 @@ struct member_pointer_traits;
 
 template <typename C, typename T, T C::* MemberPtr>
 struct member_pointer_traits<MemberPtr> {
-  using class_type = C;
   using member_type = T;
 };
 
@@ -34,8 +33,31 @@ template <auto MemberPtr>
 using member_type_t = typename member_pointer_traits<MemberPtr>::member_type;
 
 template <auto MemberPtr, typename T>
-concept IsMemberTypeSame = IsMemberObjectPointer<MemberPtr>
-                           && std::is_same_v<member_type_t<MemberPtr>, T>;
+concept IsMemberTypeSame = std::is_same_v<member_type_t<MemberPtr>, T>;
+
+// helper to detect std::optional
+template <typename T>
+struct is_std_optional : std::false_type {};
+
+template <typename U>
+struct is_std_optional<std::optional<U>> : std::true_type {};
+
+template <auto MemberPtr>
+concept IsMemberTypeOptional = is_std_optional<member_type_t<MemberPtr>>::value;
+
+template <auto MemberPtr>
+  requires IsMemberTypeOptional<MemberPtr>
+struct member_pointer_optional_traits;
+
+template <typename C, typename U, std::optional<U> C::* MemberPtr>
+struct member_pointer_optional_traits<MemberPtr> {
+  using member_optional_type = U;
+};
+
+template <auto MemberPtr>
+  requires IsMemberTypeOptional<MemberPtr>
+using member_optional_type_t =
+  typename member_pointer_optional_traits<MemberPtr>::member_optional_type;
 
 /**
  * @brief For tagging layout items.
@@ -103,8 +125,11 @@ template <typename T>
 concept IsAnyLayout = std::is_standard_layout_v<T> || IsCustomLayout<T>;
 
 template <auto MemberPtr>
-concept IsMemberTypeAnyLayout
-  = IsMemberObjectPointer<MemberPtr> && IsAnyLayout<member_type_t<MemberPtr>>;
+concept IsMemberTypeAnyLayout = IsAnyLayout<member_type_t<MemberPtr>>;
+
+template <auto MemberPtr>
+concept IsMemberOptionalTypeAnyLayout
+  = IsAnyLayout<member_optional_type_t<MemberPtr>>;
 
 /**
  * @brief Represents a specific member (field) of a struct/class.
@@ -153,8 +178,7 @@ struct FieldRef {
  *                   Must have type std::optional<T>.
  */
 template <auto MemberPtr>
-// TODO actually we need requires IsMemberTypeOptionalAnyLayout<MemberPtr>
-  requires IsMemberTypeAnyLayout<MemberPtr>
+  requires IsMemberOptionalTypeAnyLayout<MemberPtr>
 struct FieldOptionalRef {
   using layout_item_tag = layout_item_tag;
 };
