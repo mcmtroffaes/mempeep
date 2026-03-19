@@ -184,7 +184,7 @@ struct Field : LayoutItem {};
  *           The read template will not instantiate otherwise.
  */
 template <auto N>
-  requires IsInteger<decltype(N)> && (N > 0)
+  requires IsInteger<decltype(N)>
 struct Pad : LayoutItem {};
 
 /**
@@ -194,7 +194,7 @@ struct Pad : LayoutItem {};
  *           The read template will not instantiate otherwise.
  */
 template <auto N>
-  requires IsInteger<decltype(N)> && (N > 0)
+  requires IsInteger<decltype(N)>
 struct Offset : LayoutItem {};
 
 /**
