@@ -143,7 +143,7 @@ template <IsLayoutItem... Items>
 struct Layout {};
 
 template <typename T>
-concept HasNativeLayout
+concept IsReadable
   = std::is_standard_layout_v<T> && std::is_default_constructible_v<T>;
 
 /**
@@ -162,7 +162,7 @@ concept HasNativeLayout
  * @tparam T Native struct to register the layout for.
  */
 template <typename T>
-  requires HasNativeLayout<T>
+  requires IsReadable<T>
 struct RegisterLayout;
 
 /**
@@ -184,7 +184,7 @@ using registered_layout_t = typename RegisterLayout<T>::layout;
  * @brief Does T have a standard layout (and no custom layout)?
  */
 template <typename T>
-concept HasNoRegisteredLayout = HasNativeLayout<T> && !HasRegisteredLayout<T>;
+concept HasNoRegisteredLayout = IsReadable<T> && !HasRegisteredLayout<T>;
 
 /**
  * @brief A field. Its type can have any native layout.
@@ -194,7 +194,7 @@ concept HasNoRegisteredLayout = HasNativeLayout<T> && !HasRegisteredLayout<T>;
  * @tparam M The native field to deserialize into.
  */
 template <auto M>
-  requires HasNativeLayout<member_type_t<M>>
+  requires IsReadable<member_type_t<M>>
 struct Field : LayoutItem {};
 
 /**
@@ -232,7 +232,7 @@ struct FieldPtr : LayoutItem {};
  * @tparam M The native field to deserialize the pointee into.
  */
 template <auto M>
-  requires HasNativeLayout<member_type_t<M>>
+  requires IsReadable<member_type_t<M>>
 struct FieldRef : LayoutItem {};
 
 /**
@@ -241,7 +241,7 @@ struct FieldRef : LayoutItem {};
  *                   Must have type std::optional<T>.
  */
 template <auto M>
-  requires HasNativeLayout<member_optional_type_t<M>>
+  requires IsReadable<member_optional_type_t<M>>
 struct FieldOptionalRef : LayoutItem {};
 
 /**
@@ -310,7 +310,7 @@ struct LayoutPointers {
   pointer_type_t<MemoryRead> cursor;
 };
 
-template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
+template <auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsValueInRangeFor<N, pointer_type_t<MemoryRead>>
            && HasScopeFor<Tracer, Pad<N>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
@@ -327,7 +327,7 @@ template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   );
 }
 
-template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
+template <auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsValueInRangeFor<N, pointer_type_t<MemoryRead>>
            && HasScopeFor<Tracer, Offset<N>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
@@ -344,8 +344,8 @@ template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   );
 }
 
-template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
-  requires HasNativeLayout<member_type_t<M>> && HasScopeFor<Tracer, Field<M>>
+template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
+  requires IsReadable<member_type_t<M>> && HasScopeFor<Tracer, Field<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   Field<M> item,
   const MemoryRead& memory_read,
@@ -358,7 +358,7 @@ template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   return read(memory_read, pointers.cursor, field, tracer);
 }
 
-template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
+template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsTypeInRangeFor<pointer_type_t<MemoryRead>, member_type_t<M>>
            && HasScopeFor<Tracer, FieldPtr<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
@@ -377,8 +377,8 @@ template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   return cursor;
 }
 
-template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
-  requires HasNativeLayout<member_type_t<M>> && HasScopeFor<Tracer, FieldRef<M>>
+template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
+  requires IsReadable<member_type_t<M>> && HasScopeFor<Tracer, FieldRef<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   FieldRef<M> item,
   const MemoryRead& memory_read,
@@ -402,8 +402,8 @@ template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   return cursor;
 }
 
-template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
-  requires HasNativeLayout<member_optional_type_t<M>>
+template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
+  requires IsReadable<member_optional_type_t<M>>
            && HasScopeFor<Tracer, FieldOptionalRef<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   FieldOptionalRef<M> item,
@@ -436,7 +436,7 @@ template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
 template <
   IsLayoutItem... Items,
   IsMemoryRead MemoryRead,
-  HasNativeLayout T,
+  IsReadable T,
   typename Tracer>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout(
   Layout<Items...>,
