@@ -7,7 +7,47 @@
 namespace mempeep {
 
 // ============================================================
-// Public API: Layout, RegisterLayout, MemoryRead
+// Integer concepts
+// ============================================================
+
+// Shorthand.
+template <typename T>
+concept IsInteger = std::is_integral_v<T>;
+
+namespace detail {
+
+template <IsInteger T>
+struct TypeRange {
+  static constexpr auto min = std::numeric_limits<T>::lowest();
+  static constexpr auto max = std::numeric_limits<T>::max();
+};
+
+template <auto N>
+  requires IsInteger<decltype(N)>
+struct ValueRange {
+  static constexpr auto min = N;
+  static constexpr auto max = N;
+};
+
+// check FromRange is inside ToRange
+// i.e. ToRange::min <= FromRange::min && FromRange::max <= ToRange::max
+// note: use std::cmp_less_equal to avoid signed/unsigned comparison pitfalls
+template <typename FromRange, typename ToRange>
+concept IsInRange = std::cmp_less_equal(ToRange::min, FromRange::min)
+                    && std::cmp_less_equal(FromRange::max, ToRange::max);
+
+}  // namespace detail
+
+template <auto N, typename T>
+concept IsValueInRangeFor
+  = detail::IsInRange<detail::ValueRange<N>, detail::TypeRange<T>>;
+
+template <typename From, typename To>
+concept IsTypeInRangeFor
+  = detail::IsInRange<detail::TypeRange<From>, detail::TypeRange<To>>;
+
+// ============================================================
+// Member traits
 // ============================================================
 
 template <auto M>
@@ -55,6 +95,10 @@ template <auto M>
   requires IsMemberTypeOptional<M>
 using member_optional_type_t =
   typename member_optional_traits<M>::member_optional_type;
+
+// ============================================================
+// Layout items
+// ============================================================
 
 /**
  * @brief For tagging layout items.
@@ -142,17 +186,6 @@ template <auto M>
   requires IsMemberTypeNativeLayout<M>
 struct Field : LayoutItem {};
 
-// Any signed integer type is permitted as remote pointer type.
-// Signed so subtracting pointers is safe.
-template <typename T>
-concept IsInteger = std::is_integral_v<T>;
-
-template <auto N, typename MemoryRead>
-concept IsIntegerFitting
-  = IsInteger<decltype(N)>
-    && (N >= std::numeric_limits<typename MemoryRead::pointer_type>::min())
-    && (N <= std::numeric_limits<typename MemoryRead::pointer_type>::max());
-
 /**
  * @brief Padding bytes to relative to the current position in the layout.
  */
@@ -239,7 +272,7 @@ namespace detail {
 // ============================================================
 
 template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T>
-  requires(IsIntegerFitting<N, MemoryRead>)  // ensure static_cast works
+  requires(IsValueInRangeFor<N, pointer_type_t<MemoryRead>>)
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   Pad<N>,
   const MemoryRead& memory_read,
@@ -247,13 +280,14 @@ template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T>
   pointer_type_t<MemoryRead> cursor,
   T&
 ) {
+  // static_cast safe by requires IsValueInRangeFor
   return memory_read(
     cursor, static_cast<pointer_type_t<MemoryRead>>(N), nullptr
   );
 }
 
 template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T>
-  requires(IsIntegerFitting<N, MemoryRead>)  // ensure static_cast works
+  requires(IsValueInRangeFor<N, pointer_type_t<MemoryRead>>)
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   Offset<N>,
   const MemoryRead& memory_read,
@@ -261,6 +295,7 @@ template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T>
   pointer_type_t<MemoryRead>,
   T&
 ) {
+  // static_cast safe by requires IsValueInRangeFor
   return memory_read(base, static_cast<pointer_type_t<MemoryRead>>(N), nullptr);
 }
 
