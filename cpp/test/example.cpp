@@ -95,6 +95,18 @@ using member_optional_type_t =
   typename member_optional_traits<M>::member_optional_type;
 
 // ============================================================
+// Tracing
+// ============================================================
+
+// helper function for peak C++ syntax
+template <typename Tracer, typename Item>
+auto make_scope(Tracer& tracer, const Item& item) {
+  return typename Tracer::template Scope<Item>(tracer, item);
+}
+
+// TODO logging
+
+// ============================================================
 // Layout items
 // ============================================================
 
@@ -259,17 +271,23 @@ concept IsMemoryRead = requires(
   } -> std::same_as<pointer_type_t<MemoryRead>>;
 };
 
-template <IsMemoryRead MemoryRead, HasNoRegisteredLayout T>
+template <IsMemoryRead MemoryRead, HasNoRegisteredLayout T, typename Tracer>
 [[nodiscard]] pointer_type_t<MemoryRead> read(
-  const MemoryRead& memory_read, pointer_type_t<MemoryRead> base, T& target
+  const MemoryRead& memory_read,
+  pointer_type_t<MemoryRead> base,
+  T& target,
+  Tracer& tracer
 ) {
   return memory_read(base, sizeof(target), &target);
 };
 
 // Forward declaration to support recursive reading.
-template <IsMemoryRead MemoryRead, HasRegisteredLayout T>
+template <IsMemoryRead MemoryRead, HasRegisteredLayout T, typename Tracer>
 [[nodiscard]] pointer_type_t<MemoryRead> read(
-  const MemoryRead& memory_read, pointer_type_t<MemoryRead> base, T& target
+  const MemoryRead& memory_read,
+  pointer_type_t<MemoryRead> base,
+  T& target,
+  Tracer& tracer
 );
 
 namespace detail {
@@ -278,56 +296,64 @@ namespace detail {
 // Helpers
 // ============================================================
 
-template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T>
+template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   requires IsValueInRangeFor<N, pointer_type_t<MemoryRead>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
-  Pad<N>,
+  Pad<N> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead>,
   pointer_type_t<MemoryRead> cursor,
-  T&
+  T&,
+  Tracer& tracer
 ) {
+  auto scope = make_scope(tracer, item);
   // static_cast safe by requires IsValueInRangeFor
   return memory_read(
     cursor, static_cast<pointer_type_t<MemoryRead>>(N), nullptr
   );
 }
 
-template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T>
+template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   requires IsValueInRangeFor<N, pointer_type_t<MemoryRead>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
-  Offset<N>,
+  Offset<N> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   pointer_type_t<MemoryRead>,
-  T&
+  T&,
+  Tracer& tracer
 ) {
+  auto scope = make_scope(tracer, item);
   // static_cast safe by requires IsValueInRangeFor
   return memory_read(base, static_cast<pointer_type_t<MemoryRead>>(N), nullptr);
 }
 
-template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
+template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   requires HasNativeLayout<member_type_t<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
-  Field<M>,
+  Field<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   pointer_type_t<MemoryRead> cursor,
-  T& target
+  T& target,
+  Tracer& tracer
 ) {
+  auto scope = make_scope(tracer, item);
   auto& field = target.*M;
-  return read(memory_read, cursor, field);
+  return read(memory_read, cursor, field, tracer);
 }
 
-template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
+template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   requires IsTypeInRangeFor<pointer_type_t<MemoryRead>, member_type_t<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
-  FieldPtr<M>,
+  FieldPtr<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   pointer_type_t<MemoryRead> cursor,
-  T& target
+  T& target,
+  Tracer& tracer
 ) {
+  auto scope = make_scope(tracer, item);
   pointer_type_t<MemoryRead> target_ptr{};
   cursor = memory_read(cursor, sizeof(target_ptr), &target_ptr);
   auto& field = target.*M;
@@ -336,60 +362,79 @@ template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
   return cursor;
 }
 
-template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
+template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   requires HasNativeLayout<member_type_t<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
-  FieldRef<M>,
+  FieldRef<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   pointer_type_t<MemoryRead> cursor,
-  T& target
+  T& target,
+  Tracer& tracer
 ) {
+  auto scope = make_scope(tracer, item);
   pointer_type_t<MemoryRead> target_ptr{};
   cursor = memory_read(cursor, sizeof(target_ptr), &target_ptr);
-  auto& field = target.*M;
-  if (target_ptr) {
-    if (!read(memory_read, target_ptr, field)) {
-      // TODO handle error
-    }
-  }
-  return cursor;
-}
-
-template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
-  requires HasNativeLayout<member_optional_type_t<M>>
-[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
-  FieldOptionalRef<M>,
-  const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead> base,
-  pointer_type_t<MemoryRead> cursor,
-  T& target
-) {
-  pointer_type_t<MemoryRead> target_ptr{};
-  cursor = memory_read(cursor, sizeof(target_ptr), &target_ptr);
-  auto& field = target.*M;
-  if (target_ptr) {
-    using U = member_optional_type_t<M>;  // std::optional<U> -> U
-    U value{};
-    if (read(memory_read, target_ptr, value)) {
-      field = std::move(value);
+  if (cursor) {
+    if (target_ptr) {
+      auto& field = target.*M;
+      if (!read(memory_read, target_ptr, field, tracer)) {
+        // TODO handle error
+      }
     }
   } else {
-    field.reset();  // target_ptr == 0 so field must be {}
+    // TODO handle error
   }
   return cursor;
 }
 
-template <IsLayoutItem... Items, IsMemoryRead MemoryRead, HasNativeLayout T>
+template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
+  requires HasNativeLayout<member_optional_type_t<M>>
+[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
+  FieldOptionalRef<M> item,
+  const MemoryRead& memory_read,
+  pointer_type_t<MemoryRead> base,
+  pointer_type_t<MemoryRead> cursor,
+  T& target,
+  Tracer& tracer
+) {
+  auto scope = make_scope(tracer, item);
+  pointer_type_t<MemoryRead> target_ptr{};
+  cursor = memory_read(cursor, sizeof(target_ptr), &target_ptr);
+  if (cursor) {
+    auto& field = target.*M;
+    field.reset();
+    if (target_ptr) {
+      using U = member_optional_type_t<M>;  // std::optional<U> -> U
+      U value{};
+      if (read(memory_read, target_ptr, value, tracer)) {
+        field = std::move(value);
+      } else {
+        // TODO handle error
+      }
+    }
+  } else {
+    // TODO handle error
+  }
+  return cursor;
+}
+
+template <
+  IsLayoutItem... Items,
+  IsMemoryRead MemoryRead,
+  HasNativeLayout T,
+  typename Tracer>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout(
   Layout<Items...>,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
-  T& target
+  T& target,
+  Tracer& tracer
 ) {
   pointer_type_t<MemoryRead> cursor = base;
   // fold from first to last item
-  ((cursor = read_layout_item(Items{}, memory_read, base, cursor, target)),
+  ((cursor
+    = read_layout_item(Items{}, memory_read, base, cursor, target, tracer)),
    ...);
   return cursor;
 }
@@ -418,15 +463,15 @@ template <IsLayoutItem... Items, IsMemoryRead MemoryRead, HasNativeLayout T>
  * @param target The native object to populate.
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
-template <
-
-  IsMemoryRead MemoryRead,
-  HasRegisteredLayout T>
+template <IsMemoryRead MemoryRead, HasRegisteredLayout T, typename Tracer>
 [[nodiscard]] pointer_type_t<MemoryRead> read(
-  const MemoryRead& memory_read, pointer_type_t<MemoryRead> base, T& target
+  const MemoryRead& memory_read,
+  pointer_type_t<MemoryRead> base,
+  T& target,
+  Tracer& tracer
 ) {
   return detail::read_layout(
-    registered_layout_t<T>{}, memory_read, base, target
+    registered_layout_t<T>{}, memory_read, base, target, tracer
   );
 }
 
@@ -439,18 +484,41 @@ template <
 #include <cstdint>   // std::int32_t, ...
 #include <iostream>  // std::cout, ...
 
+struct SimpleTracer {
+  int indent = 0;
+
+  template <typename... Args>
+  void msg(std::format_string<Args...> fmt, Args&&... args) {
+    std::cout << std::string(indent, ' ')
+              << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+  };
+
+  template <typename Item>
+  struct Scope {
+    SimpleTracer& t;
+
+    Scope(SimpleTracer& _t, const Item&) : t(_t) {
+      t.msg("{}", typeid(Item).name());
+      t.indent++;
+    }
+
+    ~Scope() { t.indent--; }
+  };
+};
+
 // example with 16 bit pointers, for fun
 template <int16_t N>
   requires(N > 0)
 struct MemoryReadMock {
+  SimpleTracer& t;
   using pointer_type = int16_t;
   std::byte data[N]{};
 
   int16_t operator()(int16_t cursor, int16_t size, void* buffer) const {
     // handle overflow/underflow (note: cursor 0 is not valid)
-    std::cout << "read: " << cursor << " " << size << std::endl;
+    t.msg("read: {} {}", cursor, cursor + size);
     if (!(size >= 0 && size <= N && cursor >= 1 && cursor <= N - size)) {
-      std::cerr << "error" << std::endl;
+      std::cerr << std::string(t.indent, ' ') << "error" << std::endl;
       return 0;
     }
     if (buffer && size) std::memcpy(buffer, data + cursor, size);
@@ -480,6 +548,10 @@ struct Player {
   int32_t mana;
 };
 
+struct Game {
+  Player player;
+};
+
 template <>
 struct mempeep::RegisterLayout<Pos> {
   using layout = Layout<Field<&Pos::x>, Pad<4i16>, Field<&Pos::y>, Pad<4i16>>;
@@ -501,8 +573,14 @@ struct mempeep::RegisterLayout<Player> {
     Field<&Player::mana>>;
 };
 
+template <>
+struct mempeep::RegisterLayout<Game> {
+  using layout = Layout<Offset<6>, Field<&Game::player>>;
+};
+
 int main() {
-  MemoryReadMock<128> memory_read{};
+  SimpleTracer tracer{};
+  MemoryReadMock<128> memory_read{tracer};
   memory_read.write(18, 123i32);  // health
   memory_read.write(26, 11i32);   // pos.x
   memory_read.write(34, 22i32);   // pos.y
@@ -518,20 +596,20 @@ int main() {
   memory_read.write(80, 55i32);   // tagged_pos.x
   memory_read.write(88, 66i32);   // tagged_pos.y
 
-  Player player{};
-  assert(mempeep::read(memory_read, 10i16, player));
+  Game game{};
+  assert(mempeep::read(memory_read, 4i16, game, tracer));
 
-  assert(player.health == 123);
-  assert(player.pos.x == 11);
-  assert(player.pos.y == 22);
-  assert(player.target_ptr == 0);
-  assert(player.shop_ptr == 2);
-  assert(player.weapon_ptr == 6);
-  assert(player.prev_pos.x == 88);
-  assert(player.prev_pos.y == 99);
-  assert(player.mana == 47);
-  assert(player.tagged_pos.has_value());
-  assert(player.tagged_pos->x == 55);
-  assert(player.tagged_pos->y == 66);
-  assert(!player.house_pos.has_value());
+  assert(game.player.health == 123);
+  assert(game.player.pos.x == 11);
+  assert(game.player.pos.y == 22);
+  assert(game.player.target_ptr == 0);
+  assert(game.player.shop_ptr == 2);
+  assert(game.player.weapon_ptr == 6);
+  assert(game.player.prev_pos.x == 88);
+  assert(game.player.prev_pos.y == 99);
+  assert(game.player.mana == 47);
+  assert(game.player.tagged_pos.has_value());
+  assert(game.player.tagged_pos->x == 55);
+  assert(game.player.tagged_pos->y == 66);
+  assert(!game.player.house_pos.has_value());
 }
