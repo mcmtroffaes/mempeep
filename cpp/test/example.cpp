@@ -66,9 +66,6 @@ template <auto M>
   requires IsMember<M>
 using member_type_t = typename member_traits<M>::member_type;
 
-template <auto M, typename T>
-concept IsMemberTypeSame = std::is_same_v<member_type_t<M>, T>;
-
 // helper to detect std::optional
 template <typename T>
 struct is_optional : std::false_type {};
@@ -168,26 +165,22 @@ using registered_layout_t = typename RegisterLayout<T>::layout;
 template <typename T>
 concept HasNoRegisteredLayout = HasNativeLayout<T> && !HasRegisteredLayout<T>;
 
-template <auto M>
-concept IsMemberTypeNativeLayout = HasNativeLayout<member_type_t<M>>;
-
-template <auto M>
-concept IsMemberOptionalTypeNativeLayout
-  = HasNativeLayout<member_optional_type_t<M>>;
-
 /**
- * @brief Represents a specific member (field) of a struct/class.
- * @tparam M The native field to deserialize into.
+ * @brief A field. Its type can have any native layout.
  *
- * Usage:
- *   Field<&Class::member>
+ * For example, Field<&Class::member>.
+ *
+ * @tparam M The native field to deserialize into.
  */
 template <auto M>
-  requires IsMemberTypeNativeLayout<M>
+  requires HasNativeLayout<member_type_t<M>>
 struct Field : LayoutItem {};
 
 /**
  * @brief Padding bytes to relative to the current position in the layout.
+ * @tparam N Number of bytes.
+ *           Its value must be representable by pointer_type_t<MemoryRead>.
+ *           The read template will not instantiate otherwise.
  */
 template <auto N>
   requires IsInteger<decltype(N)> && (N > 0)
@@ -195,17 +188,30 @@ struct Pad : LayoutItem {};
 
 /**
  * @brief Offset (in bytes) relative to the base position of the layout.
+ * @tparam N The offset.
+ *           Its value must be representable by pointer_type_t<MemoryRead>.
+ *           The read template will not instantiate otherwise.
  */
 template <auto N>
   requires IsInteger<decltype(N)> && (N > 0)
 struct Offset : LayoutItem {};
 
 /**
- * @brief A pointer that is guaranteed to be valid.
+ * @brief A raw pointer (not dereferenced or checked otherwise).
+ * @tparam M The native field to deserialize the pointer into.
+ *           Its type must be wide enough to hold pointer_type_t<MemoryRead>.
+ *           The read template will not instantiate otherwise.
+ */
+template <auto M>
+  requires IsInteger<member_type_t<M>>
+struct FieldPtr : LayoutItem {};
+
+/**
+ * @brief A pointer that can always be dereferenced.
  * @tparam M The native field to deserialize the pointee into.
  */
 template <auto M>
-  requires IsMemberTypeNativeLayout<M>
+  requires HasNativeLayout<member_type_t<M>>
 struct FieldRef : LayoutItem {};
 
 /**
@@ -214,7 +220,7 @@ struct FieldRef : LayoutItem {};
  *                   Must have type std::optional<T>.
  */
 template <auto M>
-  requires IsMemberOptionalTypeNativeLayout<M>
+  requires HasNativeLayout<member_optional_type_t<M>>
 struct FieldOptionalRef : LayoutItem {};
 
 /**
@@ -300,7 +306,7 @@ template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T>
 }
 
 template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
-  requires IsMemberTypeNativeLayout<M>
+  requires HasNativeLayout<member_type_t<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   Field<M>,
   const MemoryRead& memory_read,
@@ -313,7 +319,7 @@ template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
 }
 
 template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
-  requires IsMemberTypeNativeLayout<M>
+  requires HasNativeLayout<member_type_t<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   FieldRef<M>,
   const MemoryRead& memory_read,
@@ -333,7 +339,7 @@ template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
 }
 
 template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
-  requires IsMemberOptionalTypeNativeLayout<M>
+  requires HasNativeLayout<member_optional_type_t<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   FieldOptionalRef<M>,
   const MemoryRead& memory_read,
