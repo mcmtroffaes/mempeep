@@ -98,8 +98,15 @@ using member_optional_type_t =
 // Tracing
 // ============================================================
 
+template <typename Tracer, typename Item>
+concept HasScopeFor = requires(Tracer tracer, Item item) {
+  typename Tracer::template Scope<Item>;
+  { typename Tracer::template Scope<Item>(tracer, item) };
+};
+
 // helper function for peak C++ syntax
 template <typename Tracer, typename Item>
+  requires HasScopeFor<Tracer, Item>
 auto make_scope(Tracer& tracer, const Item& item) {
   return typename Tracer::template Scope<Item>(tracer, item);
 }
@@ -298,6 +305,7 @@ namespace detail {
 
 template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   requires IsValueInRangeFor<N, pointer_type_t<MemoryRead>>
+           && HasScopeFor<Tracer, Pad<N>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   Pad<N> item,
   const MemoryRead& memory_read,
@@ -315,6 +323,7 @@ template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
 
 template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   requires IsValueInRangeFor<N, pointer_type_t<MemoryRead>>
+           && HasScopeFor<Tracer, Offset<N>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   Offset<N> item,
   const MemoryRead& memory_read,
@@ -329,7 +338,7 @@ template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
 }
 
 template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
-  requires HasNativeLayout<member_type_t<M>>
+  requires HasNativeLayout<member_type_t<M>> && HasScopeFor<Tracer, Field<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   Field<M> item,
   const MemoryRead& memory_read,
@@ -345,6 +354,7 @@ template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
 
 template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   requires IsTypeInRangeFor<pointer_type_t<MemoryRead>, member_type_t<M>>
+           && HasScopeFor<Tracer, FieldPtr<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   FieldPtr<M> item,
   const MemoryRead& memory_read,
@@ -363,7 +373,7 @@ template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
 }
 
 template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
-  requires HasNativeLayout<member_type_t<M>>
+  requires HasNativeLayout<member_type_t<M>> && HasScopeFor<Tracer, FieldRef<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   FieldRef<M> item,
   const MemoryRead& memory_read,
@@ -390,6 +400,7 @@ template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
 
 template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T, typename Tracer>
   requires HasNativeLayout<member_optional_type_t<M>>
+           && HasScopeFor<Tracer, FieldOptionalRef<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   FieldOptionalRef<M> item,
   const MemoryRead& memory_read,
