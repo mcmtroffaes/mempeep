@@ -320,6 +320,23 @@ template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
 }
 
 template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
+  requires IsTypeInRangeFor<pointer_type_t<MemoryRead>, member_type_t<M>>
+[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
+  FieldPtr<M>,
+  const MemoryRead& memory_read,
+  pointer_type_t<MemoryRead> base,
+  pointer_type_t<MemoryRead> cursor,
+  T& target
+) {
+  pointer_type_t<MemoryRead> target_ptr{};
+  cursor = memory_read(cursor, sizeof(target_ptr), &target_ptr);
+  auto& field = target.*M;
+  // static_cast safe by requires IsTypeInRangeFor
+  field = static_cast<member_type_t<M>>(target_ptr);
+  return cursor;
+}
+
+template <auto M, IsMemoryRead MemoryRead, HasNativeLayout T>
   requires HasNativeLayout<member_type_t<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   FieldRef<M>,
@@ -455,7 +472,7 @@ struct Player {
   int32_t health;
   Pos pos;
   int16_t target_ptr;
-  int16_t shop_ptr;
+  int32_t shop_ptr;  // wider than needed, still fine
   int16_t weapon_ptr;
   Pos prev_pos;
   std::optional<Pos> tagged_pos;
@@ -475,9 +492,9 @@ struct mempeep::RegisterLayout<Player> {
     Field<&Player::health>,
     Offset<16>,
     Field<&Player::pos>,
-    Field<&Player::target_ptr>,
-    Field<&Player::shop_ptr>,
-    Field<&Player::weapon_ptr>,
+    FieldPtr<&Player::target_ptr>,
+    FieldPtr<&Player::shop_ptr>,
+    FieldPtr<&Player::weapon_ptr>,
     FieldRef<&Player::prev_pos>,
     FieldOptionalRef<&Player::tagged_pos>,
     FieldOptionalRef<&Player::house_pos>,
