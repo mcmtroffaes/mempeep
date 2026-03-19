@@ -79,21 +79,18 @@ template <typename T>
 concept IsOptional = is_optional<T>::value;
 
 template <auto M>
-concept IsMemberTypeOptional = IsOptional<member_type_t<M>>;
-
-template <auto M>
-  requires IsMemberTypeOptional<M>
+  requires IsOptional<member_type_t<M>>
 struct member_optional_traits;
 
 template <typename C, typename U, std::optional<U> C::* M>
 struct member_optional_traits<M> {
-  using member_optional_type = U;
+  using optional_value_type = U;
 };
 
 template <auto M>
-  requires IsMemberTypeOptional<M>
-using member_optional_type_t =
-  typename member_optional_traits<M>::member_optional_type;
+  requires IsOptional<member_type_t<M>>
+using optional_value_type_t =
+  typename member_optional_traits<M>::optional_value_type;
 
 // ============================================================
 // Tracing
@@ -241,7 +238,7 @@ struct FieldRef : LayoutItem {};
  *                   Must have type std::optional<T>.
  */
 template <auto M>
-  requires IsReadable<member_optional_type_t<M>>
+  requires IsReadable<optional_value_type_t<M>>
 struct FieldOptionalRef : LayoutItem {};
 
 /**
@@ -403,7 +400,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
 }
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
-  requires IsReadable<member_optional_type_t<M>>
+  requires IsReadable<optional_value_type_t<M>>
            && HasScopeFor<Tracer, FieldOptionalRef<M>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   FieldOptionalRef<M> item,
@@ -419,7 +416,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
     auto& field = target.*M;
     field.reset();
     if (target_ptr) {
-      using U = member_optional_type_t<M>;  // std::optional<U> -> U
+      using U = optional_value_type_t<M>;  // std::optional<U> -> U
       U value{};
       if (read(memory_read, target_ptr, value, tracer)) {
         field = std::move(value);
