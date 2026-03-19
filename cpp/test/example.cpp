@@ -178,12 +178,6 @@ template <typename T>
 using registered_layout_t = typename RegisterLayout<T>::layout;
 
 /**
- * @brief Does T have a standard layout (and no custom layout)?
- */
-template <typename T>
-concept HasNoRegisteredLayout = IsReadable<T> && !HasRegisteredLayout<T>;
-
-/**
  * @brief A field. Its type can have any native layout.
  *
  * For example, Field<&Class::member>.
@@ -276,18 +270,8 @@ concept IsMemoryRead = requires(
   } -> std::same_as<pointer_type_t<MemoryRead>>;
 };
 
-template <IsMemoryRead MemoryRead, HasNoRegisteredLayout T, typename Tracer>
-[[nodiscard]] pointer_type_t<MemoryRead> read(
-  const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead> base,
-  T& target,
-  Tracer& tracer
-) {
-  return memory_read(base, sizeof(target), &target);
-};
-
 // Forward declaration to support recursive reading.
-template <IsMemoryRead MemoryRead, HasRegisteredLayout T, typename Tracer>
+template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
 [[nodiscard]] pointer_type_t<MemoryRead> read(
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -480,17 +464,21 @@ template <
  * @param target The native object to populate.
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
-template <IsMemoryRead MemoryRead, HasRegisteredLayout T, typename Tracer>
+template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
 [[nodiscard]] pointer_type_t<MemoryRead> read(
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   T& target,
   Tracer& tracer
 ) {
-  return detail::read_layout(
-    registered_layout_t<T>{}, memory_read, base, target, tracer
-  );
-}
+  if constexpr (HasRegisteredLayout<T>) {
+    return detail::read_layout(
+      registered_layout_t<T>{}, memory_read, base, target, tracer
+    );
+  } else {
+    return memory_read(base, sizeof(target), &target);
+  }
+};
 
 }  // namespace mempeep
 
