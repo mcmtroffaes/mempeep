@@ -279,7 +279,7 @@ namespace detail {
 // ============================================================
 
 template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T>
-  requires(IsValueInRangeFor<N, pointer_type_t<MemoryRead>>)
+  requires IsValueInRangeFor<N, pointer_type_t<MemoryRead>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   Pad<N>,
   const MemoryRead& memory_read,
@@ -294,7 +294,7 @@ template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T>
 }
 
 template <auto N, IsMemoryRead MemoryRead, HasNativeLayout T>
-  requires(IsValueInRangeFor<N, pointer_type_t<MemoryRead>>)
+  requires IsValueInRangeFor<N, pointer_type_t<MemoryRead>>
 [[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
   Offset<N>,
   const MemoryRead& memory_read,
