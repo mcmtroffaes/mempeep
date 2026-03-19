@@ -3,6 +3,7 @@
 #include <functional>   // std::function
 #include <optional>     // std::optional
 #include <type_traits>  // std::same_as, ...
+#include <utility>      // std::cmp_less_equal
 
 namespace mempeep {
 
