@@ -434,7 +434,9 @@ template <
   pointer_type_t<MemoryRead> cursor = base;
   // fold from first to last item
   ((cursor
-    = read_layout_item(Items{}, memory_read, base, cursor, target, tracer)),
+      ? cursor
+        = read_layout_item(Items{}, memory_read, base, cursor, target, tracer)
+      : 0),
    ...);
   return cursor;
 }
