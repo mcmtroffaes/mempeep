@@ -296,12 +296,6 @@ namespace detail {
 // Helpers
 // ============================================================
 
-template <IsMemoryRead MemoryRead>
-struct LayoutPointers {
-  pointer_type_t<MemoryRead> base;
-  pointer_type_t<MemoryRead> cursor;
-};
-
 template <
   IsInteger auto N,
   IsMemoryRead MemoryRead,
@@ -435,15 +429,15 @@ template <
   T& target,
   Tracer& tracer
 ) {
-  ReadResult<MemoryRead> cursor{base};
-  // fold from first to last item, only keep going as long as cursor is ok
+  ReadResult<MemoryRead> result{base};
+  // fold from first to last item, only keep going as long as result is ok
   // note ((expr), ...) is intentional: comma operator has the lowest precedence
   ((
-     cursor
-     && (cursor = read_layout_item(Items{}, memory_read, base, cursor.value(), target, tracer))
+     result
+     && (result = read_layout_item(Items{}, memory_read, base, result.value(), target, tracer))
    ),
    ...);
-  return cursor;
+  return result;
 }
 
 }  // namespace detail
@@ -459,7 +453,7 @@ template <
  * @tparam MemoryRead The type for the memory_read callback.
  * @tparam T          The native type to deserialize into.
  * @param memory The memory abstraction providing the `MemoryRead` function.
- * @param cursor The current remote memory pointer.
+ * @param base   The remote address to start reading from.
  * @param target The native object to populate.
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
