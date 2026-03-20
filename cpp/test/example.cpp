@@ -296,7 +296,7 @@ concept IsMemoryRead = requires(
 // Stores result of reading: address after reading, or null if read failed.
 // Note error messages are propagated separately through the tracer.
 template <IsMemoryRead MemoryRead>
-using ReadResult = std::optional<pointer_type_t<MemoryRead>>;
+using ReadCursor = std::optional<pointer_type_t<MemoryRead>>;
 
 // Addition with overflow check, handling mixed types.
 template <IsInteger PointerType, IsInteger M, IsTracer Tracer>
@@ -328,7 +328,7 @@ template <IsInteger PointerType, IsInteger M, IsTracer Tracer>
 
 // Forward declaration to support recursive reading.
 template <IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
-[[nodiscard]] ReadResult<MemoryRead> read(
+[[nodiscard]] ReadCursor<MemoryRead> read(
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   T& target,
@@ -346,7 +346,7 @@ template <
   IsMemoryRead MemoryRead,
   IsReadable T,
   IsTracer Tracer>
-[[nodiscard]] ReadResult<MemoryRead> read_layout_item(
+[[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
   Pad<N> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -364,7 +364,7 @@ template <
   IsMemoryRead MemoryRead,
   IsReadable T,
   IsTracer Tracer>
-[[nodiscard]] ReadResult<MemoryRead> read_layout_item(
+[[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
   AbsoluteOffset<N> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -379,7 +379,7 @@ template <
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
-[[nodiscard]] ReadResult<MemoryRead> read_layout_item(
+[[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
   Field<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -394,7 +394,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   requires IsTypeRepresentableAs<pointer_type_t<MemoryRead>, member_type_t<M>>
-[[nodiscard]] ReadResult<MemoryRead> read_layout_item(
+[[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
   FieldAddr<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -413,7 +413,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
-[[nodiscard]] ReadResult<MemoryRead> read_layout_item(
+[[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
   FieldDeref<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -437,7 +437,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   requires IsReadable<optional_value_type_t<M>>
-[[nodiscard]] ReadResult<MemoryRead> read_layout_item(
+[[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
   FieldDerefOpt<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -467,16 +467,17 @@ template <
   IsMemoryRead MemoryRead,
   IsReadable T,
   IsTracer Tracer>
-[[nodiscard]] ReadResult<MemoryRead> read_layout(
+[[nodiscard]] ReadCursor<MemoryRead> read_layout(
   Layout<Items...>,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   T& target,
   Tracer& tracer
 ) {
-  ReadResult<MemoryRead> result{base};
-  // fold from first to last item, only keep going as long as result is ok
-  // - note ((expr), ...) is intentional: comma has the lowest precedence
+  ReadCursor<MemoryRead> result{base};
+  // - ((expr), ...) is intentional: comma has the lowest precedence
+  // - comma operator sequences the effects from left to right
+  // - && short-circuits the evaluation so we stop on first failure
   // - Items{} is just a tag to select the overload, construction costs nothing
   ((
      result
@@ -504,7 +505,7 @@ template <
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
 template <IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
-[[nodiscard]] ReadResult<MemoryRead> read(
+[[nodiscard]] ReadCursor<MemoryRead> read(
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   T& target,
@@ -584,6 +585,7 @@ struct MemoryReadMock {
 
   bool operator()(int16_t address, std::size_t size, void* buffer) const {
     // handle overflow/underflow
+    // note: static_cast is safe, size <= N means it fits
     if (!(buffer && size > 0 && size <= N && address >= BASE
           && address - BASE <= N - static_cast<int16_t>(size))) {
       t.error("read error");
