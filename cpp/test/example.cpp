@@ -91,7 +91,8 @@ using optional_value_type_t =
 // Tracing
 // ============================================================
 
-// note: uint64_t address avoids dependence on MemoryRead (ok for logging)
+// note: uint64_t address avoids dependence on MemoryRead
+// this is ok for logging, and keeps implementation simple
 template <typename Tracer>
 concept IsTracer = requires(
   Tracer& tracer,
@@ -104,8 +105,7 @@ concept IsTracer = requires(
   { tracer.error(reason) } -> std::same_as<void>;
 };
 
-// helper function for peak C++ syntax
-// note address only propagated up to 64 bits (for simplicity of implementation)
+// deduces Tracer::Scope from Tracer, avoiding repetition at call sites
 template <IsTracer Tracer, IsInteger N>
 auto make_scope(Tracer& tracer, N address, std::string_view label) {
   return
