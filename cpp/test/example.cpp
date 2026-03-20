@@ -275,7 +275,7 @@ template <typename MemoryRead>
 concept IsMemoryRead = requires(
   MemoryRead memory_read,
   pointer_type_t<MemoryRead> address,
-  pointer_type_t<MemoryRead> size,
+  std::size_t size,
   void* buffer
 ) {
   { memory_read(address, size, buffer) } -> std::same_as<bool>;
@@ -566,11 +566,11 @@ struct MemoryReadMock {
   using pointer_type = int16_t;
   std::byte data[N]{};
 
-  bool operator()(int16_t address, int16_t size, void* buffer) const {
+  bool operator()(int16_t address, std::size_t size, void* buffer) const {
     // handle overflow/underflow
     t.error("0x{:X} bytes", size);
     if (!(buffer && size > 0 && size <= N && address >= BASE
-          && address - BASE <= N - size)) {
+          && address - BASE <= N - static_cast<int16_t>(size))) {
       t.error("read error");
       return false;
     }
