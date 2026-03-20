@@ -247,21 +247,17 @@ template <auto M>
 struct FieldAddr : LayoutItem {};
 
 /**
- * @brief Follow address and read pointee (null is an error).
+ * @brief Follow address and read pointee.
  * @tparam M The native field to deserialize the pointee into.
+ *           Must have type std::optional<T>.
+ * @tparam Required If true (default), a null address is an error.
  */
-template <auto M>
+template <auto M, bool Required = true>
   requires IsReadable<member_type_t<M>>
 struct FieldDeref : LayoutItem {};
 
-/**
- * @brief Follow address and read pointee if not null. Stored as optional.
- * @tparam M The native field to deserialize the pointee into.
- *           Must have type std::optional<T>.
- */
 template <auto M>
-  requires IsReadable<optional_value_type_t<M>>
-struct FieldDerefOpt : LayoutItem {};
+using FieldDerefOpt = FieldDeref<M, false>;
 
 /**
  * @brief Extract pointer_type from MemoryRead.
@@ -408,34 +404,15 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   return safe_offset(address, sizeof(target_ptr), tracer);
 }
 
-template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
-  requires IsReadable<member_type_t<M>>
-[[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
-  FieldDeref<M> item,
-  const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead> base,
-  pointer_type_t<MemoryRead> address,
-  T& target,
-  Tracer& tracer
-) {
-  [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
-  pointer_type_t<MemoryRead> target_ptr{};
-  if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
-  if (target_ptr) {
-    auto& field = target.*M;
-    if (!read(memory_read, target_ptr, field, tracer)) {
-      tracer.error("failed to read pointee");
-    }
-  } else {
-    tracer.error("null pointer");
-  }
-  return safe_offset(address, sizeof(target_ptr), tracer);
-}
-
-template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
+template <
+  auto M,
+  bool Required,
+  IsMemoryRead MemoryRead,
+  IsReadable T,
+  IsTracer Tracer>
   requires IsReadable<optional_value_type_t<M>>
 [[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
-  FieldDerefOpt<M> item,
+  FieldDeref<M, Required> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   pointer_type_t<MemoryRead> address,
@@ -455,6 +432,8 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
     } else {
       tracer.error("failed to read pointee");
     }
+  } else if constexpr (Required) {
+    tracer.error("null pointer");
   }
   return safe_offset(address, sizeof(target_ptr), tracer);
 }
@@ -611,7 +590,7 @@ struct Player {
   int16_t target_ptr;
   int32_t shop_ptr;  // wider than needed, still fine
   int16_t weapon_ptr;
-  Pos prev_pos;
+  std::optional<Pos> prev_pos;
   std::optional<Pos> tagged_pos;
   std::optional<Pos> house_pos;
   int32_t mana;
@@ -669,8 +648,8 @@ int main() {
   assert(game.player.target_ptr == 0);
   assert(game.player.shop_ptr == 2);
   assert(game.player.weapon_ptr == 6);
-  assert(game.player.prev_pos.x == 88);
-  assert(game.player.prev_pos.y == 99);
+  assert(game.player.prev_pos->x == 88);
+  assert(game.player.prev_pos->y == 99);
   assert(game.player.mana == 47);
   assert(game.player.tagged_pos.has_value());
   assert(game.player.tagged_pos->x == 55);
