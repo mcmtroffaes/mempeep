@@ -24,8 +24,7 @@ struct TypeRange {
   static constexpr auto max = std::numeric_limits<T>::max();
 };
 
-template <auto N>
-  requires IsInteger<decltype(N)>
+template <IsInteger auto N>
 struct ValueRange {
   static constexpr auto min = N;
   static constexpr auto max = N;
@@ -194,8 +193,7 @@ struct Field : LayoutItem {};
  *           Its value must be representable by pointer_type_t<MemoryRead>.
  *           The read template will not instantiate otherwise.
  */
-template <auto N>
-  requires IsInteger<decltype(N)>
+template <IsInteger auto N>
 struct Pad : LayoutItem {};
 
 /**
@@ -204,8 +202,7 @@ struct Pad : LayoutItem {};
  *           Its value must be representable by pointer_type_t<MemoryRead>.
  *           The read template will not instantiate otherwise.
  */
-template <auto N>
-  requires IsInteger<decltype(N)>
+template <IsInteger auto N>
 struct Offset : LayoutItem {};
 
 /**
@@ -305,9 +302,8 @@ struct LayoutPointers {
   pointer_type_t<MemoryRead> cursor;
 };
 
-template <auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
-  requires IsValueInRangeFor<N, pointer_type_t<MemoryRead>>
-           && HasScopeFor<Tracer, Pad<N>>
+template <IsInteger auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
+  requires HasScopeFor<Tracer, Pad<N>>
 [[nodiscard]] Cursor<MemoryRead> read_layout_item(
   Pad<N> item,
   const MemoryRead& memory_read,
@@ -320,9 +316,8 @@ template <auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   return safe_offset(address, N);
 }
 
-template <auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
-  requires IsValueInRangeFor<N, pointer_type_t<MemoryRead>>
-           && HasScopeFor<Tracer, Offset<N>>
+template <IsInteger auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
+  requires HasScopeFor<Tracer, Offset<N>>
 [[nodiscard]] Cursor<MemoryRead> read_layout_item(
   Offset<N> item,
   const MemoryRead& memory_read,
