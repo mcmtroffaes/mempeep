@@ -228,7 +228,7 @@ template <IsInteger auto N>
 struct Offset : LayoutItem {};
 
 /**
- * @brief A raw address (not dereferenced or checked otherwise).
+ * @brief Raw address, not followed.
  * @tparam M The native field to deserialize the address into.
  *           Its type must be wide enough to hold pointer_type_t<MemoryRead>.
  *           The read template will not instantiate otherwise.
@@ -238,7 +238,7 @@ template <auto M>
 struct FieldAddr : LayoutItem {};
 
 /**
- * @brief A pointer that can always be dereferenced.
+ * @brief Follow address and read pointee (null is an error).
  * @tparam M The native field to deserialize the pointee into.
  */
 template <auto M>
@@ -246,9 +246,9 @@ template <auto M>
 struct FieldDeref : LayoutItem {};
 
 /**
- * @brief A pointer that may be null, but otherwise can be dereferenced.
+ * @brief Follow address and read pointee if not null. Stored as optional.
  * @tparam M The native field to deserialize the pointee into.
- *                   Must have type std::optional<T>.
+ *           Must have type std::optional<T>.
  */
 template <auto M>
   requires IsReadable<optional_value_type_t<M>>
@@ -408,9 +408,13 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   auto scope = make_scope(tracer, address, member_name<M>());
   pointer_type_t<MemoryRead> target_ptr{};
   if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
-  auto& field = target.*M;
-  if (!read(memory_read, target_ptr, field, tracer)) {
-    tracer.error("failed to read pointee");
+  if (target_ptr) {
+    auto& field = target.*M;
+    if (!read(memory_read, target_ptr, field, tracer)) {
+      tracer.error("failed to read pointee");
+    }
+  } else {
+    tracer.error("null pointer");
   }
   return safe_offset(address, sizeof(target_ptr), tracer);
 }
