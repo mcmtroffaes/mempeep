@@ -620,6 +620,7 @@ struct Game {
   Player player;
 };
 
+// intentionally have 4 padding bytes at end, for testing
 template <>
 struct mempeep::RegisterLayout<Pos> {
   using layout = Layout<Field<&Pos::x>, Pad<4i16>, Field<&Pos::y>, Pad<4i16>>;
