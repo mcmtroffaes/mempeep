@@ -179,39 +179,36 @@ concept IsReadable
   = std::is_standard_layout_v<T> && std::is_default_constructible_v<T>;
 
 /**
- * @brief Template for registering the remote layout of a native struct.
+ * @brief Tag for registering the remote layout of a native struct.
  *
- * To be specialized by the user for each struct with non-native remote layout.
  * Example:
  *
- *   template <>
- *   struct RegisterLayout<Pos> {
- *     using layout = Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>;
- *   };
+ *   auto layout_of(Tag<Pos>) -> Layout<Field<&Pos::x>, Pad<4>,
+ * Field<&Pos::y>>;
  *
  * @tparam T Native struct to register the layout for.
  */
 template <typename T>
   requires IsReadable<T>
-struct RegisterLayout;
+struct Tag {};
 
 /**
  * @brief Does T have a custom layout?
  *
- * Checks if RegisterLayout<T>::layout exists.
+ * Checks if the function layout_of(Tag<T>) exists.
  */
 template <typename T>
-concept HasRegisteredLayout = requires { typename RegisterLayout<T>::layout; };
+concept HasRegisteredLayout = requires { layout_of(Tag<T>{}); };
 
 /**
- * @brief Shorthand for RegisterLayout<T>::layout.
+ * @brief Shorthand for the return type of `layout_of(Tag<T>{})`.
  */
 template <typename T>
   requires HasRegisteredLayout<T>
-using registered_layout_t = typename RegisterLayout<T>::layout;
+using registered_layout_t = decltype(layout_of(Tag<T>{}));
 
 /**
- * @brief A field. Its type can have any native layout.
+ * @brief A field. Its type must be readable.
  *
  * For example, Field<&Class::member>.
  *
@@ -625,31 +622,27 @@ struct Game {
 };
 
 // intentionally have 4 padding bytes at end, for testing
-template <>
-struct mempeep::RegisterLayout<Pos> {
-  using layout = Layout<Field<&Pos::x>, Pad<4i16>, Field<&Pos::y>, Pad<4i16>>;
-};
+using namespace mempeep;
+auto layout_of(Tag<Pos>)
+  -> Layout<Field<&Pos::x>, Pad<4i16>, Field<&Pos::y>, Pad<4i16>>
+  = delete;
 
-template <>
-struct mempeep::RegisterLayout<Player> {
-  using layout = Layout<
-    Seek<8>,
-    Field<&Player::health>,
-    Seek<16>,
-    Field<&Player::pos>,
-    FieldAddr<&Player::target_ptr>,
-    FieldAddr<&Player::shop_ptr>,
-    FieldAddr<&Player::weapon_ptr>,
-    FieldDeref<&Player::prev_pos>,
-    FieldDerefOpt<&Player::tagged_pos>,
-    FieldDerefOpt<&Player::house_pos>,
-    Field<&Player::mana>>;
-};
+auto layout_of(Tag<Player>) -> Layout<
+  Seek<8>,
+  Field<&Player::health>,
+  Seek<16>,
+  Field<&Player::pos>,
+  FieldAddr<&Player::target_ptr>,
+  FieldAddr<&Player::shop_ptr>,
+  FieldAddr<&Player::weapon_ptr>,
+  FieldDeref<&Player::prev_pos>,
+  FieldDerefOpt<&Player::tagged_pos>,
+  FieldDerefOpt<&Player::house_pos>,
+  Field<&Player::mana>>
+  = delete;
 
-template <>
-struct mempeep::RegisterLayout<Game> {
-  using layout = Layout<Seek<6>, Field<&Game::player>>;
-};
+auto layout_of(Tag<Game>) -> Layout<Seek<6>, Field<&Game::player>>
+  = delete;
 
 int main() {
   SimpleTracer tracer{};
