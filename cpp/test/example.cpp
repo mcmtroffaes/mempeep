@@ -535,7 +535,7 @@ struct SimpleTracer {
 
 // example with 16 bit pointers, for fun
 template <int16_t BASE, int16_t N>
-  requires(BASE > 0) && (N > 0)
+  requires(BASE > 0 && N > 0)
 struct MemoryReadMock {
   SimpleTracer& t;
   using pointer_type = int16_t;
