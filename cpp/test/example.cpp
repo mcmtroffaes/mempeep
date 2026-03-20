@@ -95,20 +95,46 @@ using optional_value_type_t =
 // Tracing
 // ============================================================
 
-template <typename Tracer, typename Item>
-concept HasScopeFor = requires(Tracer tracer, Item item) {
-  typename Tracer::template Scope<Item>;
-  { typename Tracer::template Scope<Item>(tracer, item) };
+// note: uint64_t address avoids dependence on MemoryRead (ok for logging)
+template <typename Tracer>
+concept IsTracer = requires(
+  Tracer& tracer,
+  std::uint64_t address,
+  std::string_view label,
+  std::string_view reason
+) {
+  typename Tracer::Scope;
+  { Tracer::Scope(tracer, address, label) };
+  { tracer.error(reason) } -> std::same_as<void>;
 };
 
 // helper function for peak C++ syntax
-template <typename Tracer, typename Item>
-  requires HasScopeFor<Tracer, Item>
-auto make_scope(Tracer& tracer, const Item& item) {
-  return typename Tracer::template Scope<Item>(tracer, item);
+// note address only propagated up to 64 bits (for simplicity of implementation)
+template <IsTracer Tracer, IsInteger N>
+auto make_scope(Tracer& tracer, N address, std::string_view label) {
+  return
+    typename Tracer::Scope(tracer, static_cast<std::uint64_t>(address), label);
 }
 
-// TODO logging
+template <auto M>
+consteval std::string_view member_name() {
+#if defined(_MSC_VER)
+  std::string_view sig = __FUNCSIG__;
+  auto last_colon = sig.rfind(':');
+  auto close = sig.rfind('>');
+#else
+  std::string_view sig = __PRETTY_FUNCTION__;
+  auto last_colon = sig.rfind(':');
+  auto close = sig.rfind(']');
+#endif
+  return sig.substr(last_colon + 1, close - last_colon - 1);
+}
+
+struct _TestMemberName {
+  int the_member;
+};
+
+static_assert(member_name<&_TestMemberName::the_member>() == "the_member");
 
 // ============================================================
 // Layout items
@@ -263,26 +289,35 @@ template <IsMemoryRead MemoryRead>
 using ReadResult = std::optional<pointer_type_t<MemoryRead>>;
 
 // Addition with overflow check, handling mixed types.
-template <IsInteger PointerType, IsInteger M>
+template <IsInteger PointerType, IsInteger M, IsTracer Tracer>
 [[nodiscard]] std::optional<PointerType> safe_offset(
-  PointerType address, M offset
+  PointerType address, M offset, Tracer tracer
 ) {
   using Limits = std::numeric_limits<PointerType>;
   constexpr PointerType min = Limits::min();
   constexpr PointerType max = Limits::max();
-  if (!std::in_range<PointerType>(offset)) return {};
+  if (!std::in_range<PointerType>(offset)) {
+    tracer.error("offset out of range");
+    return {};
+  }
   PointerType ofs = static_cast<PointerType>(offset);
   // safely check min <= address + ofs <= max
   if (ofs > 0) {
-    if (address > max - ofs) return {};
+    if (address > max - ofs) {
+      tracer.error("offset overflow");
+      return {};
+    }
   } else if (ofs < 0) {
-    if (address < min - ofs) return {};
+    if (address < min - ofs) {
+      tracer.error("offset underflow");
+      return {};
+    }
   }
   return static_cast<PointerType>(address + ofs);
 }
 
 // Forward declaration to support recursive reading.
-template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
+template <IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
 [[nodiscard]] ReadResult<MemoryRead> read(
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -300,8 +335,7 @@ template <
   IsInteger auto N,
   IsMemoryRead MemoryRead,
   IsReadable T,
-  typename Tracer>
-  requires HasScopeFor<Tracer, Pad<N>>
+  IsTracer Tracer>
 [[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   Pad<N> item,
   const MemoryRead& memory_read,
@@ -310,16 +344,15 @@ template <
   T&,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, item);
-  return safe_offset(address, N);
+  auto scope = make_scope(tracer, address, std::format("pad(0x{:X})", N));
+  return safe_offset(address, N, tracer);
 }
 
 template <
   IsInteger auto N,
   IsMemoryRead MemoryRead,
   IsReadable T,
-  typename Tracer>
-  requires HasScopeFor<Tracer, Offset<N>>
+  IsTracer Tracer>
 [[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   Offset<N> item,
   const MemoryRead& memory_read,
@@ -328,12 +361,12 @@ template <
   T&,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, item);
-  return safe_offset(base, N);
+  auto scope = make_scope(tracer, address, std::format("offset(0x{:X})", N));
+  return safe_offset(base, N, tracer);
 }
 
-template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
-  requires IsReadable<member_type_t<M>> && HasScopeFor<Tracer, Field<M>>
+template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
+  requires IsReadable<member_type_t<M>>
 [[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   Field<M> item,
   const MemoryRead& memory_read,
@@ -342,14 +375,13 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   T& target,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, item);
+  auto scope = make_scope(tracer, address, member_name<M>());
   auto& field = target.*M;
   return read(memory_read, address, field, tracer);
 }
 
-template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
+template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   requires IsTypeInRangeFor<pointer_type_t<MemoryRead>, member_type_t<M>>
-           && HasScopeFor<Tracer, FieldPtr<M>>
 [[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   FieldPtr<M> item,
   const MemoryRead& memory_read,
@@ -358,17 +390,17 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   T& target,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, item);
+  auto scope = make_scope(tracer, address, member_name<M>());
   pointer_type_t<MemoryRead> target_ptr{};
   if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
   auto& field = target.*M;
   // static_cast safe by requires IsTypeInRangeFor
   field = static_cast<member_type_t<M>>(target_ptr);
-  return safe_offset(address, sizeof(target_ptr));
+  return safe_offset(address, sizeof(target_ptr), tracer);
 }
 
-template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
-  requires IsReadable<member_type_t<M>> && HasScopeFor<Tracer, FieldRef<M>>
+template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
+  requires IsReadable<member_type_t<M>>
 [[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   FieldRef<M> item,
   const MemoryRead& memory_read,
@@ -377,7 +409,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   T& target,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, item);
+  auto scope = make_scope(tracer, address, member_name<M>());
   pointer_type_t<MemoryRead> target_ptr{};
   if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
   if (target_ptr) {
@@ -386,12 +418,11 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
       // TODO handle error
     }
   }
-  return safe_offset(address, sizeof(target_ptr));
+  return safe_offset(address, sizeof(target_ptr), tracer);
 }
 
-template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
+template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   requires IsReadable<optional_value_type_t<M>>
-           && HasScopeFor<Tracer, FieldOptionalRef<M>>
 [[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   FieldOptionalRef<M> item,
   const MemoryRead& memory_read,
@@ -400,7 +431,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   T& target,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, item);
+  auto scope = make_scope(tracer, address, member_name<M>());
   pointer_type_t<MemoryRead> target_ptr{};
   if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
   auto& field = target.*M;
@@ -414,14 +445,14 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
       // TODO handle error
     }
   }
-  return safe_offset(address, sizeof(target_ptr));
+  return safe_offset(address, sizeof(target_ptr), tracer);
 }
 
 template <
   IsLayoutItem... Items,
   IsMemoryRead MemoryRead,
   IsReadable T,
-  typename Tracer>
+  IsTracer Tracer>
 [[nodiscard]] ReadResult<MemoryRead> read_layout(
   Layout<Items...>,
   const MemoryRead& memory_read,
@@ -457,7 +488,7 @@ template <
  * @param target The native object to populate.
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
-template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
+template <IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
 [[nodiscard]] ReadResult<MemoryRead> read(
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -470,7 +501,7 @@ template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
     );
   } else {
     if (!memory_read(base, sizeof(target), &target)) return {};
-    return safe_offset(base, sizeof(target));
+    return safe_offset(base, sizeof(target), tracer);
   }
 };
 
@@ -507,19 +538,21 @@ constexpr std::int16_t operator"" i16(unsigned long long v) {
 
 struct SimpleTracer {
   int indent = 0;
+  int64_t address = 0;
 
   template <typename... Args>
-  void msg(std::format_string<Args...> fmt, Args&&... args) {
-    std::cout << std::string(indent, ' ')
+  void error(std::format_string<Args...> fmt, Args&&... args) {
+    auto whitespace = std::string(indent, ' ');
+    std::cout << std::format("[{:08X}] ", address) << whitespace << whitespace
               << std::format(fmt, std::forward<Args>(args)...) << std::endl;
   }
 
-  template <typename Item>
   struct Scope {
     SimpleTracer& t;
 
-    Scope(SimpleTracer& _t, const Item&) : t(_t) {
-      t.msg("{}", typeid(Item).name());
+    Scope(SimpleTracer& _t, int64_t address, std::string_view label) : t(_t) {
+      t.address = address;
+      t.error("{}", label);
       t.indent++;
     }
 
@@ -537,10 +570,10 @@ struct MemoryReadMock {
 
   bool operator()(int16_t address, int16_t size, void* buffer) const {
     // handle overflow/underflow
-    t.msg("read: {} {}", address, address + size);
+    t.error("0x{:X} bytes", size);
     if (!(buffer && size > 0 && size <= N && address >= BASE
           && address - BASE <= N - size)) {
-      std::cerr << std::string(t.indent, ' ') << "error" << std::endl;
+      t.error("read error");
       return false;
     }
     std::memcpy(buffer, data + (address - BASE), size);
