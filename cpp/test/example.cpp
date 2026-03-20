@@ -447,8 +447,6 @@ template <
     U value{};
     if (read(memory_read, target_ptr, value, tracer)) {
       field = std::move(value);
-    } else {
-      tracer.error("failed to read pointee");
     }
   } else if constexpr (Required) {
     tracer.error("null pointer");
