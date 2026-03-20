@@ -289,31 +289,37 @@ template <IsMemoryRead MemoryRead>
 using ReadCursor = std::optional<pointer_type_t<MemoryRead>>;
 
 // Addition with overflow check, handling mixed types.
-template <IsInteger PointerType, IsInteger M, IsTracer Tracer>
-[[nodiscard]] std::optional<PointerType> safe_offset(
-  PointerType address, M offset, Tracer& tracer
-) {
-  using Limits = std::numeric_limits<PointerType>;
-  constexpr PointerType min = Limits::min();
-  constexpr PointerType max = Limits::max();
-  if (!std::in_range<PointerType>(offset)) {
-    tracer.error("offset out of range");
+template <IsInteger S, IsInteger T>
+[[nodiscard]] constexpr std::optional<S> checked_add(S s, T t) noexcept {
+  // safely cast t to S
+  if (!std::in_range<S>(t)) {
     return {};
   }
-  PointerType ofs = static_cast<PointerType>(offset);
-  // safely check min <= address + ofs <= max
-  if (ofs > 0) {
-    if (address > max - ofs) {
-      tracer.error("offset overflow");
+  S tt = static_cast<S>(t);
+  // safely check min <= s + tt <= max
+  using Limits = std::numeric_limits<S>;
+  constexpr S min = Limits::min();
+  constexpr S max = Limits::max();
+  if (tt > 0) {
+    if (s > max - tt) {
       return {};
     }
-  } else if (ofs < 0) {
-    if (address < min - ofs) {
-      tracer.error("offset underflow");
+  } else if (tt < 0) {
+    if (s < min - tt) {
       return {};
     }
   }
-  return static_cast<PointerType>(address + ofs);
+  return static_cast<S>(s + tt);
+}
+
+// checked_add but traced (for pointer arithmetic)
+template <IsInteger S, IsInteger T, IsTracer Tracer>
+[[nodiscard]] std::optional<S> safe_offset(
+  S s, T t, Tracer& tracer
+) {
+  auto u = checked_add(s, t);
+  if (!u) tracer.error("pointer overflow");
+  return u;
 }
 
 // Forward declaration to support recursive reading.
