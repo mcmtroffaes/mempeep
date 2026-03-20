@@ -337,6 +337,21 @@ namespace detail {
 // Helpers
 // ============================================================
 
+// thin wrapper around memory_read with tracing
+template <IsMemoryRead MemoryRead, IsTracer Tracer, typename T>
+[[nodiscard]] bool read_bytes(
+  const MemoryRead& memory_read,
+  pointer_type_t<MemoryRead> address,
+  T& target,
+  Tracer& tracer
+) {
+  if (!memory_read(address, sizeof(target), &target)) {
+    tracer.error("memory read failed");
+    return false;
+  }
+  return true;
+}
+
 template <
   IsInteger auto N,
   IsMemoryRead MemoryRead,
@@ -400,7 +415,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   pointer_type_t<MemoryRead> target_ptr{};
-  if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
+  if (!read_bytes(memory_read, address, target_ptr, tracer)) return {};
   auto& field = target.*M;
   // static_cast safe by requires IsTypeRepresentableAs
   field = static_cast<member_type_t<M>>(target_ptr);
@@ -424,7 +439,7 @@ template <
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   pointer_type_t<MemoryRead> target_ptr{};
-  if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
+  if (!read_bytes(memory_read, address, target_ptr, tracer)) return {};
   auto& field = target.*M;
   field.reset();
   if (target_ptr) {
@@ -495,7 +510,7 @@ template <IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
       registered_layout_t<T>{}, memory_read, base, target, tracer
     );
   } else {
-    if (!memory_read(base, sizeof(target), &target)) return {};
+    if (!detail::read_bytes(memory_read, base, target, tracer)) return {};
     return safe_offset(base, sizeof(target), tracer);
   }
 }
