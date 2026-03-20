@@ -497,7 +497,7 @@ template <IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
     if (!memory_read(base, sizeof(target), &target)) return {};
     return safe_offset(base, sizeof(target), tracer);
   }
-};
+}
 
 }  // namespace mempeep
 
