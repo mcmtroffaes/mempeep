@@ -579,13 +579,13 @@ struct MemoryReadMock {
 
   bool operator()(int16_t address, std::size_t size, void* buffer) const {
     // handle overflow/underflow
-    t.error("0x{:X} bytes", size);
     if (!(buffer && size > 0 && size <= N && address >= BASE
           && address - BASE <= N - static_cast<int16_t>(size))) {
       t.error("read error");
       return false;
     }
     std::memcpy(buffer, data + (address - BASE), size);
+    t.error("0x{:X} bytes", size);  // just for logging, not actually an error
     return true;
   }
 
