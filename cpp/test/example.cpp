@@ -287,7 +287,7 @@ using ReadResult = std::optional<pointer_type_t<MemoryRead>>;
 // Addition with overflow check, handling mixed types.
 template <IsInteger PointerType, IsInteger M, IsTracer Tracer>
 [[nodiscard]] std::optional<PointerType> safe_offset(
-  PointerType address, M offset, Tracer tracer
+  PointerType address, M offset, Tracer& tracer
 ) {
   using Limits = std::numeric_limits<PointerType>;
   constexpr PointerType min = Limits::min();
