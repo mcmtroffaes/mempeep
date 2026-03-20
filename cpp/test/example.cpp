@@ -241,7 +241,7 @@ struct Seek : LayoutItem {};
  */
 template <auto M>
   requires IsInteger<member_type_t<M>>
-struct FieldAddr : LayoutItem {};
+struct Ptr : LayoutItem {};
 
 /**
  * @brief Follow address and read pointee.
@@ -251,10 +251,10 @@ struct FieldAddr : LayoutItem {};
  */
 template <auto M, bool Required = true>
   requires IsReadable<member_type_t<M>>
-struct FieldDeref : LayoutItem {};
+struct Ref : LayoutItem {};
 
 template <auto M>
-using FieldDerefOpt = FieldDeref<M, false>;
+using NullableRef = Ref<M, false>;
 
 /**
  * @brief Extract pointer_type from MemoryRead.
@@ -385,7 +385,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   requires IsTypeRepresentableAs<pointer_type_t<MemoryRead>, member_type_t<M>>
 [[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
-  FieldAddr<M> item,
+  Ptr<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   pointer_type_t<MemoryRead> address,
@@ -409,7 +409,7 @@ template <
   IsTracer Tracer>
   requires IsReadable<optional_value_type_t<M>>
 [[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
-  FieldDeref<M, Required> item,
+  Ref<M, Required> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   pointer_type_t<MemoryRead> address,
@@ -608,12 +608,12 @@ auto layout_of(Tag<Player>) -> Layout<
   Field<&Player::health>,
   Seek<16>,
   Field<&Player::pos>,
-  FieldAddr<&Player::target_ptr>,
-  FieldAddr<&Player::shop_ptr>,
-  FieldAddr<&Player::weapon_ptr>,
-  FieldDeref<&Player::prev_pos>,
-  FieldDerefOpt<&Player::tagged_pos>,
-  FieldDerefOpt<&Player::house_pos>,
+  Ptr<&Player::target_ptr>,
+  Ptr<&Player::shop_ptr>,
+  Ptr<&Player::weapon_ptr>,
+  Ref<&Player::prev_pos>,
+  NullableRef<&Player::tagged_pos>,
+  NullableRef<&Player::house_pos>,
   Field<&Player::mana>>;
 
 auto layout_of(Tag<Game>) -> Layout<Seek<6>, Field<&Game::player>>;
