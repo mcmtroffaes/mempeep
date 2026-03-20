@@ -1,7 +1,9 @@
 #include <cassert>      // assert
+#include <cstdint>      // std::int32_t, ...
 #include <cstring>      // std::memcpy
 #include <format>       // std::format
 #include <functional>   // std::function
+#include <iostream>     // std::cout, ...
 #include <optional>     // std::optional
 #include <type_traits>  // std::same_as, ...
 #include <utility>      // std::cmp_less_equal
@@ -510,14 +512,42 @@ std::optional<T> read_at(
                                                  : std::optional<T>{};
 }
 
+struct NoTracer {
+  struct Scope {
+    Scope(NoTracer&, std::uint64_t, std::string_view) {}
+  };
+
+  void error(std::string_view) {}
+};
+
+struct PrintTracer {
+  int indent = 0;
+  int64_t address = 0;
+
+  void error(std::string_view reason) {
+    auto whitespace = std::string(indent, ' ');
+    std::cout << std::format("[{:08X}] ", address) << whitespace << whitespace
+              << reason << std::endl;
+  }
+
+  struct Scope {
+    PrintTracer& t;
+
+    Scope(PrintTracer& _t, int64_t address, std::string_view label) : t(_t) {
+      t.address = address;
+      t.error(label);
+      t.indent++;
+    }
+
+    ~Scope() { t.indent--; }
+  };
+};
+
 }  // namespace mempeep
 
 // ============================================================
 // Example
 // ============================================================
-
-#include <cstdint>   // std::int32_t, ...
-#include <iostream>  // std::cout, ...
 
 #ifndef _MSC_VER
 
@@ -541,34 +571,10 @@ constexpr std::int16_t operator"" i16(unsigned long long v) {
 
 #endif
 
-struct SimpleTracer {
-  int indent = 0;
-  int64_t address = 0;
-
-  void error(std::string_view reason) {
-    auto whitespace = std::string(indent, ' ');
-    std::cout << std::format("[{:08X}] ", address) << whitespace << whitespace
-              << reason << std::endl;
-  }
-
-  struct Scope {
-    SimpleTracer& t;
-
-    Scope(SimpleTracer& _t, int64_t address, std::string_view label) : t(_t) {
-      t.address = address;
-      t.error(label);
-      t.indent++;
-    }
-
-    ~Scope() { t.indent--; }
-  };
-};
-
 // example with 16 bit pointers, for fun
 template <int16_t BASE, int16_t N>
   requires(BASE > 0 && N > 0)
 struct MemoryReadMock {
-  SimpleTracer& t;
   using pointer_type = int16_t;
   std::byte data[N]{};
 
@@ -577,7 +583,6 @@ struct MemoryReadMock {
     // note: static_cast is safe, size <= N means it fits
     if (!(buffer && size > 0 && size <= N && address >= BASE
           && address - BASE <= N - static_cast<int16_t>(size))) {
-      t.error("read error");
       return false;
     }
     std::memcpy(buffer, data + (address - BASE), size);
@@ -635,8 +640,7 @@ auto layout_of(Tag<Player>) -> Layout<
 auto layout_of(Tag<Game>) -> Layout<Seek<6>, Field<&Game::player>>;
 
 int main() {
-  SimpleTracer tracer{};
-  MemoryReadMock<1, 128> memory_read{tracer};
+  MemoryReadMock<1, 128> memory_read{};
   memory_read.write(18, 123i32);  // health
   memory_read.write(26, 11i32);   // pos.x
   memory_read.write(34, 22i32);   // pos.y
@@ -652,6 +656,7 @@ int main() {
   memory_read.write(80, 55i32);   // tagged_pos.x
   memory_read.write(88, 66i32);   // tagged_pos.y
 
+  PrintTracer tracer{};
   auto game = mempeep::read_at<Game>(memory_read, 4i16, tracer);
   assert(game);
   assert(game->player.health == 123);
