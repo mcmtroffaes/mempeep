@@ -150,12 +150,12 @@ concept IsLayoutItem
 /**
  * @brief Defines a remote layout.
  *
- * Each item must be a Field, Pad, or Offset.
+ * Each item must be a Field, Pad, or AbsoluteOffset.
  * Example:
  *
  *   Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>
  *
- * @tparam Items Sequence of Field, Offset, and Pad types.
+ * @tparam Items Sequence of Field, AbsoluteOffset, and Pad types.
  */
 template <IsLayoutItem... Items>
 struct Layout {};
@@ -174,8 +174,6 @@ concept IsReadable
  *   struct RegisterLayout<Pos> {
  *     using layout = Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>;
  *   };
- *
- * Valid items in a layout are Field<&Class::member>, Pad<N>, and Offset<N>.
  *
  * @tparam T Native struct to register the layout for.
  */
@@ -210,7 +208,7 @@ template <auto M>
 struct Field : LayoutItem {};
 
 /**
- * @brief Padding bytes to relative to the current position in the layout.
+ * @brief Padding relative to the current position in the layout.
  * @tparam N Number of bytes.
  *           Its value must be representable by pointer_type_t<MemoryRead>.
  *           The read template will not instantiate otherwise.
@@ -219,13 +217,13 @@ template <IsInteger auto N>
 struct Pad : LayoutItem {};
 
 /**
- * @brief Offset (in bytes) relative to the base position of the layout.
- * @tparam N The offset.
+ * @brief Absolute offset relative to base position of the layout.
+ * @tparam N The offset (in bytes).
  *           Its value must be representable by pointer_type_t<MemoryRead>.
  *           The read template will not instantiate otherwise.
  */
 template <IsInteger auto N>
-struct Offset : LayoutItem {};
+struct AbsoluteOffset : LayoutItem {};
 
 /**
  * @brief Raw address, not followed.
@@ -350,7 +348,7 @@ template <
   IsReadable T,
   IsTracer Tracer>
 [[nodiscard]] ReadResult<MemoryRead> read_layout_item(
-  Offset<N> item,
+  AbsoluteOffset<N> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   pointer_type_t<MemoryRead> address,
@@ -615,9 +613,9 @@ struct mempeep::RegisterLayout<Pos> {
 template <>
 struct mempeep::RegisterLayout<Player> {
   using layout = Layout<
-    Offset<8>,
+    AbsoluteOffset<8>,
     Field<&Player::health>,
-    Offset<16>,
+    AbsoluteOffset<16>,
     Field<&Player::pos>,
     FieldAddr<&Player::target_ptr>,
     FieldAddr<&Player::shop_ptr>,
@@ -630,7 +628,7 @@ struct mempeep::RegisterLayout<Player> {
 
 template <>
 struct mempeep::RegisterLayout<Game> {
-  using layout = Layout<Offset<6>, Field<&Game::player>>;
+  using layout = Layout<AbsoluteOffset<6>, Field<&Game::player>>;
 };
 
 int main() {
