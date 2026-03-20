@@ -646,20 +646,20 @@ int main() {
   memory_read.write(80, 55i32);   // tagged_pos.x
   memory_read.write(88, 66i32);   // tagged_pos.y
 
-  Game game{};
-  assert(mempeep::read(memory_read, 4i16, game, tracer));
-
-  assert(game.player.health == 123);
-  assert(game.player.pos.x == 11);
-  assert(game.player.pos.y == 22);
-  assert(game.player.target_ptr == 0);
-  assert(game.player.shop_ptr == 2);
-  assert(game.player.weapon_ptr == 6);
-  assert(game.player.prev_pos->x == 88);
-  assert(game.player.prev_pos->y == 99);
-  assert(game.player.mana == 47);
-  assert(game.player.tagged_pos.has_value());
-  assert(game.player.tagged_pos->x == 55);
-  assert(game.player.tagged_pos->y == 66);
-  assert(!game.player.house_pos.has_value());
+  auto game = mempeep::read_at<Game>(memory_read, 4i16, tracer);
+  assert(game);
+  assert(game->player.health == 123);
+  assert(game->player.pos.x == 11);
+  assert(game->player.pos.y == 22);
+  assert(game->player.target_ptr == 0);
+  assert(game->player.shop_ptr == 2);
+  assert(game->player.weapon_ptr == 6);
+  assert(game->player.prev_pos.has_value());
+  assert(game->player.prev_pos->x == 88);
+  assert(game->player.prev_pos->y == 99);
+  assert(game->player.mana == 47);
+  assert(game->player.tagged_pos.has_value());
+  assert(game->player.tagged_pos->x == 55);
+  assert(game->player.tagged_pos->y == 66);
+  assert(!game->player.house_pos.has_value());
 }
