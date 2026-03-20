@@ -232,14 +232,14 @@ template <IsInteger auto N>
 struct Offset : LayoutItem {};
 
 /**
- * @brief A raw pointer (not dereferenced or checked otherwise).
- * @tparam M The native field to deserialize the pointer into.
+ * @brief A raw address (not dereferenced or checked otherwise).
+ * @tparam M The native field to deserialize the address into.
  *           Its type must be wide enough to hold pointer_type_t<MemoryRead>.
  *           The read template will not instantiate otherwise.
  */
 template <auto M>
   requires IsInteger<member_type_t<M>>
-struct FieldPtr : LayoutItem {};
+struct FieldAddr : LayoutItem {};
 
 /**
  * @brief A pointer that can always be dereferenced.
@@ -247,16 +247,16 @@ struct FieldPtr : LayoutItem {};
  */
 template <auto M>
   requires IsReadable<member_type_t<M>>
-struct FieldRef : LayoutItem {};
+struct FieldDeref : LayoutItem {};
 
 /**
- * @brief A pointer that may be invalid.
+ * @brief A pointer that may be null, but otherwise can be dereferenced.
  * @tparam M The native field to deserialize the pointee into.
  *                   Must have type std::optional<T>.
  */
 template <auto M>
   requires IsReadable<optional_value_type_t<M>>
-struct FieldOptionalRef : LayoutItem {};
+struct FieldDerefOpt : LayoutItem {};
 
 /**
  * @brief Extract pointer_type from MemoryRead.
@@ -383,7 +383,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   requires IsTypeInRangeFor<pointer_type_t<MemoryRead>, member_type_t<M>>
 [[nodiscard]] ReadResult<MemoryRead> read_layout_item(
-  FieldPtr<M> item,
+  FieldAddr<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   pointer_type_t<MemoryRead> address,
@@ -402,7 +402,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
 [[nodiscard]] ReadResult<MemoryRead> read_layout_item(
-  FieldRef<M> item,
+  FieldDeref<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   pointer_type_t<MemoryRead> address,
@@ -412,11 +412,9 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   auto scope = make_scope(tracer, address, member_name<M>());
   pointer_type_t<MemoryRead> target_ptr{};
   if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
-  if (target_ptr) {
-    auto& field = target.*M;
-    if (!read(memory_read, target_ptr, field, tracer)) {
-      // TODO handle error
-    }
+  auto& field = target.*M;
+  if (!read(memory_read, target_ptr, field, tracer)) {
+    tracer.error("failed to read pointee");
   }
   return safe_offset(address, sizeof(target_ptr), tracer);
 }
@@ -424,7 +422,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   requires IsReadable<optional_value_type_t<M>>
 [[nodiscard]] ReadResult<MemoryRead> read_layout_item(
-  FieldOptionalRef<M> item,
+  FieldDerefOpt<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   pointer_type_t<MemoryRead> address,
@@ -442,7 +440,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
     if (read(memory_read, target_ptr, value, tracer)) {
       field = std::move(value);
     } else {
-      // TODO handle error
+      tracer.error("failed to read pointee");
     }
   }
   return safe_offset(address, sizeof(target_ptr), tracer);
@@ -621,12 +619,12 @@ struct mempeep::RegisterLayout<Player> {
     Field<&Player::health>,
     Offset<16>,
     Field<&Player::pos>,
-    FieldPtr<&Player::target_ptr>,
-    FieldPtr<&Player::shop_ptr>,
-    FieldPtr<&Player::weapon_ptr>,
-    FieldRef<&Player::prev_pos>,
-    FieldOptionalRef<&Player::tagged_pos>,
-    FieldOptionalRef<&Player::house_pos>,
+    FieldAddr<&Player::target_ptr>,
+    FieldAddr<&Player::shop_ptr>,
+    FieldAddr<&Player::weapon_ptr>,
+    FieldDeref<&Player::prev_pos>,
+    FieldDerefOpt<&Player::tagged_pos>,
+    FieldDerefOpt<&Player::house_pos>,
     Field<&Player::mana>>;
 };
 
