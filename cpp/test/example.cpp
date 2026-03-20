@@ -71,11 +71,8 @@ struct is_optional : std::false_type {};
 template <typename U>
 struct is_optional<std::optional<U>> : std::true_type {};
 
-template <typename T>
-concept IsOptional = is_optional<T>::value;
-
 template <auto M>
-  requires IsOptional<member_type_t<M>>
+  requires is_optional<member_type_t<M>>::value
 struct member_optional_traits;
 
 template <typename C, typename U, std::optional<U> C::* M>
@@ -84,7 +81,7 @@ struct member_optional_traits<M> {
 };
 
 template <auto M>
-  requires IsOptional<member_type_t<M>>
+  requires is_optional<member_type_t<M>>::value
 using optional_value_type_t =
   typename member_optional_traits<M>::optional_value_type;
 
