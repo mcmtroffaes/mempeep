@@ -621,11 +621,11 @@ struct Game {
   Player player;
 };
 
-// intentionally have 4 padding bytes at end, for testing
 using namespace mempeep;
+
+// intentionally have 4 padding bytes at end, for testing
 auto layout_of(Tag<Pos>)
-  -> Layout<Field<&Pos::x>, Pad<4i16>, Field<&Pos::y>, Pad<4i16>>
-  = delete;
+  -> Layout<Field<&Pos::x>, Pad<4i16>, Field<&Pos::y>, Pad<4i16>>;
 
 auto layout_of(Tag<Player>) -> Layout<
   Seek<8>,
@@ -638,11 +638,9 @@ auto layout_of(Tag<Player>) -> Layout<
   FieldDeref<&Player::prev_pos>,
   FieldDerefOpt<&Player::tagged_pos>,
   FieldDerefOpt<&Player::house_pos>,
-  Field<&Player::mana>>
-  = delete;
+  Field<&Player::mana>>;
 
-auto layout_of(Tag<Game>) -> Layout<Seek<6>, Field<&Game::player>>
-  = delete;
+auto layout_of(Tag<Game>) -> Layout<Seek<6>, Field<&Game::player>>;
 
 int main() {
   SimpleTracer tracer{};
