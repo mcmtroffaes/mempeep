@@ -263,31 +263,26 @@ concept IsMemoryRead = requires(
 };
 
 template <IsMemoryRead MemoryRead>
-struct Cursor {
-  using pointer_type = pointer_type_t<MemoryRead>;
-  pointer_type address;
-  bool ok;
+using Cursor = std::optional<pointer_type_t<MemoryRead>>;
 
-  explicit operator bool() const { return ok; }
-
-  template <typename N>
-    requires IsInteger<N>
-
-  Cursor operator+(N n) const {
-    // check whether address + n would be in range,
-    // i.e. min <= address + n <= max, rearranged to avoid addition:
-    //   if n >= 0: address + n <= max  <=>  n <= max - address
-    //   if n <  0: address + n >= min  <=>  n >= min - address
-    constexpr auto min = std::numeric_limits<pointer_type>::min();
-    constexpr auto max = std::numeric_limits<pointer_type>::max();
-    const bool fits = std::cmp_greater_equal(n, 0)
-                        ? std::cmp_less_equal(n, max - address)
-                        : std::cmp_greater_equal(n, min - address);
-    return {
-      fits ? static_cast<pointer_type>(address + n) : pointer_type{}, ok && fits
-    };
+// Addition with overflow check, handling mixed types.
+template <IsInteger PointerType, IsInteger M>
+[[nodiscard]] std::optional<PointerType> safe_offset(
+  PointerType address, M offset
+) {
+  using Limits = std::numeric_limits<PointerType>;
+  constexpr PointerType min = Limits::min();
+  constexpr PointerType max = Limits::max();
+  if (!std::in_range<PointerType>(offset)) return {};
+  PointerType ofs = static_cast<PointerType>(offset);
+  // safely check min <= address + ofs <= max
+  if (ofs > 0) {
+    if (address > max - ofs) return {};
+  } else if (ofs < 0) {
+    if (address < min - ofs) return {};
   }
-};
+  return static_cast<PointerType>(address + ofs);
+}
 
 // Forward declaration to support recursive reading.
 template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
@@ -316,14 +311,13 @@ template <auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
 [[nodiscard]] Cursor<MemoryRead> read_layout_item(
   Pad<N> item,
   const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead>,
-  Cursor<MemoryRead> cursor,
+  pointer_type_t<MemoryRead> base,
+  pointer_type_t<MemoryRead> address,
   T&,
   Tracer& tracer
 ) {
   auto scope = make_scope(tracer, item);
-  // static_cast safe by requires IsValueInRangeFor
-  return cursor + N;
+  return safe_offset(address, N);
 }
 
 template <auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
@@ -333,12 +327,12 @@ template <auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   Offset<N> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
-  Cursor<MemoryRead> cursor,
+  pointer_type_t<MemoryRead> address,
   T&,
   Tracer& tracer
 ) {
   auto scope = make_scope(tracer, item);
-  return Cursor<MemoryRead>{base, cursor.ok} + N;
+  return safe_offset(base, N);
 }
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
@@ -347,13 +341,13 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   Field<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
-  Cursor<MemoryRead> cursor,
+  pointer_type_t<MemoryRead> address,
   T& target,
   Tracer& tracer
 ) {
   auto scope = make_scope(tracer, item);
   auto& field = target.*M;
-  return read(memory_read, cursor.address, field, tracer);
+  return read(memory_read, address, field, tracer);
 }
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
@@ -363,18 +357,17 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   FieldPtr<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
-  Cursor<MemoryRead> cursor,
+  pointer_type_t<MemoryRead> address,
   T& target,
   Tracer& tracer
 ) {
   auto scope = make_scope(tracer, item);
   pointer_type_t<MemoryRead> target_ptr{};
-  cursor.ok
-    = cursor.ok && memory_read(cursor.address, sizeof(target_ptr), &target_ptr);
+  if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
   auto& field = target.*M;
   // static_cast safe by requires IsTypeInRangeFor
   field = static_cast<member_type_t<M>>(target_ptr);
-  return cursor + sizeof(target_ptr);
+  return safe_offset(address, sizeof(target_ptr));
 }
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
@@ -383,24 +376,20 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   FieldRef<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
-  Cursor<MemoryRead> cursor,
+  pointer_type_t<MemoryRead> address,
   T& target,
   Tracer& tracer
 ) {
   auto scope = make_scope(tracer, item);
   pointer_type_t<MemoryRead> target_ptr{};
-  auto ok = memory_read(cursor.address, sizeof(target_ptr), &target_ptr);
-  if (ok) {
-    if (target_ptr) {
-      auto& field = target.*M;
-      if (!read(memory_read, target_ptr, field, tracer)) {
-        // TODO handle error
-      }
+  if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
+  if (target_ptr) {
+    auto& field = target.*M;
+    if (!read(memory_read, target_ptr, field, tracer)) {
+      // TODO handle error
     }
-  } else {
-    // TODO handle error
   }
-  return cursor + sizeof(target_ptr);
+  return safe_offset(address, sizeof(target_ptr));
 }
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
@@ -410,29 +399,25 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   FieldOptionalRef<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
-  Cursor<MemoryRead> cursor,
+  pointer_type_t<MemoryRead> address,
   T& target,
   Tracer& tracer
 ) {
   auto scope = make_scope(tracer, item);
   pointer_type_t<MemoryRead> target_ptr{};
-  auto ok = memory_read(cursor.address, sizeof(target_ptr), &target_ptr);
-  if (ok) {
-    auto& field = target.*M;
-    field.reset();
-    if (target_ptr) {
-      using U = optional_value_type_t<M>;  // std::optional<U> -> U
-      U value{};
-      if (read(memory_read, target_ptr, value, tracer)) {
-        field = std::move(value);
-      } else {
-        // TODO handle error
-      }
+  if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
+  auto& field = target.*M;
+  field.reset();
+  if (target_ptr) {
+    using U = optional_value_type_t<M>;  // std::optional<U> -> U
+    U value{};
+    if (read(memory_read, target_ptr, value, tracer)) {
+      field = std::move(value);
+    } else {
+      // TODO handle error
     }
-  } else {
-    // TODO handle error
   }
-  return cursor + sizeof(target_ptr);
+  return safe_offset(address, sizeof(target_ptr));
 }
 
 template <
@@ -447,11 +432,12 @@ template <
   T& target,
   Tracer& tracer
 ) {
-  Cursor<MemoryRead> cursor{base, true};
+  Cursor<MemoryRead> cursor{base};
   // fold from first to last item, only keep going as long as cursor is ok
+  // note ((expr), ...) is intentional: comma operator has the lowest precedence
   ((
      cursor
-     && (cursor = read_layout_item(Items{}, memory_read, base, cursor, target, tracer))
+     && (cursor = read_layout_item(Items{}, memory_read, base, cursor.value(), target, tracer))
    ),
    ...);
   return cursor;
@@ -486,8 +472,8 @@ template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
       registered_layout_t<T>{}, memory_read, base, target, tracer
     );
   } else {
-    return Cursor<MemoryRead>{base, memory_read(base, sizeof(target), &target)}
-           + sizeof(target);
+    if (!memory_read(base, sizeof(target), &target)) return {};
+    return safe_offset(base, sizeof(target));
   }
 };
 
