@@ -555,7 +555,6 @@ struct SimpleTracer {
   int indent = 0;
   int64_t address = 0;
 
-  template <typename... Args>
   void error(std::string_view reason) {
     auto whitespace = std::string(indent, ' ');
     std::cout << std::format("[{:08X}] ", address) << whitespace << whitespace
