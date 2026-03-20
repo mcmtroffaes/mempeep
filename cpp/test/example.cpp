@@ -471,7 +471,8 @@ template <
 ) {
   ReadResult<MemoryRead> result{base};
   // fold from first to last item, only keep going as long as result is ok
-  // note ((expr), ...) is intentional: comma operator has the lowest precedence
+  // - note ((expr), ...) is intentional: comma operator has the lowest precedence
+  // - Items{} is just a tag to select the overload, construction costs nothing
   ((
      result
      && (result = read_layout_item(Items{}, memory_read, base, result.value(), target, tracer))
