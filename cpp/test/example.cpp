@@ -260,7 +260,7 @@ concept IsMemoryRead = requires(
 };
 
 template <IsMemoryRead MemoryRead>
-using Cursor = std::optional<pointer_type_t<MemoryRead>>;
+using ReadResult = std::optional<pointer_type_t<MemoryRead>>;
 
 // Addition with overflow check, handling mixed types.
 template <IsInteger PointerType, IsInteger M>
@@ -283,7 +283,7 @@ template <IsInteger PointerType, IsInteger M>
 
 // Forward declaration to support recursive reading.
 template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
-[[nodiscard]] Cursor<MemoryRead> read(
+[[nodiscard]] ReadResult<MemoryRead> read(
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   T& target,
@@ -302,9 +302,13 @@ struct LayoutPointers {
   pointer_type_t<MemoryRead> cursor;
 };
 
-template <IsInteger auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
+template <
+  IsInteger auto N,
+  IsMemoryRead MemoryRead,
+  IsReadable T,
+  typename Tracer>
   requires HasScopeFor<Tracer, Pad<N>>
-[[nodiscard]] Cursor<MemoryRead> read_layout_item(
+[[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   Pad<N> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -316,9 +320,13 @@ template <IsInteger auto N, IsMemoryRead MemoryRead, IsReadable T, typename Trac
   return safe_offset(address, N);
 }
 
-template <IsInteger auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
+template <
+  IsInteger auto N,
+  IsMemoryRead MemoryRead,
+  IsReadable T,
+  typename Tracer>
   requires HasScopeFor<Tracer, Offset<N>>
-[[nodiscard]] Cursor<MemoryRead> read_layout_item(
+[[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   Offset<N> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -332,7 +340,7 @@ template <IsInteger auto N, IsMemoryRead MemoryRead, IsReadable T, typename Trac
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsReadable<member_type_t<M>> && HasScopeFor<Tracer, Field<M>>
-[[nodiscard]] Cursor<MemoryRead> read_layout_item(
+[[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   Field<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -348,7 +356,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsTypeInRangeFor<pointer_type_t<MemoryRead>, member_type_t<M>>
            && HasScopeFor<Tracer, FieldPtr<M>>
-[[nodiscard]] Cursor<MemoryRead> read_layout_item(
+[[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   FieldPtr<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -367,7 +375,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsReadable<member_type_t<M>> && HasScopeFor<Tracer, FieldRef<M>>
-[[nodiscard]] Cursor<MemoryRead> read_layout_item(
+[[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   FieldRef<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -390,7 +398,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsReadable<optional_value_type_t<M>>
            && HasScopeFor<Tracer, FieldOptionalRef<M>>
-[[nodiscard]] Cursor<MemoryRead> read_layout_item(
+[[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   FieldOptionalRef<M> item,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
@@ -420,14 +428,14 @@ template <
   IsMemoryRead MemoryRead,
   IsReadable T,
   typename Tracer>
-[[nodiscard]] Cursor<MemoryRead> read_layout(
+[[nodiscard]] ReadResult<MemoryRead> read_layout(
   Layout<Items...>,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   T& target,
   Tracer& tracer
 ) {
-  Cursor<MemoryRead> cursor{base};
+  ReadResult<MemoryRead> cursor{base};
   // fold from first to last item, only keep going as long as cursor is ok
   // note ((expr), ...) is intentional: comma operator has the lowest precedence
   ((
@@ -456,7 +464,7 @@ template <
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
 template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
-[[nodiscard]] Cursor<MemoryRead> read(
+[[nodiscard]] ReadResult<MemoryRead> read(
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   T& target,
