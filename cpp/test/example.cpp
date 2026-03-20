@@ -292,6 +292,8 @@ concept IsMemoryRead = requires(
   { memory_read(address, size, buffer) } -> std::same_as<bool>;
 };
 
+// Stores result of reading: address after reading, or null if read failed.
+// Note error messages are propagated separately through the tracer.
 template <IsMemoryRead MemoryRead>
 using ReadResult = std::optional<pointer_type_t<MemoryRead>>;
 
@@ -471,7 +473,7 @@ template <
 ) {
   ReadResult<MemoryRead> result{base};
   // fold from first to last item, only keep going as long as result is ok
-  // - note ((expr), ...) is intentional: comma operator has the lowest precedence
+  // - note ((expr), ...) is intentional: comma has the lowest precedence
   // - Items{} is just a tag to select the overload, construction costs nothing
   ((
      result
