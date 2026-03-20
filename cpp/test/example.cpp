@@ -534,8 +534,8 @@ struct SimpleTracer {
 };
 
 // example with 16 bit pointers, for fun
-template <int16_t N>
-  requires(N > 0)
+template <int16_t BASE, int16_t N>
+  requires(BASE > 0) && (N > 0)
 struct MemoryReadMock {
   SimpleTracer& t;
   using pointer_type = int16_t;
@@ -544,18 +544,21 @@ struct MemoryReadMock {
   int16_t operator()(int16_t cursor, int16_t size, void* buffer) const {
     // handle overflow/underflow (note: cursor 0 is not valid)
     t.msg("read: {} {}", cursor, cursor + size);
-    if (!(size >= 0 && size <= N && cursor >= 1 && cursor <= N - size)) {
+    if (!(size >= 0 && size <= N && cursor >= BASE
+          && cursor - BASE <= N - size)) {
       std::cerr << std::string(t.indent, ' ') << "error" << std::endl;
       return 0;
     }
-    if (buffer && size) std::memcpy(buffer, data + cursor, size);
+    if (buffer && size) std::memcpy(buffer, data + (cursor - BASE), size);
     return cursor + size;
   }
 
   template <typename T>
   void write(int16_t offset, T value) {
-    assert(sizeof(value) <= N && offset >= 1 && offset <= N - sizeof(value));
-    std::memcpy(data + offset, &value, sizeof(value));
+    assert(
+      sizeof(value) <= N && offset >= BASE && offset - BASE <= N - sizeof(value)
+    );
+    std::memcpy(data + (offset - BASE), &value, sizeof(value));
   }
 };
 
@@ -607,7 +610,7 @@ struct mempeep::RegisterLayout<Game> {
 
 int main() {
   SimpleTracer tracer{};
-  MemoryReadMock<128> memory_read{tracer};
+  MemoryReadMock<1, 128> memory_read{tracer};
   memory_read.write(18, 123i32);  // health
   memory_read.write(26, 11i32);   // pos.x
   memory_read.write(34, 22i32);   // pos.y
