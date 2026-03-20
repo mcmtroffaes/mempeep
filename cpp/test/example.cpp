@@ -494,6 +494,16 @@ template <IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   }
 }
 
+// convenience wrapper for read so no local object needs to be created
+template <IsReadable T, IsMemoryRead MemoryRead, IsTracer Tracer>
+std::optional<T> read_at(
+  const MemoryRead& memory_read, pointer_type_t<MemoryRead> base, Tracer& tracer
+) {
+  T target{};
+  return read(memory_read, base, target, tracer) ? std::move(target)
+                                                 : std::optional<T>{};
+}
+
 }  // namespace mempeep
 
 // ============================================================
