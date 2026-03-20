@@ -489,6 +489,28 @@ template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
 #include <cstdint>   // std::int32_t, ...
 #include <iostream>  // std::cout, ...
 
+#ifndef _MSC_VER
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wliteral-suffix"
+#pragma GCC diagnostic ignored "-Wdeprecated-literal-operator"
+
+constexpr std::int32_t operator"" i32(unsigned long long v) {
+  return v <= std::numeric_limits<std::int32_t>::max()
+           ? static_cast<std::int32_t>(v)
+           : throw "i32 literal out of range";
+}
+
+constexpr std::int16_t operator"" i16(unsigned long long v) {
+  return v <= std::numeric_limits<std::int16_t>::max()
+           ? static_cast<std::int16_t>(v)
+           : throw "i16 literal out of range";
+}
+
+#pragma GCC diagnostic pop
+
+#endif
+
 struct SimpleTracer {
   int indent = 0;
 
