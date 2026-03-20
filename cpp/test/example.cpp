@@ -550,10 +550,10 @@ struct SimpleTracer {
   int64_t address = 0;
 
   template <typename... Args>
-  void error(std::format_string<Args...> fmt, Args&&... args) {
+  void error(std::string_view reason) {
     auto whitespace = std::string(indent, ' ');
     std::cout << std::format("[{:08X}] ", address) << whitespace << whitespace
-              << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+              << reason << std::endl;
   }
 
   struct Scope {
@@ -561,7 +561,7 @@ struct SimpleTracer {
 
     Scope(SimpleTracer& _t, int64_t address, std::string_view label) : t(_t) {
       t.address = address;
-      t.error("{}", label);
+      t.error(label);
       t.indent++;
     }
 
@@ -585,7 +585,6 @@ struct MemoryReadMock {
       return false;
     }
     std::memcpy(buffer, data + (address - BASE), size);
-    t.error("0x{:X} bytes", size);  // just for logging, not actually an error
     return true;
   }
 
