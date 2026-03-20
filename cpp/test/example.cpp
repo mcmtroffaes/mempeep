@@ -139,11 +139,11 @@ consteval std::string_view member_name() {
   return sig.substr(last_colon + 1, close - last_colon - 1);
 }
 
-struct _TestMemberName {
+struct TestMemberName {
   int the_member;
 };
 
-static_assert(member_name<&_TestMemberName::the_member>() == "the_member");
+static_assert(member_name<&TestMemberName::the_member>() == "the_member");
 
 // ============================================================
 // Layout items
