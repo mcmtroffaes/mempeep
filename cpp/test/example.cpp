@@ -14,7 +14,8 @@ namespace mempeep {
 
 // Shorthand.
 template <typename T>
-concept IsInteger = std::is_integral_v<T> && !std::same_as<T, bool>;
+concept IsInteger
+  = std::is_integral_v<T> && !std::same_as<T, bool> && !std::same_as<T, char>;
 
 namespace detail {
 
