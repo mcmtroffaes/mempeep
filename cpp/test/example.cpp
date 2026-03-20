@@ -91,7 +91,7 @@ using optional_value_type_t =
 // Tracing
 // ============================================================
 
-// note: uint64_t address avoids dependence on MemoryRead
+// note: uint64_t address avoids dependence on MemoryReader
 // this is ok for logging, and keeps implementation simple
 template <typename Tracer>
 concept IsTracer = requires(
@@ -220,7 +220,7 @@ struct Field : LayoutItem {};
 /**
  * @brief Padding relative to the current position in the layout.
  * @tparam N Number of bytes.
- *           Its value must be representable by pointer_type_t<MemoryRead>.
+ *           Its value must be representable by pointer_type_t<MemoryReader>.
  *           The read template will not instantiate otherwise.
  */
 template <IsInteger auto N>
@@ -229,7 +229,7 @@ struct Pad : LayoutItem {};
 /**
  * @brief Absolute offset relative to base position of the layout.
  * @tparam N The offset (in bytes).
- *           Its value must be representable by pointer_type_t<MemoryRead>.
+ *           Its value must be representable by pointer_type_t<MemoryReader>.
  *           The read template will not instantiate otherwise.
  */
 template <IsInteger auto N>
@@ -238,7 +238,7 @@ struct Seek : LayoutItem {};
 /**
  * @brief Raw address, not followed.
  * @tparam M The native field to deserialize the address into.
- *           Its type must be wide enough to hold pointer_type_t<MemoryRead>.
+ *           Its type must be wide enough to hold pointer_type_t<MemoryReader>.
  *           The read template will not instantiate otherwise.
  */
 template <auto M>
@@ -259,10 +259,10 @@ template <auto M>
 using NullableRef = Ref<M, false>;
 
 /**
- * @brief Extract pointer_type from MemoryRead.
+ * @brief Extract pointer_type from MemoryReader.
  */
-template <typename MemoryRead>
-using pointer_type_t = typename MemoryRead::pointer_type;
+template <typename MemoryReader>
+using pointer_type_t = typename MemoryReader::pointer_type;
 
 /**
  * @brief Functor concept to read a block of memory from a remote source.
@@ -275,20 +275,20 @@ using pointer_type_t = typename MemoryRead::pointer_type;
  * @param buffer  Native destination buffer.
  * @return        `true` on success, `false` on failure.
  */
-template <typename MemoryRead>
-concept IsMemoryRead = requires(
-  MemoryRead memory_read,
-  pointer_type_t<MemoryRead> address,
+template <typename MemoryReader>
+concept IsMemoryReader = requires(
+  MemoryReader reader,
+  pointer_type_t<MemoryReader> address,
   std::size_t size,
   void* buffer
 ) {
-  { memory_read(address, size, buffer) } -> std::same_as<bool>;
+  { reader(address, size, buffer) } -> std::same_as<bool>;
 };
 
 // Stores result of reading: address after reading, or null if read failed.
 // Note error messages are propagated separately through the tracer.
-template <IsMemoryRead MemoryRead>
-using ReadCursor = std::optional<pointer_type_t<MemoryRead>>;
+template <IsMemoryReader MemoryReader>
+using ReadCursor = std::optional<pointer_type_t<MemoryReader>>;
 
 // Addition with overflow check, handling mixed types.
 template <IsInteger S, IsInteger T>
@@ -323,10 +323,10 @@ template <IsInteger S, IsInteger T, IsTracer Tracer>
 }
 
 // Forward declaration to support recursive reading.
-template <IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryRead> read(
-  const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead> base,
+template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+[[nodiscard]] ReadCursor<MemoryReader> read(
+  const MemoryReader& reader,
+  pointer_type_t<MemoryReader> base,
   T& target,
   Tracer& tracer
 );
@@ -337,15 +337,15 @@ namespace detail {
 // Helpers
 // ============================================================
 
-// thin wrapper around memory_read with tracing
-template <IsMemoryRead MemoryRead, IsTracer Tracer, typename T>
+// thin wrapper around reader with tracing
+template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
 [[nodiscard]] bool read_bytes(
-  const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead> address,
+  const MemoryReader& reader,
+  pointer_type_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
-  if (!memory_read(address, sizeof(target), &target)) {
+  if (!reader(address, sizeof(target), &target)) {
     tracer.error("memory read failed");
     return false;
   }
@@ -354,14 +354,14 @@ template <IsMemoryRead MemoryRead, IsTracer Tracer, typename T>
 
 template <
   IsInteger auto N,
-  IsMemoryRead MemoryRead,
+  IsMemoryReader MemoryReader,
   IsReadable T,
   IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
+[[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
   Pad<N> item,
-  const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead> base,
-  pointer_type_t<MemoryRead> address,
+  const MemoryReader& reader,
+  pointer_type_t<MemoryReader> base,
+  pointer_type_t<MemoryReader> address,
   T&,
   Tracer& tracer
 ) {
@@ -372,14 +372,14 @@ template <
 
 template <
   IsInteger auto N,
-  IsMemoryRead MemoryRead,
+  IsMemoryReader MemoryReader,
   IsReadable T,
   IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
+[[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
   Seek<N> item,
-  const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead> base,
-  pointer_type_t<MemoryRead> address,
+  const MemoryReader& reader,
+  pointer_type_t<MemoryReader> base,
+  pointer_type_t<MemoryReader> address,
   T&,
   Tracer& tracer
 ) {
@@ -388,34 +388,34 @@ template <
   return safe_offset(base, N, tracer);
 }
 
-template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
+template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
-[[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
+[[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
   Field<M> item,
-  const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead> base,
-  pointer_type_t<MemoryRead> address,
+  const MemoryReader& reader,
+  pointer_type_t<MemoryReader> base,
+  pointer_type_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   auto& field = target.*M;
-  return read(memory_read, address, field, tracer);
+  return read(reader, address, field, tracer);
 }
 
-template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
-  requires IsTypeRepresentableAs<pointer_type_t<MemoryRead>, member_type_t<M>>
-[[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
+template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+  requires IsTypeRepresentableAs<pointer_type_t<MemoryReader>, member_type_t<M>>
+[[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
   Ptr<M> item,
-  const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead> base,
-  pointer_type_t<MemoryRead> address,
+  const MemoryReader& reader,
+  pointer_type_t<MemoryReader> base,
+  pointer_type_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
-  pointer_type_t<MemoryRead> target_ptr{};
-  if (!read_bytes(memory_read, address, target_ptr, tracer)) return {};
+  pointer_type_t<MemoryReader> target_ptr{};
+  if (!read_bytes(reader, address, target_ptr, tracer)) return {};
   auto& field = target.*M;
   // static_cast safe by requires IsTypeRepresentableAs
   field = static_cast<member_type_t<M>>(target_ptr);
@@ -425,27 +425,27 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
 template <
   auto M,
   bool Required,
-  IsMemoryRead MemoryRead,
+  IsMemoryReader MemoryReader,
   IsReadable T,
   IsTracer Tracer>
   requires IsReadable<optional_value_type_t<M>>
-[[nodiscard]] ReadCursor<MemoryRead> read_layout_item(
+[[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
   Ref<M, Required> item,
-  const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead> base,
-  pointer_type_t<MemoryRead> address,
+  const MemoryReader& reader,
+  pointer_type_t<MemoryReader> base,
+  pointer_type_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
-  pointer_type_t<MemoryRead> target_ptr{};
-  if (!read_bytes(memory_read, address, target_ptr, tracer)) return {};
+  pointer_type_t<MemoryReader> target_ptr{};
+  if (!read_bytes(reader, address, target_ptr, tracer)) return {};
   auto& field = target.*M;
   field.reset();
   if (target_ptr) {
     using U = optional_value_type_t<M>;  // std::optional<U> -> U
     U value{};
-    if (read(memory_read, target_ptr, value, tracer)) {
+    if (read(reader, target_ptr, value, tracer)) {
       field = std::move(value);
     }
   } else if constexpr (Required) {
@@ -456,24 +456,24 @@ template <
 
 template <
   IsLayoutItem... Items,
-  IsMemoryRead MemoryRead,
+  IsMemoryReader MemoryReader,
   IsReadable T,
   IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryRead> read_layout(
+[[nodiscard]] ReadCursor<MemoryReader> read_layout(
   Layout<Items...>,
-  const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead> base,
+  const MemoryReader& reader,
+  pointer_type_t<MemoryReader> base,
   T& target,
   Tracer& tracer
 ) {
-  ReadCursor<MemoryRead> result{base};
+  ReadCursor<MemoryReader> result{base};
   // - ((expr), ...) is intentional: comma has the lowest precedence
   // - comma operator sequences the effects from left to right
   // - && short-circuits the evaluation so we stop on first failure
   // - Items{} is just a tag to select the overload, construction costs nothing
   ((
      result
-     && (result = read_layout_item(Items{}, memory_read, base, result.value(), target, tracer))
+     && (result = read_layout_item(Items{}, reader, base, result.value(), target, tracer))
    ),
    ...);
   return result;
@@ -489,38 +489,38 @@ template <
  * @brief Reads data from remote memory into a native object based on a
  * specified layout.
  *
- * @tparam MemoryRead The type for the memory_read callback.
+ * @tparam MemoryReader The type for the reader callback.
  * @tparam T          The native type to deserialize into.
- * @param memory The memory abstraction providing the `MemoryRead` function.
+ * @param memory The memory abstraction providing the `MemoryReader` function.
  * @param base   The remote address to start reading from.
  * @param target The native object to populate.
- * @return Updated remote pointer after reading, as returned by `MemoryRead`.
+ * @return Updated remote pointer after reading, as returned by `MemoryReader`.
  */
-template <IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryRead> read(
-  const MemoryRead& memory_read,
-  pointer_type_t<MemoryRead> base,
+template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+[[nodiscard]] ReadCursor<MemoryReader> read(
+  const MemoryReader& reader,
+  pointer_type_t<MemoryReader> base,
   T& target,
   Tracer& tracer
 ) {
   if constexpr (HasRegisteredLayout<T>) {
     return detail::read_layout(
-      registered_layout_t<T>{}, memory_read, base, target, tracer
+      registered_layout_t<T>{}, reader, base, target, tracer
     );
   } else {
-    if (!detail::read_bytes(memory_read, base, target, tracer)) return {};
+    if (!detail::read_bytes(reader, base, target, tracer)) return {};
     return safe_offset(base, sizeof(target), tracer);
   }
 }
 
 // convenience wrapper for read so no local object needs to be created
-template <IsReadable T, IsMemoryRead MemoryRead, IsTracer Tracer>
+template <IsReadable T, IsMemoryReader MemoryReader, IsTracer Tracer>
 std::optional<T> read_at(
-  const MemoryRead& memory_read, pointer_type_t<MemoryRead> base, Tracer& tracer
+  const MemoryReader& reader, pointer_type_t<MemoryReader> base, Tracer& tracer
 ) {
   T target{};
-  return read(memory_read, base, target, tracer) ? std::move(target)
-                                                 : std::optional<T>{};
+  return read(reader, base, target, tracer) ? std::move(target)
+                                            : std::optional<T>{};
 }
 
 struct NoTracer {
@@ -585,7 +585,7 @@ constexpr std::int16_t operator"" i16(unsigned long long v) {
 // example with 16 bit pointers, for fun
 template <int16_t BASE, int16_t N>
   requires(BASE > 0 && N > 0)
-struct MemoryReadMock {
+struct MockMemoryReader {
   using pointer_type = int16_t;
   std::byte data[N]{};
 
@@ -651,24 +651,24 @@ auto layout_of(Tag<Player>) -> Layout<
 auto layout_of(Tag<Game>) -> Layout<Seek<6>, Field<&Game::player>>;
 
 int main() {
-  MemoryReadMock<1, 128> memory_read{};
-  memory_read.write(18, 123i32);  // health
-  memory_read.write(26, 11i32);   // pos.x
-  memory_read.write(34, 22i32);   // pos.y
-  memory_read.write(42, 0i16);    // target_ptr (optional)
-  memory_read.write(44, 2i16);    // shop_ptr (optional)
-  memory_read.write(46, 6i16);    // weapon_ptr
-  memory_read.write(48, 60i16);   // prev_pos ref
-  memory_read.write(50, 80i16);   // tagged_pos ref (optional)
-  memory_read.write(52, 0i32);    // house_pos ref (optional)
-  memory_read.write(54, 47i32);   // mana
-  memory_read.write(60, 88i32);   // prev_pos.x
-  memory_read.write(68, 99i32);   // prev_pos.y
-  memory_read.write(80, 55i32);   // tagged_pos.x
-  memory_read.write(88, 66i32);   // tagged_pos.y
+  MockMemoryReader<1, 128> reader{};
+  reader.write(18, 123i32);  // health
+  reader.write(26, 11i32);   // pos.x
+  reader.write(34, 22i32);   // pos.y
+  reader.write(42, 0i16);    // target_ptr (optional)
+  reader.write(44, 2i16);    // shop_ptr (optional)
+  reader.write(46, 6i16);    // weapon_ptr
+  reader.write(48, 60i16);   // prev_pos ref
+  reader.write(50, 80i16);   // tagged_pos ref (optional)
+  reader.write(52, 0i32);    // house_pos ref (optional)
+  reader.write(54, 47i32);   // mana
+  reader.write(60, 88i32);   // prev_pos.x
+  reader.write(68, 99i32);   // prev_pos.y
+  reader.write(80, 55i32);   // tagged_pos.x
+  reader.write(88, 66i32);   // tagged_pos.y
 
   PrintTracer tracer{};
-  auto game = mempeep::read_at<Game>(memory_read, 4i16, tracer);
+  auto game = mempeep::read_at<Game>(reader, 4i16, tracer);
   assert(game);
   assert(game->player.health == 123);
   assert(game->player.pos.x == 11);
