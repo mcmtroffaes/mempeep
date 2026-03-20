@@ -316,9 +316,7 @@ template <IsInteger S, IsInteger T>
 
 // checked_add but traced (for pointer arithmetic)
 template <IsInteger S, IsInteger T, IsTracer Tracer>
-[[nodiscard]] std::optional<S> safe_offset(
-  S s, T t, Tracer& tracer
-) {
+[[nodiscard]] std::optional<S> safe_offset(S s, T t, Tracer& tracer) {
   auto u = checked_add(s, t);
   if (!u) tracer.error("pointer overflow");
   return u;
