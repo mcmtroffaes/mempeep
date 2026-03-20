@@ -39,12 +39,8 @@ concept IsInRange = std::cmp_less_equal(ToRange::min, FromRange::min)
 
 }  // namespace detail
 
-template <auto N, typename T>
-concept IsValueInRangeFor
-  = detail::IsInRange<detail::ValueRange<N>, detail::TypeRange<T>>;
-
 template <typename From, typename To>
-concept IsTypeInRangeFor
+concept IsTypeRepresentableAs
   = detail::IsInRange<detail::TypeRange<From>, detail::TypeRange<To>>;
 
 // ============================================================
@@ -381,7 +377,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
 }
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
-  requires IsTypeInRangeFor<pointer_type_t<MemoryRead>, member_type_t<M>>
+  requires IsTypeRepresentableAs<pointer_type_t<MemoryRead>, member_type_t<M>>
 [[nodiscard]] ReadResult<MemoryRead> read_layout_item(
   FieldAddr<M> item,
   const MemoryRead& memory_read,
@@ -394,7 +390,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   pointer_type_t<MemoryRead> target_ptr{};
   if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
   auto& field = target.*M;
-  // static_cast safe by requires IsTypeInRangeFor
+  // static_cast safe by requires IsTypeRepresentableAs
   field = static_cast<member_type_t<M>>(target_ptr);
   return safe_offset(address, sizeof(target_ptr), tracer);
 }
