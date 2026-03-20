@@ -244,35 +244,54 @@ using pointer_type_t = typename MemoryRead::pointer_type;
 /**
  * @brief Functor concept to read a block of memory from a remote source.
  *
- * Implementations of this functor must validate pointers, handle overflows,
- * and manage read errors. On failure (invalid cursor, read error, etc.), it
- * must return 0 or may throw an exception. The library performs no validation
- * and repeatedly calls this function according to the memory layout. The
- * function must handle `size == 0` or `buffer == nullptr` for pointer
- * validation: if the range `[cursor, cursor + size)` is invalid, return 0;
- * if valid but `buffer == nullptr`, return the `cursor + size`. Otherwise,
- * copy `size` bytes into `buffer` and return `cursor + size`.
+ * Copy `size` bytes into `buffer` from remote memory at `address`.
+ * On failure, return false, otherwise return true.
  *
- * @param cursor Remote source pointer.
- * @param size   Number of bytes to read or 0 for validation.
- * @param buffer Native destination buffer or `nullptr` for validation.
- * @return       `cursor + size` on success or 0 on failure.
+ * @param address Remote source pointer.
+ * @param size    Number of bytes to read.
+ * @param buffer  Native destination buffer.
+ * @return        `true` on success, `false` on failure.
  */
 template <typename MemoryRead>
 concept IsMemoryRead = requires(
   MemoryRead memory_read,
-  pointer_type_t<MemoryRead> cursor,
+  pointer_type_t<MemoryRead> address,
   pointer_type_t<MemoryRead> size,
   void* buffer
 ) {
-  {
-    memory_read(cursor, size, buffer)
-  } -> std::same_as<pointer_type_t<MemoryRead>>;
+  { memory_read(address, size, buffer) } -> std::same_as<bool>;
+};
+
+template <IsMemoryRead MemoryRead>
+struct Cursor {
+  using pointer_type = pointer_type_t<MemoryRead>;
+  pointer_type address;
+  bool ok;
+
+  explicit operator bool() const { return ok; }
+
+  template <typename N>
+    requires IsInteger<N>
+
+  Cursor operator+(N n) const {
+    // check whether address + n would be in range,
+    // i.e. min <= address + n <= max, rearranged to avoid addition:
+    //   if n >= 0: address + n <= max  <=>  n <= max - address
+    //   if n <  0: address + n >= min  <=>  n >= min - address
+    constexpr auto min = std::numeric_limits<pointer_type>::min();
+    constexpr auto max = std::numeric_limits<pointer_type>::max();
+    const bool fits = std::cmp_greater_equal(n, 0)
+                        ? std::cmp_less_equal(n, max - address)
+                        : std::cmp_greater_equal(n, min - address);
+    return {
+      fits ? static_cast<pointer_type>(address + n) : pointer_type{}, ok && fits
+    };
+  }
 };
 
 // Forward declaration to support recursive reading.
 template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
-[[nodiscard]] pointer_type_t<MemoryRead> read(
+[[nodiscard]] Cursor<MemoryRead> read(
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   T& target,
@@ -294,83 +313,84 @@ struct LayoutPointers {
 template <auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsValueInRangeFor<N, pointer_type_t<MemoryRead>>
            && HasScopeFor<Tracer, Pad<N>>
-[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
+[[nodiscard]] Cursor<MemoryRead> read_layout_item(
   Pad<N> item,
   const MemoryRead& memory_read,
-  const LayoutPointers<MemoryRead> pointers,
+  pointer_type_t<MemoryRead>,
+  Cursor<MemoryRead> cursor,
   T&,
   Tracer& tracer
 ) {
   auto scope = make_scope(tracer, item);
   // static_cast safe by requires IsValueInRangeFor
-  return memory_read(
-    pointers.cursor, static_cast<pointer_type_t<MemoryRead>>(N), nullptr
-  );
+  return cursor + N;
 }
 
 template <auto N, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsValueInRangeFor<N, pointer_type_t<MemoryRead>>
            && HasScopeFor<Tracer, Offset<N>>
-[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
+[[nodiscard]] Cursor<MemoryRead> read_layout_item(
   Offset<N> item,
   const MemoryRead& memory_read,
-  const LayoutPointers<MemoryRead> pointers,
+  pointer_type_t<MemoryRead> base,
+  Cursor<MemoryRead> cursor,
   T&,
   Tracer& tracer
 ) {
   auto scope = make_scope(tracer, item);
-  // static_cast safe by requires IsValueInRangeFor
-  return memory_read(
-    pointers.base, static_cast<pointer_type_t<MemoryRead>>(N), nullptr
-  );
+  return Cursor<MemoryRead>{base, cursor.ok} + N;
 }
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsReadable<member_type_t<M>> && HasScopeFor<Tracer, Field<M>>
-[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
+[[nodiscard]] Cursor<MemoryRead> read_layout_item(
   Field<M> item,
   const MemoryRead& memory_read,
-  const LayoutPointers<MemoryRead> pointers,
+  pointer_type_t<MemoryRead> base,
+  Cursor<MemoryRead> cursor,
   T& target,
   Tracer& tracer
 ) {
   auto scope = make_scope(tracer, item);
   auto& field = target.*M;
-  return read(memory_read, pointers.cursor, field, tracer);
+  return read(memory_read, cursor.address, field, tracer);
 }
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsTypeInRangeFor<pointer_type_t<MemoryRead>, member_type_t<M>>
            && HasScopeFor<Tracer, FieldPtr<M>>
-[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
+[[nodiscard]] Cursor<MemoryRead> read_layout_item(
   FieldPtr<M> item,
   const MemoryRead& memory_read,
-  const LayoutPointers<MemoryRead> pointers,
+  pointer_type_t<MemoryRead> base,
+  Cursor<MemoryRead> cursor,
   T& target,
   Tracer& tracer
 ) {
   auto scope = make_scope(tracer, item);
   pointer_type_t<MemoryRead> target_ptr{};
-  auto cursor = memory_read(pointers.cursor, sizeof(target_ptr), &target_ptr);
+  cursor.ok
+    = cursor.ok && memory_read(cursor.address, sizeof(target_ptr), &target_ptr);
   auto& field = target.*M;
   // static_cast safe by requires IsTypeInRangeFor
   field = static_cast<member_type_t<M>>(target_ptr);
-  return cursor;
+  return cursor + sizeof(target_ptr);
 }
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsReadable<member_type_t<M>> && HasScopeFor<Tracer, FieldRef<M>>
-[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
+[[nodiscard]] Cursor<MemoryRead> read_layout_item(
   FieldRef<M> item,
   const MemoryRead& memory_read,
-  const LayoutPointers<MemoryRead> pointers,
+  pointer_type_t<MemoryRead> base,
+  Cursor<MemoryRead> cursor,
   T& target,
   Tracer& tracer
 ) {
   auto scope = make_scope(tracer, item);
   pointer_type_t<MemoryRead> target_ptr{};
-  auto cursor = memory_read(pointers.cursor, sizeof(target_ptr), &target_ptr);
-  if (cursor) {
+  auto ok = memory_read(cursor.address, sizeof(target_ptr), &target_ptr);
+  if (ok) {
     if (target_ptr) {
       auto& field = target.*M;
       if (!read(memory_read, target_ptr, field, tracer)) {
@@ -380,23 +400,24 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   } else {
     // TODO handle error
   }
-  return cursor;
+  return cursor + sizeof(target_ptr);
 }
 
 template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   requires IsReadable<optional_value_type_t<M>>
            && HasScopeFor<Tracer, FieldOptionalRef<M>>
-[[nodiscard]] pointer_type_t<MemoryRead> read_layout_item(
+[[nodiscard]] Cursor<MemoryRead> read_layout_item(
   FieldOptionalRef<M> item,
   const MemoryRead& memory_read,
-  const LayoutPointers<MemoryRead> pointers,
+  pointer_type_t<MemoryRead> base,
+  Cursor<MemoryRead> cursor,
   T& target,
   Tracer& tracer
 ) {
   auto scope = make_scope(tracer, item);
   pointer_type_t<MemoryRead> target_ptr{};
-  auto cursor = memory_read(pointers.cursor, sizeof(target_ptr), &target_ptr);
-  if (cursor) {
+  auto ok = memory_read(cursor.address, sizeof(target_ptr), &target_ptr);
+  if (ok) {
     auto& field = target.*M;
     field.reset();
     if (target_ptr) {
@@ -411,7 +432,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
   } else {
     // TODO handle error
   }
-  return cursor;
+  return cursor + sizeof(target_ptr);
 }
 
 template <
@@ -419,23 +440,19 @@ template <
   IsMemoryRead MemoryRead,
   IsReadable T,
   typename Tracer>
-[[nodiscard]] pointer_type_t<MemoryRead> read_layout(
+[[nodiscard]] Cursor<MemoryRead> read_layout(
   Layout<Items...>,
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   T& target,
   Tracer& tracer
 ) {
-  pointer_type_t<MemoryRead> cursor = base;
-  // fold from first to last item
-  ((cursor ? cursor = read_layout_item(
-               Items{},
-               memory_read,
-               LayoutPointers<MemoryRead>{.base = base, .cursor = cursor},
-               target,
-               tracer
-             )
-           : 0),
+  Cursor<MemoryRead> cursor{base, true};
+  // fold from first to last item, only keep going as long as cursor is ok
+  ((
+     cursor
+     && (cursor = read_layout_item(Items{}, memory_read, base, cursor, target, tracer))
+   ),
    ...);
   return cursor;
 }
@@ -450,13 +467,6 @@ template <
  * @brief Reads data from remote memory into a native object based on a
  * specified layout.
  *
- * This function does not perform any validation or error checking.
- * It simply calls the user-provided `MemoryRead` function repeatedly.
- * The `memory_read` callback must perform all validation and error handling.
- * See `MemoryRead` for more information.
- *
- * @tparam pointer_type_t<MemoryRead>    The type of remote pointers (int32_t or
- * int64_t).
  * @tparam MemoryRead The type for the memory_read callback.
  * @tparam T          The native type to deserialize into.
  * @param memory The memory abstraction providing the `MemoryRead` function.
@@ -465,7 +475,7 @@ template <
  * @return Updated remote pointer after reading, as returned by `MemoryRead`.
  */
 template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
-[[nodiscard]] pointer_type_t<MemoryRead> read(
+[[nodiscard]] Cursor<MemoryRead> read(
   const MemoryRead& memory_read,
   pointer_type_t<MemoryRead> base,
   T& target,
@@ -476,7 +486,8 @@ template <IsMemoryRead MemoryRead, IsReadable T, typename Tracer>
       registered_layout_t<T>{}, memory_read, base, target, tracer
     );
   } else {
-    return memory_read(base, sizeof(target), &target);
+    return Cursor<MemoryRead>{base, memory_read(base, sizeof(target), &target)}
+           + sizeof(target);
   }
 };
 
@@ -541,16 +552,16 @@ struct MemoryReadMock {
   using pointer_type = int16_t;
   std::byte data[N]{};
 
-  int16_t operator()(int16_t cursor, int16_t size, void* buffer) const {
-    // handle overflow/underflow (note: cursor 0 is not valid)
-    t.msg("read: {} {}", cursor, cursor + size);
-    if (!(size >= 0 && size <= N && cursor >= BASE
-          && cursor - BASE <= N - size)) {
+  bool operator()(int16_t address, int16_t size, void* buffer) const {
+    // handle overflow/underflow
+    t.msg("read: {} {}", address, address + size);
+    if (!(buffer && size > 0 && size <= N && address >= BASE
+          && address - BASE <= N - size)) {
       std::cerr << std::string(t.indent, ' ') << "error" << std::endl;
-      return 0;
+      return false;
     }
-    if (buffer && size) std::memcpy(buffer, data + (cursor - BASE), size);
-    return cursor + size;
+    std::memcpy(buffer, data + (address - BASE), size);
+    return true;
   }
 
   template <typename T>
