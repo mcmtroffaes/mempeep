@@ -353,7 +353,8 @@ template <
   T&,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, address, std::format("pad(0x{:X})", N));
+  [[maybe_unused]] auto _
+    = make_scope(tracer, address, std::format("pad(0x{:X})", N));
   return safe_offset(address, N, tracer);
 }
 
@@ -370,7 +371,8 @@ template <
   T&,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, address, std::format("offset(0x{:X})", N));
+  [[maybe_unused]] auto _
+    = make_scope(tracer, address, std::format("offset(0x{:X})", N));
   return safe_offset(base, N, tracer);
 }
 
@@ -384,7 +386,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   T& target,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, address, member_name<M>());
+  [[maybe_unused]] auto _ = make_scope(tracer, address, member_name<M>());
   auto& field = target.*M;
   return read(memory_read, address, field, tracer);
 }
@@ -399,7 +401,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   T& target,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, address, member_name<M>());
+  [[maybe_unused]] auto _ = make_scope(tracer, address, member_name<M>());
   pointer_type_t<MemoryRead> target_ptr{};
   if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
   auto& field = target.*M;
@@ -418,7 +420,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   T& target,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, address, member_name<M>());
+  [[maybe_unused]] auto _ = make_scope(tracer, address, member_name<M>());
   pointer_type_t<MemoryRead> target_ptr{};
   if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
   if (target_ptr) {
@@ -442,7 +444,7 @@ template <auto M, IsMemoryRead MemoryRead, IsReadable T, IsTracer Tracer>
   T& target,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, address, member_name<M>());
+  [[maybe_unused]] auto _ = make_scope(tracer, address, member_name<M>());
   pointer_type_t<MemoryRead> target_ptr{};
   if (!memory_read(address, sizeof(target_ptr), &target_ptr)) return {};
   auto& field = target.*M;
