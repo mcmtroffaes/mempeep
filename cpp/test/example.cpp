@@ -320,7 +320,7 @@ concept CanStoreAddressOf
 // Stores result of reading: address after reading, or null if read failed.
 // Note error messages are propagated separately through the tracer.
 template <IsMemoryReader MemoryReader>
-using ReadEnd = std::optional<address_t<MemoryReader>>;
+using NextAddress = std::optional<address_t<MemoryReader>>;
 
 // Abstract unsigned addition with overflow check.
 template <std::unsigned_integral S, std::unsigned_integral T>
@@ -341,7 +341,7 @@ template <IsAddress Addr, IsTracer Tracer>
 
 // Forward declaration to support recursive reading.
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] ReadEnd<MemoryReader> read_remote(
+[[nodiscard]] NextAddress<MemoryReader> read_remote(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
@@ -370,7 +370,7 @@ template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
-[[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
+[[nodiscard]] NextAddress<MemoryReader> read_layout_item(
   Pad<N> item,
   const MemoryReader&,
   address_t<MemoryReader> base,
@@ -385,7 +385,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
-[[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
+[[nodiscard]] NextAddress<MemoryReader> read_layout_item(
   Seek<N> item,
   const MemoryReader&,
   address_t<MemoryReader> base,
@@ -401,7 +401,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
-[[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
+[[nodiscard]] NextAddress<MemoryReader> read_layout_item(
   Field<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -416,7 +416,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
   requires CanStoreAddressOf<T, MemoryReader>
-[[nodiscard]] ReadEnd<MemoryReader> read_address_into(
+[[nodiscard]] NextAddress<MemoryReader> read_address_into(
   const MemoryReader& reader,
   address_t<MemoryReader> address,
   T& target,
@@ -430,7 +430,7 @@ template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
+[[nodiscard]] NextAddress<MemoryReader> read_layout_item(
   Ptr<M>,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -444,7 +444,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
-[[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
+[[nodiscard]] NextAddress<MemoryReader> read_layout_item(
   Ref<M>,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -454,20 +454,20 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   address_t<MemoryReader> target_ptr{};
-  auto result = read_address_into(reader, address, target_ptr, tracer);
-  if (!result) return {};
+  auto next_addr = read_address_into(reader, address, target_ptr, tracer);
+  if (!next_addr) return {};
   if (target_ptr) {
     // ignore output: errors reported already, no need for extra error message
     std::ignore = read_remote(reader, target_ptr, target.*M, tracer);
   } else {
     tracer.error("null pointer");
   }
-  return result;
+  return next_addr;
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<unwrap_optional_t<member_type_t<M>>>
-[[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
+[[nodiscard]] NextAddress<MemoryReader> read_layout_item(
   NullableRef<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -477,8 +477,8 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   address_t<MemoryReader> target_ptr{};
-  auto result = read_address_into(reader, address, target_ptr, tracer);
-  if (!result) return {};
+  auto next_addr = read_address_into(reader, address, target_ptr, tracer);
+  if (!next_addr) return {};
   auto& field = target.*M;
   field.reset();
   if (target_ptr) {
@@ -488,7 +488,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
     // note: keep field emplaced even if read fails
   }
   // note: null target_ptr is ok, no error reported
-  return result;
+  return next_addr;
 }
 
 template <
@@ -496,28 +496,28 @@ template <
   IsMemoryReader MemoryReader,
   IsReadable T,
   IsTracer Tracer>
-[[nodiscard]] ReadEnd<MemoryReader> read_layout(
+[[nodiscard]] NextAddress<MemoryReader> read_layout(
   Layout<Items...>,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
   Tracer& tracer
 ) {
-  ReadEnd<MemoryReader> result{base};
+  NextAddress<MemoryReader> next_addr{base};
   // - ((expr), ...) is intentional: comma has the lowest precedence
   // - comma operator sequences the effects from left to right
   // - && short-circuits the evaluation so we stop on first failure
   // - Items{} is just a tag to select the overload, construction costs nothing
   // We can read this comma fold as follows:
-  // If the current result (i.e. address position) is valid (i.e. evaluates to
-  // true) then update it using read_layout_item, and now keep repeating that
+  // If the current next_addr (i.e. address position) is valid (i.e. evaluates
+  // to true) then update it using read_layout_item, and now keep repeating that
   // for all items.
   ((
-     result
-     && (result = read_layout_item(Items{}, reader, base, result.value(), target, tracer))
+     next_addr
+     && (next_addr = read_layout_item(Items{}, reader, base, next_addr.value(), target, tracer))
    ),
    ...);
-  return result;
+  return next_addr;
 }
 
 }  // namespace detail
@@ -532,7 +532,7 @@ template <
  *
  * The function will try to read as much data as possible, i.e. even after
  * failing to read subfields.
- * Beware that the returned ReadEnd having a value only means that the
+ * Beware that the returned NextAddress having a value only means that the
  * top-level structure was read fully,
  * so do not rely on it to decide whether the whole read was succesful!
  * To determine whether an error has occurred anywhere,
@@ -548,7 +548,7 @@ template <
  *         Nullopt if a layout item failed.
  */
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] ReadEnd<MemoryReader> read_remote(
+[[nodiscard]] NextAddress<MemoryReader> read_remote(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
@@ -564,7 +564,7 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 // no tracing
 template <IsMemoryReader MemoryReader, IsReadable T>
-ReadEnd<MemoryReader> read_remote(
+NextAddress<MemoryReader> read_remote(
   const MemoryReader& reader, address_t<MemoryReader> base, T& target
 ) {
   NoTracer t;
