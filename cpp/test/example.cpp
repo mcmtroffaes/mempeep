@@ -420,7 +420,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires CanStoreAddressOf<member_type_t<M>, MemoryReader>
 [[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
-  Ptr<M> item,
+  Ptr<M>,
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
   pointer_type_t<MemoryReader> address,
