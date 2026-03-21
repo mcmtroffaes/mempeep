@@ -173,16 +173,8 @@ consteval std::string_view member_name() {
 // Layout items
 // ============================================================
 
-/**
- * @brief For tagging layout items.
- *
- * The IsLayoutItem concept selects those types that have this tag.
- */
-struct LayoutItem {};
-
 template <typename T>
-concept IsLayoutItem
-  = std::is_base_of_v<LayoutItem, T> && !std::same_as<T, LayoutItem>;
+concept IsLayoutItem = requires { typename T::layout_item_tag; };
 
 /**
  * @brief Defines a remote layout.
@@ -239,7 +231,9 @@ using layout_of_t = decltype(layout_of(LayoutOf<T>{}));
  */
 template <auto M>
   requires IsReadable<member_type_t<M>>
-struct Field : LayoutItem {};
+struct Field {
+  using layout_item_tag = void;
+};
 
 /**
  * @brief Padding relative to the current position in the layout.
@@ -249,7 +243,8 @@ struct Field : LayoutItem {};
  */
 template <auto N>
   requires(std::integral<decltype(N)> && N > 0)
-struct Pad : LayoutItem {
+struct Pad {
+  using layout_item_tag = void;
   static constexpr std::size_t count = static_cast<std::size_t>(N);
 };
 
@@ -261,7 +256,8 @@ struct Pad : LayoutItem {
  */
 template <auto N>
   requires(std::integral<decltype(N)> && N > 0)
-struct Seek : LayoutItem {
+struct Seek {
+  using layout_item_tag = void;
   static constexpr std::size_t offset = static_cast<std::size_t>(N);
 };
 
@@ -273,7 +269,9 @@ struct Seek : LayoutItem {
  */
 template <auto M>
   requires IsAddress<member_type_t<M>>
-struct Ptr : LayoutItem {};
+struct Ptr {
+  using layout_item_tag = void;
+};
 
 /**
  * @brief Follow address and read pointee.
@@ -281,7 +279,9 @@ struct Ptr : LayoutItem {};
  */
 template <auto M>
   requires IsReadable<member_type_t<M>>
-struct Ref : LayoutItem {};
+struct Ref {
+  using layout_item_tag = void;
+};
 
 /**
  * @brief Follow address and read pointee if not null.
@@ -290,7 +290,9 @@ struct Ref : LayoutItem {};
  */
 template <auto M>
   requires IsReadable<optional_value_type_t<M>>
-struct NullableRef : LayoutItem {};
+struct NullableRef {
+  using layout_item_tag = void;
+};
 
 /**
  * @brief Extract pointer_type from MemoryReader.
