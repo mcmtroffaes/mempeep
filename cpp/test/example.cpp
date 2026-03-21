@@ -19,11 +19,6 @@ template <typename T>
 concept IsAddress = std::unsigned_integral<T> && !std::same_as<T, bool>
                     && !std::same_as<T, char>;
 
-template <typename From, typename To>
-concept IsAddressWideEnoughFor
-  = IsAddress<From> && IsAddress<To>
-    && std::numeric_limits<From>::max() <= std::numeric_limits<To>::max();
-
 // ============================================================
 // Member traits
 // ============================================================
@@ -319,6 +314,12 @@ concept IsMemoryReader = requires(
   { reader(address, size, buffer) } -> std::same_as<bool>;
 };
 
+template <typename T, typename MemoryReader>
+concept CanStoreAddressOf
+  = IsAddress<T>
+    && std::numeric_limits<pointer_type_t<MemoryReader>>::max()
+         <= std::numeric_limits<T>::max();
+
 // Stores result of reading: address after reading, or null if read failed.
 // Note error messages are propagated separately through the tracer.
 template <IsMemoryReader MemoryReader>
@@ -417,9 +418,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-  requires IsAddressWideEnoughFor<
-    pointer_type_t<MemoryReader>,
-    member_type_t<M>>
+  requires CanStoreAddressOf<member_type_t<M>, MemoryReader>
 [[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
   Ptr<M> item,
   const MemoryReader& reader,
