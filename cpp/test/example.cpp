@@ -719,7 +719,7 @@ int main() {
   reader.write<46>(6i16);    // weapon_ptr
   reader.write<48>(60i16);   // prev_pos ref
   reader.write<50>(80i16);   // tagged_pos ref (optional)
-  reader.write<52>(0i32);    // house_pos ref (optional)
+  reader.write<52>(0i16);    // house_pos ref (optional)
   reader.write<54>(47i32);   // mana
   reader.write<60>(88i32);   // prev_pos.x
   reader.write<68>(99i32);   // prev_pos.y
