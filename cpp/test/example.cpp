@@ -248,6 +248,11 @@ struct Seek {
 
 /**
  * @brief Raw address, not followed.
+ *
+ * Important: Always reads exactly sizeof(address_type) bytes, not
+ * sizeof(member_type_t<M>). Result is cast to wider type if needed.
+ * If the member type is too narrow, a compile error results.
+ *
  * @tparam M The native field to deserialize the address into.
  *           Its type must be wide enough to hold address_t<MemoryReader>.
  *           The read template will not instantiate otherwise.
