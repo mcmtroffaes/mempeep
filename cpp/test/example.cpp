@@ -674,12 +674,12 @@ int main() {
   reader.write<18>(123i32);  // health
   reader.write<26>(11i32);   // pos.x
   reader.write<34>(22i32);   // pos.y
-  reader.write<42>(0i16);    // target_ptr (optional)
-  reader.write<44>(2i16);    // shop_ptr (optional)
+  reader.write<42>(0i16);    // target_ptr
+  reader.write<44>(2i16);    // shop_ptr; u16 remote, u32 native (intentional)
   reader.write<46>(6i16);    // weapon_ptr
   reader.write<48>(60i16);   // prev_pos ref
-  reader.write<50>(80i16);   // tagged_pos ref (optional)
-  reader.write<52>(0i16);    // house_pos ref (optional)
+  reader.write<50>(80i16);   // tagged_pos nullable ref
+  reader.write<52>(0i16);    // house_pos nullable ref
   reader.write<54>(47i32);   // mana
   reader.write<60>(88i32);   // prev_pos.x
   reader.write<68>(99i32);   // prev_pos.y
