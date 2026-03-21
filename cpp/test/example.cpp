@@ -277,15 +277,19 @@ struct Ptr : LayoutItem {};
 /**
  * @brief Follow address and read pointee.
  * @tparam M The native field to deserialize the pointee into.
- *           Must have type std::optional<T>.
- * @tparam Required If true (default), a null address is an error.
  */
-template <auto M, bool Required = true>
+template <auto M>
   requires IsReadable<member_type_t<M>>
 struct Ref : LayoutItem {};
 
+/**
+ * @brief Follow address and read pointee if not null.
+ * @tparam M The native field to deserialize the pointee into.
+ *           Must have type std::optional<T>.
+ */
 template <auto M>
-using NullableRef = Ref<M, false>;
+  requires IsReadable<optional_value_type_t<M>>
+struct NullableRef : LayoutItem {};
 
 /**
  * @brief Extract pointer_type from MemoryReader.
@@ -417,8 +421,22 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   return read_remote_into(reader, address, field, tracer);
 }
 
+template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
+  requires CanStoreAddressOf<T, MemoryReader>
+[[nodiscard]] ReadCursor<MemoryReader> read_address_into(
+  const MemoryReader& reader,
+  pointer_type_t<MemoryReader> address,
+  T& target,
+  Tracer& tracer
+) {
+  pointer_type_t<MemoryReader> ptr{};
+  if (!read_bytes(reader, address, ptr, tracer)) return {};
+  // static_cast safe by CanStoreAddressOf
+  target = static_cast<T>(ptr);
+  return traced_advance(address, sizeof(ptr), tracer);
+}
+
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-  requires CanStoreAddressOf<member_type_t<M>, MemoryReader>
 [[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
   Ptr<M>,
   const MemoryReader& reader,
@@ -428,23 +446,13 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   Tracer& tracer
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
-  pointer_type_t<MemoryReader> target_ptr{};
-  if (!read_bytes(reader, address, target_ptr, tracer)) return {};
-  auto& field = target.*M;
-  // static_cast safe by requires IsTypeRepresentableAs
-  field = static_cast<member_type_t<M>>(target_ptr);
-  return traced_advance(address, sizeof(target_ptr), tracer);
+  return read_address_into(reader, address, target.*M, tracer);
 }
 
-template <
-  auto M,
-  bool Required,
-  IsMemoryReader MemoryReader,
-  IsReadable T,
-  IsTracer Tracer>
-  requires IsReadable<optional_value_type_t<M>>
+template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+  requires IsReadable<member_type_t<M>>
 [[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
-  Ref<M, Required> item,
+  Ref<M>,
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
   pointer_type_t<MemoryReader> address,
@@ -453,19 +461,42 @@ template <
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   pointer_type_t<MemoryReader> target_ptr{};
-  if (!read_bytes(reader, address, target_ptr, tracer)) return {};
+  auto result = read_address_into(reader, address, target_ptr, tracer);
+  if (!result) return {};
+  if (target_ptr) {
+    if (!read_remote_into(reader, target_ptr, target.*M, tracer)) {
+      tracer.error("failed to read pointee");
+    };
+  } else {
+    tracer.error("null pointer");
+  }
+  return result;
+}
+
+template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+  requires IsReadable<optional_value_type_t<M>>
+[[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
+  NullableRef<M> item,
+  const MemoryReader& reader,
+  pointer_type_t<MemoryReader> base,
+  pointer_type_t<MemoryReader> address,
+  T& target,
+  Tracer& tracer
+) {
+  [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
+  pointer_type_t<MemoryReader> target_ptr{};
+  auto result = read_address_into(reader, address, target_ptr, tracer);
+  if (!result) return {};
   auto& field = target.*M;
   field.reset();
   if (target_ptr) {
-    using U = optional_value_type_t<M>;  // std::optional<U> -> U
-    U value{};
-    if (read_remote_into(reader, target_ptr, value, tracer)) {
-      field = std::move(value);
+    field.emplace();
+    if (!read_remote_into(reader, target_ptr, *field, tracer)) {
+      tracer.error("failed to read pointee");
     }
-  } else if constexpr (Required) {
-    tracer.error("null pointer");
   }
-  return traced_advance(address, sizeof(target_ptr), tracer);
+  // note: null target_ptr is ok, no error reported
+  return result;
 }
 
 template <
@@ -536,7 +567,7 @@ template <IsMemoryReader MemoryReader, IsReadable T>
 
 // read_remote but returning an optional
 template <IsReadable T, IsMemoryReader MemoryReader, IsTracer Tracer>
-std::optional<T> read_remote(
+[[nodiscard]] std::optional<T> read_remote(
   const MemoryReader& reader, pointer_type_t<MemoryReader> base, Tracer& tracer
 ) {
   T target{};
@@ -546,7 +577,7 @@ std::optional<T> read_remote(
 
 // read_remote but returning an optional and without tracing
 template <IsReadable T, IsMemoryReader MemoryReader>
-std::optional<T> read_remote(
+[[nodiscard]] std::optional<T> read_remote(
   const MemoryReader& reader, pointer_type_t<MemoryReader> base
 ) {
   NoTracer tracer;
@@ -631,7 +662,7 @@ struct Player {
   uint16_t target_ptr;
   uint32_t shop_ptr;  // wider than needed, still fine
   uint16_t weapon_ptr;
-  std::optional<Pos> prev_pos;
+  Pos prev_pos;
   std::optional<Pos> tagged_pos;
   std::optional<Pos> house_pos;
   int32_t mana;
@@ -669,9 +700,8 @@ static void assert_game(const Game& game) {
   assert(game.player.target_ptr == 0);
   assert(game.player.shop_ptr == 2);
   assert(game.player.weapon_ptr == 6);
-  assert(game.player.prev_pos.has_value());
-  assert(game.player.prev_pos->x == 88);
-  assert(game.player.prev_pos->y == 99);
+  assert(game.player.prev_pos.x == 88);
+  assert(game.player.prev_pos.y == 99);
   assert(game.player.mana == 47);
   assert(game.player.tagged_pos.has_value());
   assert(game.player.tagged_pos->x == 55);
