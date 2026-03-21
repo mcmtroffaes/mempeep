@@ -242,29 +242,29 @@ concept IsReadable
  *
  * Example:
  *
- *   auto layout_of(Tag<Pos>) -> Layout<Field<&Pos::x>, Pad<4>,
+ *   auto layout_of(LayoutOf<Pos>) -> Layout<Field<&Pos::x>, Pad<4>,
  * Field<&Pos::y>>;
  *
  * @tparam T Native struct to register the layout for.
  */
 template <typename T>
   requires IsReadable<T>
-struct Tag {};
+struct LayoutOf {};
 
 /**
  * @brief Does T have a custom layout?
  *
- * Checks if the function layout_of(Tag<T>) exists.
+ * Checks if the function layout_of(LayoutOf<T>) exists.
  */
 template <typename T>
-concept HasRegisteredLayout = requires { layout_of(Tag<T>{}); };
+concept HasLayout = requires { layout_of(LayoutOf<T>{}); };
 
 /**
- * @brief Shorthand for the return type of `layout_of(Tag<T>{})`.
+ * @brief Shorthand for the return type of `layout_of(LayoutOf<T>{})`.
  */
 template <typename T>
-  requires HasRegisteredLayout<T>
-using registered_layout_t = decltype(layout_of(Tag<T>{}));
+  requires HasLayout<T>
+using layout_of_t = decltype(layout_of(LayoutOf<T>{}));
 
 /**
  * @brief A field. Its type must be readable.
@@ -565,10 +565,8 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer = NoTracer>
   T& target,
   Tracer& tracer = detail::default_tracer<Tracer>()
 ) {
-  if constexpr (HasRegisteredLayout<T>) {
-    return detail::read_layout(
-      registered_layout_t<T>{}, reader, base, target, tracer
-    );
+  if constexpr (HasLayout<T>) {
+    return detail::read_layout(layout_of_t<T>{}, reader, base, target, tracer);
   } else {
     if (!detail::read_bytes(reader, base, target, tracer)) return {};
     return safe_offset(base, sizeof(target), tracer);
@@ -665,10 +663,10 @@ struct Game {
 using namespace mempeep;
 
 // intentionally have 4 padding bytes at end, for testing
-auto layout_of(Tag<Pos>)
+auto layout_of(LayoutOf<Pos>)
   -> Layout<Field<&Pos::x>, Pad<4i16>, Field<&Pos::y>, Pad<4i16>>;
 
-auto layout_of(Tag<Player>) -> Layout<
+auto layout_of(LayoutOf<Player>) -> Layout<
   Seek<8>,
   Field<&Player::health>,
   Seek<16>,
@@ -681,7 +679,7 @@ auto layout_of(Tag<Player>) -> Layout<
   NullableRef<&Player::house_pos>,
   Field<&Player::mana>>;
 
-auto layout_of(Tag<Game>) -> Layout<Seek<6>, Field<&Game::player>>;
+auto layout_of(LayoutOf<Game>) -> Layout<Seek<6>, Field<&Game::player>>;
 
 int main() {
   MockMemoryReader<1, 128> reader{};
