@@ -540,12 +540,15 @@ template <
  * @param target The native object to populate.
  * @return Updated remote pointer after reading, as returned by `MemoryReader`.
  */
-template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer = NoTracer>
 [[nodiscard]] ReadCursor<MemoryReader> read_remote_into(
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
   T& target,
-  Tracer& tracer
+  Tracer& tracer = []() -> NoTracer& {
+    static NoTracer n;
+    return n;
+  }()
 ) {
   if constexpr (HasLayout<T>) {
     return detail::read_layout(layout_of_t<T>{}, reader, base, target, tracer);
@@ -553,36 +556,6 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
     if (!detail::read_bytes(reader, base, target, tracer)) return {};
     return traced_advance(base, sizeof(target), tracer);
   }
-}
-
-// read_remote without no tracing
-template <IsMemoryReader MemoryReader, IsReadable T>
-[[nodiscard]] ReadCursor<MemoryReader> read_remote_into(
-  const MemoryReader& reader, pointer_type_t<MemoryReader> base, T& target
-) {
-  NoTracer tracer{};
-  return read_remote_into(reader, base, target, tracer);
-}
-
-// read_remote but returning an optional
-template <IsReadable T, IsMemoryReader MemoryReader, IsTracer Tracer>
-[[nodiscard]] std::optional<T> read_remote(
-  const MemoryReader& reader, pointer_type_t<MemoryReader> base, Tracer& tracer
-) {
-  T target{};
-  return read_remote_into(reader, base, target, tracer) ? std::move(target)
-                                                        : std::optional<T>{};
-}
-
-// read_remote but returning an optional and without tracing
-template <IsReadable T, IsMemoryReader MemoryReader>
-[[nodiscard]] std::optional<T> read_remote(
-  const MemoryReader& reader, pointer_type_t<MemoryReader> base
-) {
-  NoTracer tracer;
-  T target{};
-  return read_remote_into(reader, base, target, tracer) ? std::move(target)
-                                                        : std::optional<T>{};
 }
 
 }  // namespace mempeep
@@ -736,6 +709,4 @@ int main() {
     assert(mempeep::read_remote_into(reader, 4i16, game));
     assert_game(game);
   }
-  assert(mempeep::read_remote<Game>(reader, 4i16, tracer));
-  assert(mempeep::read_remote<Game>(reader, 4i16));
 }
