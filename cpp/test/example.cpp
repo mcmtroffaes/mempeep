@@ -518,6 +518,10 @@ template <
   // - comma operator sequences the effects from left to right
   // - && short-circuits the evaluation so we stop on first failure
   // - Items{} is just a tag to select the overload, construction costs nothing
+  // We can read this comma fold as follows:
+  // If the current result (i.e. address position) is valid (i.e. evaluates to true)
+  // then update it using read_layout_item,
+  // and now keep repeating that for all items.
   ((
      result
      && (result = read_layout_item(Items{}, reader, base, result.value(), target, tracer))
@@ -539,10 +543,11 @@ template <
  * The function will try to read as much data as possible, i.e. even after
  * failing to read subfields.
  * Beware that the returned ReadEnd having a value only means that the
- * top-level structure was read fully!
- * Do not rely on it to decide whether the whole read was succesful.
- * To determine whether an error has occurred,
+ * top-level structure was read fully,
+ * so do not rely on it to decide whether the whole read was succesful!
+ * To determine whether an error has occurred anywhere,
  * you must verify that the tracer has not called `error`.
+ * ErrorTracer serves exactly this purpose.
  *
  * @tparam MemoryReader The type for the reader callback.
  * @tparam T          The native type to deserialize into.
