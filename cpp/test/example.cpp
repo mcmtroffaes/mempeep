@@ -240,12 +240,12 @@ struct Pad : LayoutItem {
 
 /**
  * @brief Absolute offset relative to base position of the layout.
- * @tparam N The offset in bytes (non-negative; 0 allowed to seek to start).
+ * @tparam N The offset in bytes (strictly positive).
  *           Its value must be representable by pointer_type_t<MemoryReader>.
  *           The read template will not instantiate otherwise.
  */
 template <auto N>
-  requires(std::integral<decltype(N)> && N >= 0)
+  requires(std::integral<decltype(N)> && N > 0)
 struct Seek : LayoutItem {
   static constexpr std::size_t offset = static_cast<std::size_t>(N);
 };
@@ -478,7 +478,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
     auto& target_value = field.emplace();
     // ignore output: errors reported already, no need for extra error message
     std::ignore = read_remote_into(reader, target_ptr, target_value, tracer);
-    // note: keep field emplaced even if read fails, consistent with Ref
+    // note: keep field emplaced even if read fails
   }
   // note: null target_ptr is ok, no error reported
   return result;
@@ -524,7 +524,7 @@ template <
  * @param memory The memory abstraction providing the `MemoryReader` function.
  * @param base   The remote address to start reading from.
  * @param target The native object to populate.
- * @return Updated remote pointer after reading, as returned by `MemoryReader`.
+ * @return Updated result after reading, as returned by `MemoryReader`.
  */
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer = NoTracer>
 [[nodiscard]] ReadCursor<MemoryReader> read_remote_into(
