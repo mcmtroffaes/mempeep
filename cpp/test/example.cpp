@@ -79,17 +79,6 @@ concept IsTracer
       { tracer.error(s) } -> std::same_as<void>;
     };
 
-namespace detail {
-
-// Helper class to get default tracer argument
-template <IsTracer Tracer>
-Tracer& default_tracer() {
-  static Tracer instance{};
-  return instance;
-}
-
-}  // namespace detail
-
 // Disables tracing
 struct NoTracer {
   struct Scope {
