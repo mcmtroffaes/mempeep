@@ -313,7 +313,7 @@ concept CanStoreAddressOf
 // Stores result of reading: address after reading, or null if read failed.
 // Note error messages are propagated separately through the tracer.
 template <IsMemoryReader MemoryReader>
-using ReadCursor = std::optional<pointer_type_t<MemoryReader>>;
+using ReadEnd = std::optional<pointer_type_t<MemoryReader>>;
 
 // Abstract unsigned addition with overflow check.
 template <std::unsigned_integral S, std::unsigned_integral T>
@@ -334,7 +334,7 @@ template <IsAddress Addr, IsTracer Tracer>
 
 // Forward declaration to support recursive reading.
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryReader> read_remote_into(
+[[nodiscard]] ReadEnd<MemoryReader> read_remote(
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
   T& target,
@@ -363,7 +363,7 @@ template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
+[[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   Pad<N> item,
   const MemoryReader&,
   pointer_type_t<MemoryReader> base,
@@ -378,7 +378,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
+[[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   Seek<N> item,
   const MemoryReader&,
   pointer_type_t<MemoryReader> base,
@@ -394,7 +394,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
-[[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
+[[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   Field<M> item,
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
@@ -404,12 +404,12 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   auto& field = target.*M;
-  return read_remote_into(reader, address, field, tracer);
+  return read_remote(reader, address, field, tracer);
 }
 
 template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
   requires CanStoreAddressOf<T, MemoryReader>
-[[nodiscard]] ReadCursor<MemoryReader> read_address_into(
+[[nodiscard]] ReadEnd<MemoryReader> read_address_into(
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> address,
   T& target,
@@ -423,7 +423,7 @@ template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
+[[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   Ptr<M>,
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
@@ -437,7 +437,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
-[[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
+[[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   Ref<M>,
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
@@ -451,7 +451,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   if (!result) return {};
   if (target_ptr) {
     // ignore output: errors reported already, no need for extra error message
-    std::ignore = read_remote_into(reader, target_ptr, target.*M, tracer);
+    std::ignore = read_remote(reader, target_ptr, target.*M, tracer);
   } else {
     tracer.error("null pointer");
   }
@@ -460,7 +460,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<optional_value_type_t<M>>
-[[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
+[[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   NullableRef<M> item,
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
@@ -477,7 +477,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   if (target_ptr) {
     auto& target_value = field.emplace();
     // ignore output: errors reported already, no need for extra error message
-    std::ignore = read_remote_into(reader, target_ptr, target_value, tracer);
+    std::ignore = read_remote(reader, target_ptr, target_value, tracer);
     // note: keep field emplaced even if read fails
   }
   // note: null target_ptr is ok, no error reported
@@ -489,14 +489,14 @@ template <
   IsMemoryReader MemoryReader,
   IsReadable T,
   IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryReader> read_layout(
+[[nodiscard]] ReadEnd<MemoryReader> read_layout(
   Layout<Items...>,
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
   T& target,
   Tracer& tracer
 ) {
-  ReadCursor<MemoryReader> result{base};
+  ReadEnd<MemoryReader> result{base};
   // - ((expr), ...) is intentional: comma has the lowest precedence
   // - comma operator sequences the effects from left to right
   // - && short-circuits the evaluation so we stop on first failure
@@ -519,22 +519,28 @@ template <
  * @brief Reads data from remote memory into a native object based on a
  * specified layout.
  *
+ * The function will try to read as much data as possible, i.e. even after
+ * failing to read subfields.
+ * Beware that the returned ReadEnd having a value only means that the
+ * top-level structure was read fully!
+ * Do not rely on it to decide whether the whole read was succesful.
+ * To determine whether an error has occurred,
+ * you must verify that the tracer has not called `error`.
+ *
  * @tparam MemoryReader The type for the reader callback.
  * @tparam T          The native type to deserialize into.
  * @param memory The memory abstraction providing the `MemoryReader` function.
  * @param base   The remote address to start reading from.
  * @param target The native object to populate.
- * @return Updated result after reading, as returned by `MemoryReader`.
+ * @return Address after the final layout item.
+ *         Nullopt if a layout item failed.
  */
-template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer = NoTracer>
-[[nodiscard]] ReadCursor<MemoryReader> read_remote_into(
+template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+[[nodiscard]] ReadEnd<MemoryReader> read_remote(
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
   T& target,
-  Tracer& tracer = []() -> NoTracer& {
-    static NoTracer n;
-    return n;
-  }()
+  Tracer& tracer
 ) {
   if constexpr (HasLayout<T>) {
     return detail::read_layout(layout_of_t<T>{}, reader, base, target, tracer);
@@ -542,6 +548,15 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer = NoTracer>
     if (!detail::read_bytes(reader, base, target, tracer)) return {};
     return traced_advance(base, sizeof(target), tracer);
   }
+}
+
+// no tracing
+template <IsMemoryReader MemoryReader, IsReadable T>
+ReadEnd<MemoryReader> read_remote(
+  const MemoryReader& reader, pointer_type_t<MemoryReader> base, T& target
+) {
+  NoTracer t;
+  return read_remote(reader, base, target, t);
 }
 
 }  // namespace mempeep
@@ -689,12 +704,12 @@ int main() {
   PrintTracer tracer{};
   {
     Game game{};
-    assert(mempeep::read_remote_into(reader, 4i16, game, tracer));
+    assert(mempeep::read_remote(reader, 4i16, game, tracer));
     assert_game(game);
   }
   {
     Game game{};
-    assert(mempeep::read_remote_into(reader, 4i16, game));
+    assert(mempeep::read_remote(reader, 4i16, game));
     assert_game(game);
   }
 }
