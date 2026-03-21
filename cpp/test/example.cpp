@@ -127,9 +127,7 @@ struct PrintTracer {
               << msg << std::endl;
   }
 
-  void error(std::string_view reason) {
-    log(std::format("ERROR: {}", reason));
-  }
+  void error(std::string_view reason) { log(std::format("ERROR: {}", reason)); }
 
   struct Scope {
     PrintTracer& t;
@@ -519,9 +517,9 @@ template <
   // - && short-circuits the evaluation so we stop on first failure
   // - Items{} is just a tag to select the overload, construction costs nothing
   // We can read this comma fold as follows:
-  // If the current result (i.e. address position) is valid (i.e. evaluates to true)
-  // then update it using read_layout_item,
-  // and now keep repeating that for all items.
+  // If the current result (i.e. address position) is valid (i.e. evaluates to
+  // true) then update it using read_layout_item, and now keep repeating that
+  // for all items.
   ((
      result
      && (result = read_layout_item(Items{}, reader, base, result.value(), target, tracer))
