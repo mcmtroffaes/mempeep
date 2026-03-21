@@ -124,6 +124,7 @@ struct PrintTracer : ErrorTracer {
 };
 
 static_assert(IsTracer<ErrorTracer>);
+static_assert(!IsScopedTracer<ErrorTracer>);
 static_assert(IsScopedTracer<PrintTracer>);
 
 template <auto M>
