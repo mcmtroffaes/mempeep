@@ -85,6 +85,19 @@ struct NoTracer {
   void error(std::string_view) {}
 };
 
+// Tracer that detects if any error has occurred
+struct ErrorTracer {
+  bool err = false;
+
+  struct Scope {
+    Scope() = default;
+
+    Scope(ErrorTracer&, std::uint64_t, std::string_view) {}
+  };
+
+  void error(std::string_view) { err = true; }
+};
+
 // Deduces Tracer::Scope from Tracer, avoiding repetition at call sites
 template <IsTracer Tracer, IsAddress Address, typename Label>
   requires std::convertible_to<Label, std::string_view>
