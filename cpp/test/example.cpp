@@ -242,19 +242,19 @@ struct Field : LayoutItem {};
 
 /**
  * @brief Padding relative to the current position in the layout.
- * @tparam N Number of bytes.
+ * @tparam N Number of bytes (strictly positive).
  *           Its value must be representable by pointer_type_t<MemoryReader>.
  *           The read template will not instantiate otherwise.
  */
 template <auto N>
-  requires(std::integral<decltype(N)> && N >= 0)
+  requires(std::integral<decltype(N)> && N > 0)
 struct Pad : LayoutItem {
   static constexpr std::size_t count = static_cast<std::size_t>(N);
 };
 
 /**
  * @brief Absolute offset relative to base position of the layout.
- * @tparam N The offset (in bytes).
+ * @tparam N The offset in bytes (non-negative; 0 allowed to seek to start).
  *           Its value must be representable by pointer_type_t<MemoryReader>.
  *           The read template will not instantiate otherwise.
  */
