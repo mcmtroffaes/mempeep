@@ -559,10 +559,10 @@ auto read_remote(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
-  Tracer tracer = {}
+  Tracer tracer = {}  // by value: caller's tracer is not modified
 ) {
   // Passing tracer by reference internally so all recursive calls share
-  // the same error flag and indent state, without copying on each call.
+  // the same state, without copying on each call.
   std::ignore = detail::read(reader, base, target, tracer);
   return tracer.success();
 }
