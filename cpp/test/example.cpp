@@ -344,7 +344,7 @@ template <IsAddress Addr, IsTracer Tracer>
 
 // Forward declaration to support recursive reading.
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryReader> read_remote(
+[[nodiscard]] ReadCursor<MemoryReader> read_remote_into(
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
   T& target,
@@ -414,7 +414,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   auto& field = target.*M;
-  return read_remote(reader, address, field, tracer);
+  return read_remote_into(reader, address, field, tracer);
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
@@ -459,7 +459,7 @@ template <
   if (target_ptr) {
     using U = optional_value_type_t<M>;  // std::optional<U> -> U
     U value{};
-    if (read_remote(reader, target_ptr, value, tracer)) {
+    if (read_remote_into(reader, target_ptr, value, tracer)) {
       field = std::move(value);
     }
   } else if constexpr (Required) {
@@ -511,7 +511,7 @@ template <
  * @return Updated remote pointer after reading, as returned by `MemoryReader`.
  */
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryReader> read_remote(
+[[nodiscard]] ReadCursor<MemoryReader> read_remote_into(
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
   T& target,
@@ -527,11 +527,11 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 // read_remote without no tracing
 template <IsMemoryReader MemoryReader, IsReadable T>
-[[nodiscard]] ReadCursor<MemoryReader> read_remote(
+[[nodiscard]] ReadCursor<MemoryReader> read_remote_into(
   const MemoryReader& reader, pointer_type_t<MemoryReader> base, T& target
 ) {
   NoTracer tracer{};
-  return read_remote(reader, base, target, tracer);
+  return read_remote_into(reader, base, target, tracer);
 }
 
 // read_remote but returning an optional
@@ -540,8 +540,8 @@ std::optional<T> read_remote(
   const MemoryReader& reader, pointer_type_t<MemoryReader> base, Tracer& tracer
 ) {
   T target{};
-  return read_remote(reader, base, target, tracer) ? std::move(target)
-                                                   : std::optional<T>{};
+  return read_remote_into(reader, base, target, tracer) ? std::move(target)
+                                                        : std::optional<T>{};
 }
 
 // read_remote but returning an optional and without tracing
@@ -551,8 +551,8 @@ std::optional<T> read_remote(
 ) {
   NoTracer tracer;
   T target{};
-  return read_remote(reader, base, target, tracer) ? std::move(target)
-                                                   : std::optional<T>{};
+  return read_remote_into(reader, base, target, tracer) ? std::move(target)
+                                                        : std::optional<T>{};
 }
 
 }  // namespace mempeep
@@ -699,12 +699,12 @@ int main() {
   PrintTracer tracer{};
   {
     Game game{};
-    assert(mempeep::read_remote(reader, 4i16, game, tracer));
+    assert(mempeep::read_remote_into(reader, 4i16, game, tracer));
     assert_game(game);
   }
   {
     Game game{};
-    assert(mempeep::read_remote(reader, 4i16, game));
+    assert(mempeep::read_remote_into(reader, 4i16, game));
     assert_game(game);
   }
   assert(mempeep::read_remote<Game>(reader, 4i16, tracer));
