@@ -162,12 +162,6 @@ consteval std::string_view member_name() {
   return sig.substr(last_colon + 1, close - last_colon - 1);
 }
 
-struct TestMemberName {
-  int the_member;
-};
-
-static_assert(member_name<&TestMemberName::the_member>() == "the_member");
-
 // ============================================================
 // Layout items
 // ============================================================
@@ -645,6 +639,8 @@ struct Game {
 };
 
 using namespace mempeep;
+
+static_assert(member_name<&Player::house_pos>() == "house_pos");
 
 // intentionally have 4 padding bytes at end, for testing
 auto layout_of(LayoutOf<Pos>)
