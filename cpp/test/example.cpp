@@ -464,9 +464,8 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   auto result = read_address_into(reader, address, target_ptr, tracer);
   if (!result) return {};
   if (target_ptr) {
-    if (!read_remote_into(reader, target_ptr, target.*M, tracer)) {
-      tracer.error("failed to read pointee");
-    };
+    // ignore output: errors reported already, no need for extra error message
+    std::ignore = read_remote_into(reader, target_ptr, target.*M, tracer);
   } else {
     tracer.error("null pointer");
   }
@@ -491,9 +490,8 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   field.reset();
   if (target_ptr) {
     field.emplace();
-    if (!read_remote_into(reader, target_ptr, *field, tracer)) {
-      tracer.error("failed to read pointee");
-    }
+    // ignore output: errors reported already, no need for extra error message
+    std::ignore = read_remote_into(reader, target_ptr, *field, tracer);
   }
   // note: null target_ptr is ok, no error reported
   return result;
