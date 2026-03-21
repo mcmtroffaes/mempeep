@@ -367,7 +367,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] NextAddress<MemoryReader> read_layout_item(
   Pad<N> item,
   const MemoryReader&,
-  address_t<MemoryReader> base,
+  address_t<MemoryReader>,
   address_t<MemoryReader> address,
   auto&,
   Tracer& tracer
