@@ -116,6 +116,7 @@ Tracer& default_tracer() {
 struct NoTracer {
   struct Scope {
     Scope() = default;
+
     Scope(NoTracer&, std::uint64_t, std::string_view) {}
   };
 
