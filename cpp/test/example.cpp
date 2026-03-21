@@ -385,7 +385,7 @@ template <IsInteger S, IsInteger T, IsTracer Tracer>
 
 // Forward declaration to support recursive reading.
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] ReadCursor<MemoryReader> read(
+[[nodiscard]] ReadCursor<MemoryReader> read_remote(
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
   T& target,
@@ -463,7 +463,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   auto& field = target.*M;
-  return read(reader, address, field, tracer);
+  return read_remote(reader, address, field, tracer);
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
@@ -508,7 +508,7 @@ template <
   if (target_ptr) {
     using U = optional_value_type_t<M>;  // std::optional<U> -> U
     U value{};
-    if (read(reader, target_ptr, value, tracer)) {
+    if (read_remote(reader, target_ptr, value, tracer)) {
       field = std::move(value);
     }
   } else if constexpr (Required) {
@@ -559,12 +559,12 @@ template <
  * @param target The native object to populate.
  * @return Updated remote pointer after reading, as returned by `MemoryReader`.
  */
-template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer = NoTracer>
-[[nodiscard]] ReadCursor<MemoryReader> read(
+template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+[[nodiscard]] ReadCursor<MemoryReader> read_remote(
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
   T& target,
-  Tracer& tracer = detail::default_tracer<Tracer>()
+  Tracer& tracer
 ) {
   if constexpr (HasLayout<T>) {
     return detail::read_layout(layout_of_t<T>{}, reader, base, target, tracer);
@@ -574,16 +574,34 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer = NoTracer>
   }
 }
 
-// convenience wrapper for read so no local object needs to be created
-template <IsReadable T, IsMemoryReader MemoryReader, IsTracer Tracer = NoTracer>
-std::optional<T> read_at(
-  const MemoryReader& reader,
-  pointer_type_t<MemoryReader> base,
-  Tracer& tracer = detail::default_tracer<Tracer>()
+// read_remote without no tracing
+template <IsMemoryReader MemoryReader, IsReadable T>
+[[nodiscard]] ReadCursor<MemoryReader> read_remote(
+  const MemoryReader& reader, pointer_type_t<MemoryReader> base, T& target
+) {
+  NoTracer tracer{};
+  return read_remote(reader, base, target, tracer);
+}
+
+// read_remote but returning an optional
+template <IsReadable T, IsMemoryReader MemoryReader, IsTracer Tracer>
+std::optional<T> read_remote(
+  const MemoryReader& reader, pointer_type_t<MemoryReader> base, Tracer& tracer
 ) {
   T target{};
-  return read(reader, base, target, tracer) ? std::move(target)
-                                            : std::optional<T>{};
+  return read_remote(reader, base, target, tracer) ? std::move(target)
+                                                   : std::optional<T>{};
+}
+
+// read_remote but returning an optional and without tracing
+template <IsReadable T, IsMemoryReader MemoryReader>
+std::optional<T> read_remote(
+  const MemoryReader& reader, pointer_type_t<MemoryReader> base
+) {
+  NoTracer tracer;
+  T target{};
+  return read_remote(reader, base, target, tracer) ? std::move(target)
+                                                   : std::optional<T>{};
 }
 
 }  // namespace mempeep
@@ -682,6 +700,23 @@ auto layout_of(LayoutOf<Player>) -> Layout<
 
 auto layout_of(LayoutOf<Game>) -> Layout<Seek<6>, Field<&Game::player>>;
 
+static void assert_game(const Game& game) {
+  assert(game.player.health == 123);
+  assert(game.player.pos.x == 11);
+  assert(game.player.pos.y == 22);
+  assert(game.player.target_ptr == 0);
+  assert(game.player.shop_ptr == 2);
+  assert(game.player.weapon_ptr == 6);
+  assert(game.player.prev_pos.has_value());
+  assert(game.player.prev_pos->x == 88);
+  assert(game.player.prev_pos->y == 99);
+  assert(game.player.mana == 47);
+  assert(game.player.tagged_pos.has_value());
+  assert(game.player.tagged_pos->x == 55);
+  assert(game.player.tagged_pos->y == 66);
+  assert(!game.player.house_pos.has_value());
+}
+
 int main() {
   MockMemoryReader<1, 128> reader{};
   reader.write(18, 123i32);  // health
@@ -700,20 +735,16 @@ int main() {
   reader.write(88, 66i32);   // tagged_pos.y
 
   PrintTracer tracer{};
-  auto game = mempeep::read_at<Game>(reader, 4i16, tracer);
-  assert(game);
-  assert(game->player.health == 123);
-  assert(game->player.pos.x == 11);
-  assert(game->player.pos.y == 22);
-  assert(game->player.target_ptr == 0);
-  assert(game->player.shop_ptr == 2);
-  assert(game->player.weapon_ptr == 6);
-  assert(game->player.prev_pos.has_value());
-  assert(game->player.prev_pos->x == 88);
-  assert(game->player.prev_pos->y == 99);
-  assert(game->player.mana == 47);
-  assert(game->player.tagged_pos.has_value());
-  assert(game->player.tagged_pos->x == 55);
-  assert(game->player.tagged_pos->y == 66);
-  assert(!game->player.house_pos.has_value());
+  {
+    Game game{};
+    assert(mempeep::read_remote(reader, 4i16, game, tracer));
+    assert_game(game);
+  }
+  {
+    Game game{};
+    assert(mempeep::read_remote(reader, 4i16, game));
+    assert_game(game);
+  }
+  assert(mempeep::read_remote<Game>(reader, 4i16, tracer));
+  assert(mempeep::read_remote<Game>(reader, 4i16));
 }
