@@ -578,28 +578,6 @@ ReadEnd<MemoryReader> read_remote(
 // Example
 // ============================================================
 
-#ifndef _MSC_VER
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wliteral-suffix"
-#pragma GCC diagnostic ignored "-Wdeprecated-literal-operator"
-
-constexpr std::int32_t operator"" i32(unsigned long long v) {
-  return v <= std::numeric_limits<std::int32_t>::max()
-           ? static_cast<std::int32_t>(v)
-           : throw "i32 literal out of range";
-}
-
-constexpr std::int16_t operator"" i16(unsigned long long v) {
-  return v <= std::numeric_limits<std::int16_t>::max()
-           ? static_cast<std::int16_t>(v)
-           : throw "i16 literal out of range";
-}
-
-#pragma GCC diagnostic pop
-
-#endif
-
 // example with 16 bit pointers, for fun
 template <auto BASE, auto N>
   requires(
@@ -699,20 +677,20 @@ static void assert_game(const Game& game) {
 
 int main() {
   MockMemoryReader<1, 128> reader{};
-  reader.write<18>(123i32);  // health
-  reader.write<26>(11i32);   // pos.x
-  reader.write<34>(22i32);   // pos.y
-  reader.write<42>(0i16);    // target_ptr
-  reader.write<44>(2i16);    // shop_ptr; u16 remote, u32 native (intentional)
-  reader.write<46>(6i16);    // weapon_ptr
-  reader.write<48>(60i16);   // prev_pos ref
-  reader.write<50>(80i16);   // tagged_pos nullable ref
-  reader.write<52>(0i16);    // house_pos nullable ref
-  reader.write<54>(47i32);   // mana
-  reader.write<60>(88i32);   // prev_pos.x
-  reader.write<68>(99i32);   // prev_pos.y
-  reader.write<80>(55i32);   // tagged_pos.x
-  reader.write<88>(66i32);   // tagged_pos.y
+  reader.write<18>(int32_t{123});  // health
+  reader.write<26>(int32_t{11});   // pos.x
+  reader.write<34>(int32_t{22});   // pos.y
+  reader.write<42>(uint16_t{0});   // target_ptr
+  reader.write<44>(uint16_t{2});   // shop_ptr; u16 remote, u32 native
+  reader.write<46>(uint16_t{6});   // weapon_ptr
+  reader.write<48>(uint16_t{60});  // prev_pos ref
+  reader.write<50>(uint16_t{80});  // tagged_pos nullable ref
+  reader.write<52>(uint16_t{0});   // house_pos nullable ref
+  reader.write<54>(int32_t{47});   // mana
+  reader.write<60>(int32_t{88});   // prev_pos.x
+  reader.write<68>(int32_t{99});   // prev_pos.y
+  reader.write<80>(int32_t{55});   // tagged_pos.x
+  reader.write<88>(int32_t{66});   // tagged_pos.y
 
   PrintTracer tracer{};
   {
