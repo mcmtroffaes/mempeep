@@ -650,12 +650,10 @@ struct MockMemoryReader {
     return true;
   }
 
-  template <typename T>
-  void write(int16_t offset, T value) {
-    assert(
-      sizeof(value) <= N && offset >= BASE && offset - BASE <= N - sizeof(value)
-    );
-    std::memcpy(data + (offset - BASE), &value, sizeof(value));
+  template <int16_t Offset, typename T>
+    requires(sizeof(T) <= N && Offset >= BASE && Offset - BASE <= N - sizeof(T))
+  void write(T value) {
+    std::memcpy(data + (Offset - BASE), &value, sizeof(value));
   }
 };
 
@@ -719,20 +717,20 @@ static void assert_game(const Game& game) {
 
 int main() {
   MockMemoryReader<1, 128> reader{};
-  reader.write(18, 123i32);  // health
-  reader.write(26, 11i32);   // pos.x
-  reader.write(34, 22i32);   // pos.y
-  reader.write(42, 0i16);    // target_ptr (optional)
-  reader.write(44, 2i16);    // shop_ptr (optional)
-  reader.write(46, 6i16);    // weapon_ptr
-  reader.write(48, 60i16);   // prev_pos ref
-  reader.write(50, 80i16);   // tagged_pos ref (optional)
-  reader.write(52, 0i32);    // house_pos ref (optional)
-  reader.write(54, 47i32);   // mana
-  reader.write(60, 88i32);   // prev_pos.x
-  reader.write(68, 99i32);   // prev_pos.y
-  reader.write(80, 55i32);   // tagged_pos.x
-  reader.write(88, 66i32);   // tagged_pos.y
+  reader.write<18>(123i32);  // health
+  reader.write<26>(11i32);   // pos.x
+  reader.write<34>(22i32);   // pos.y
+  reader.write<42>(0i16);    // target_ptr (optional)
+  reader.write<44>(2i16);    // shop_ptr (optional)
+  reader.write<46>(6i16);    // weapon_ptr
+  reader.write<48>(60i16);   // prev_pos ref
+  reader.write<50>(80i16);   // tagged_pos ref (optional)
+  reader.write<52>(0i32);    // house_pos ref (optional)
+  reader.write<54>(47i32);   // mana
+  reader.write<60>(88i32);   // prev_pos.x
+  reader.write<68>(99i32);   // prev_pos.y
+  reader.write<80>(55i32);   // tagged_pos.x
+  reader.write<88>(66i32);   // tagged_pos.y
 
   PrintTracer tracer{};
   {
