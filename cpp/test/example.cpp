@@ -151,7 +151,7 @@ auto make_lazy_scope(Tracer& tracer, N address, F&& label_fn) {
 // Simple tracer which prints errors along with the address where they occurred.
 struct PrintTracer {
   int indent = 0;
-  int64_t address = 0;
+  uint64_t address = 0;
 
   void error(std::string_view reason) {
     auto whitespace = std::string(indent, ' ');
@@ -162,7 +162,7 @@ struct PrintTracer {
   struct Scope {
     PrintTracer& t;
 
-    Scope(PrintTracer& _t, int64_t address, std::string_view label) : t(_t) {
+    Scope(PrintTracer& _t, uint64_t address, std::string_view label) : t(_t) {
       t.address = address;
       t.error(label);
       t.indent++;
