@@ -86,28 +86,20 @@ struct NoTracer {
 };
 
 // Deduces Tracer::Scope from Tracer, avoiding repetition at call sites
-template <IsTracer Tracer, IsAddress Address>
-auto make_scope(Tracer& tracer, Address address, std::string_view label) {
+template <IsTracer Tracer, IsAddress Address, typename Label>
+  requires std::convertible_to<Label, std::string_view>
+           || (std::invocable<Label> && std::convertible_to<std::invoke_result_t<Label>, std::string_view>)
+auto make_scope(Tracer& tracer, Address address, Label&& label) {
   if constexpr (std::same_as<Tracer, NoTracer>) {
     return NoTracer::Scope{};  // empty, zero cost
   } else {
-    return typename Tracer::Scope(
-      tracer, static_cast<std::uint64_t>(address), label
-    );
-  }
-}
-
-// Returns the scope so the caller controls its lifetime
-template <IsTracer Tracer, IsAddress Address, typename F>
-  requires std::invocable<F>
-           && std::same_as<std::invoke_result_t<F>, std::string>
-auto make_lazy_scope(Tracer& tracer, Address address, F&& label_fn) {
-  if constexpr (std::same_as<Tracer, NoTracer>) {
-    return NoTracer::Scope{};
-  } else {
-    return typename Tracer::Scope(
-      tracer, static_cast<std::uint64_t>(address), label_fn()
-    );
+    const auto addr = static_cast<std::uint64_t>(address);
+    if constexpr (std::invocable<Label>) {
+      auto sv = std::forward<Label>(label)();
+      return typename Tracer::Scope(tracer, addr, sv);
+    } else {
+      return typename Tracer::Scope(tracer, addr, label);
+    }
   }
 }
 
@@ -379,7 +371,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
   auto&,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope = make_lazy_scope(tracer, address, [&] {
+  [[maybe_unused]] auto scope = make_scope(tracer, address, [&] {
     return std::format("pad(0x{:X})", item.count);
   });
   return traced_advance(address, item.count, tracer);
@@ -394,7 +386,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
   auto&,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope = make_lazy_scope(tracer, address, [&] {
+  [[maybe_unused]] auto scope = make_scope(tracer, address, [&] {
     return std::format("offset(0x{:X})", item.offset);
   });
   return traced_advance(base, item.offset, tracer);
