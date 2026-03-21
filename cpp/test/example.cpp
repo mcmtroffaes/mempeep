@@ -598,6 +598,8 @@ struct MockMemoryReader {
     // handle overflow
     if (N_ < size) return false;        // ensure N_ - size >= 0
     if (address < BASE_) return false;  // ensure address - BASE_ >= 0
+    // by above, both sides of next inequality are non-negative
+    // so compiler will safely cast them to std::size_t
     if (N_ - size < address - BASE_) return false;  // ensure no overread
     std::memcpy(buffer, data + (address - BASE_), size);
     return true;
