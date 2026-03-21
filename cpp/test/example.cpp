@@ -341,7 +341,7 @@ namespace detail {
 
 // Forward declaration to support recursive reading.
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] NextAddress<MemoryReader> read_remote_next_address(
+[[nodiscard]] NextAddress<MemoryReader> read(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
@@ -403,7 +403,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   auto& field = target.*M;
-  return read_remote_next_address(reader, address, field, tracer);
+  return read(reader, address, field, tracer);
 }
 
 template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
@@ -450,8 +450,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   if (!next_addr) return {};
   if (target_ptr) {
     // ignore output: errors reported already, no need for extra error message
-    std::ignore
-      = read_remote_next_address(reader, target_ptr, target.*M, tracer);
+    std::ignore = read(reader, target_ptr, target.*M, tracer);
   } else {
     tracer.error("null pointer");
   }
@@ -477,8 +476,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   if (target_ptr) {
     auto& target_value = field.emplace();
     // ignore output: errors reported already, no need for extra error message
-    std::ignore
-      = read_remote_next_address(reader, target_ptr, target_value, tracer);
+    std::ignore = read(reader, target_ptr, target_value, tracer);
     // note: keep field emplaced even if read fails
   }
   // note: null target_ptr is ok, no error reported
@@ -515,7 +513,7 @@ template <
 }
 
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] NextAddress<MemoryReader> read_remote_next_address(
+[[nodiscard]] NextAddress<MemoryReader> read(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
@@ -553,22 +551,20 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
  * @param target The native object to populate.
  * @return The result of `tracer.success()` (convertible to bool).
  */
-template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+template <
+  IsMemoryReader MemoryReader,
+  IsReadable T,
+  IsTracer Tracer = ErrorTracer>
 auto read_remote(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
-  Tracer tracer
+  Tracer tracer = {}
 ) {
-  std::ignore = detail::read_remote_next_address(reader, base, target, tracer);
+  // Passing tracer by reference internally so all recursive calls share
+  // the same error flag and indent state, without copying on each call.
+  std::ignore = detail::read(reader, base, target, tracer);
   return tracer.success();
-}
-
-template <IsMemoryReader MemoryReader, IsReadable T>
-auto read_remote(
-  const MemoryReader& reader, address_t<MemoryReader> base, T& target
-) {
-  return read_remote(reader, base, target, ErrorTracer{});
 }
 
 }  // namespace mempeep
