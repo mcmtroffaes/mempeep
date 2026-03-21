@@ -121,10 +121,14 @@ struct PrintTracer {
   int indent = 0;
   uint64_t address = 0;
 
-  void error(std::string_view reason) {
+  void log(std::string_view msg) {
     auto whitespace = std::string(indent, ' ');
     std::cout << std::format("[{:08X}] ", address) << whitespace << whitespace
-              << reason << std::endl;
+              << msg << std::endl;
+  }
+
+  void error(std::string_view reason) {
+    log(std::format("ERROR: {}", reason));
   }
 
   struct Scope {
@@ -132,7 +136,7 @@ struct PrintTracer {
 
     Scope(PrintTracer& _t, uint64_t address, std::string_view label) : t(_t) {
       t.address = address;
-      t.error(label);
+      t.log(label);
       t.indent++;
     }
 
@@ -692,15 +696,20 @@ int main() {
   reader.write<80>(int32_t{55});   // tagged_pos.x
   reader.write<88>(int32_t{66});   // tagged_pos.y
 
-  PrintTracer tracer{};
   {
-    Game game{};
-    assert(mempeep::read_remote(reader, 4i16, game, tracer));
-    assert_game(game);
-  }
-  {
+    // no tracer
     Game game{};
     assert(mempeep::read_remote(reader, 4i16, game));
-    assert_game(game);
+  }
+  {
+    PrintTracer tracer{};
+    Game game{};
+    assert(mempeep::read_remote(reader, 4i16, game, tracer));
+  }
+  {
+    ErrorTracer tracer{};
+    Game game{};
+    assert(mempeep::read_remote(reader, 4i16, game, tracer));
+    assert(!tracer.err);
   }
 }
