@@ -94,23 +94,83 @@ using optional_value_type_t =
 // note: uint64_t address avoids dependence on MemoryReader
 // this is ok for logging, and keeps implementation simple
 template <typename Tracer>
-concept IsTracer = requires(
-  Tracer& tracer,
-  std::uint64_t address,
-  std::string_view label,
-  std::string_view reason
-) {
-  typename Tracer::Scope;
-  { Tracer::Scope(tracer, address, label) };
-  { tracer.error(reason) } -> std::same_as<void>;
+concept IsTracer
+  = requires(Tracer& tracer, std::uint64_t address, std::string_view s) {
+      typename Tracer::Scope;
+      { Tracer::Scope(tracer, address, s) };
+      { tracer.error(s) } -> std::same_as<void>;
+    };
+
+namespace detail {
+
+// Helper class to get default tracer argument
+template <IsTracer Tracer>
+Tracer& default_tracer() {
+  static Tracer instance{};
+  return instance;
+}
+
+}  // namespace detail
+
+// Disables tracing
+struct NoTracer {
+  struct Scope {
+    Scope() = default;
+    Scope(NoTracer&, std::uint64_t, std::string_view) {}
+  };
+
+  void error(std::string_view) {}
 };
 
-// deduces Tracer::Scope from Tracer, avoiding repetition at call sites
+// Deduces Tracer::Scope from Tracer, avoiding repetition at call sites
 template <IsTracer Tracer, IsInteger N>
 auto make_scope(Tracer& tracer, N address, std::string_view label) {
-  return
-    typename Tracer::Scope(tracer, static_cast<std::uint64_t>(address), label);
+  if constexpr (std::same_as<Tracer, NoTracer>) {
+    return NoTracer::Scope{};  // empty, zero cost
+  } else {
+    return typename Tracer::Scope(
+      tracer, static_cast<std::uint64_t>(address), label
+    );
+  }
 }
+
+// Returns the scope so the caller controls its lifetime
+template <IsTracer Tracer, IsInteger N, typename F>
+  requires std::invocable<F>
+           && std::same_as<std::invoke_result_t<F>, std::string>
+auto make_lazy_scope(Tracer& tracer, N address, F&& label_fn) {
+  if constexpr (std::same_as<Tracer, NoTracer>) {
+    return NoTracer::Scope{};
+  } else {
+    return typename Tracer::Scope(
+      tracer, static_cast<std::uint64_t>(address), label_fn()
+    );
+  }
+}
+
+// Simple tracer which prints errors along with the address where they occurred.
+struct PrintTracer {
+  int indent = 0;
+  int64_t address = 0;
+
+  void error(std::string_view reason) {
+    auto whitespace = std::string(indent, ' ');
+    std::cout << std::format("[{:08X}] ", address) << whitespace << whitespace
+              << reason << std::endl;
+  }
+
+  struct Scope {
+    PrintTracer& t;
+
+    Scope(PrintTracer& _t, int64_t address, std::string_view label) : t(_t) {
+      t.address = address;
+      t.error(label);
+      t.indent++;
+    }
+
+    ~Scope() { t.indent--; }
+  };
+};
 
 template <auto M>
 consteval std::string_view member_name() {
@@ -365,8 +425,9 @@ template <
   T&,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope
-    = make_scope(tracer, address, std::format("pad(0x{:X})", N));
+  [[maybe_unused]] auto scope = make_lazy_scope(tracer, address, [&] {
+    return std::format("pad(0x{:X})", N);
+  });
   return safe_offset(address, N, tracer);
 }
 
@@ -383,8 +444,9 @@ template <
   T&,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope
-    = make_scope(tracer, address, std::format("offset(0x{:X})", N));
+  [[maybe_unused]] auto scope = make_lazy_scope(tracer, address, [&] {
+    return std::format("offset(0x{:X})", N);
+  });
   return safe_offset(base, N, tracer);
 }
 
@@ -496,12 +558,12 @@ template <
  * @param target The native object to populate.
  * @return Updated remote pointer after reading, as returned by `MemoryReader`.
  */
-template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer = NoTracer>
 [[nodiscard]] ReadCursor<MemoryReader> read(
   const MemoryReader& reader,
   pointer_type_t<MemoryReader> base,
   T& target,
-  Tracer& tracer
+  Tracer& tracer = detail::default_tracer<Tracer>()
 ) {
   if constexpr (HasRegisteredLayout<T>) {
     return detail::read_layout(
@@ -514,45 +576,16 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 }
 
 // convenience wrapper for read so no local object needs to be created
-template <IsReadable T, IsMemoryReader MemoryReader, IsTracer Tracer>
+template <IsReadable T, IsMemoryReader MemoryReader, IsTracer Tracer = NoTracer>
 std::optional<T> read_at(
-  const MemoryReader& reader, pointer_type_t<MemoryReader> base, Tracer& tracer
+  const MemoryReader& reader,
+  pointer_type_t<MemoryReader> base,
+  Tracer& tracer = detail::default_tracer<Tracer>()
 ) {
   T target{};
   return read(reader, base, target, tracer) ? std::move(target)
                                             : std::optional<T>{};
 }
-
-struct NoTracer {
-  struct Scope {
-    Scope(NoTracer&, std::uint64_t, std::string_view) {}
-  };
-
-  void error(std::string_view) {}
-};
-
-struct PrintTracer {
-  int indent = 0;
-  int64_t address = 0;
-
-  void error(std::string_view reason) {
-    auto whitespace = std::string(indent, ' ');
-    std::cout << std::format("[{:08X}] ", address) << whitespace << whitespace
-              << reason << std::endl;
-  }
-
-  struct Scope {
-    PrintTracer& t;
-
-    Scope(PrintTracer& _t, int64_t address, std::string_view label) : t(_t) {
-      t.address = address;
-      t.error(label);
-      t.indent++;
-    }
-
-    ~Scope() { t.indent--; }
-  };
-};
 
 }  // namespace mempeep
 
