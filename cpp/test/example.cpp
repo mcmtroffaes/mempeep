@@ -295,10 +295,10 @@ struct NullableRef {
 };
 
 /**
- * @brief Extract pointer_type from MemoryReader.
+ * @brief Extract address_type from MemoryReader.
  */
 template <typename MemoryReader>
-using address_t = typename MemoryReader::pointer_type;
+using address_t = typename MemoryReader::address_type;
 
 /**
  * @brief Functor concept to read a block of memory from a remote source.
@@ -597,7 +597,7 @@ struct MockMemoryReader {
   static const auto BASE_ = static_cast<uint16_t>(BASE);
   static const auto N_ = static_cast<std::size_t>(N);
   std::byte data[N]{};
-  using pointer_type = uint16_t;
+  using address_type = uint16_t;
 
   bool operator()(uint16_t address, std::size_t size, void* buffer) const {
     // check buffer exists and size is positive
