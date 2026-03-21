@@ -489,9 +489,10 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   auto& field = target.*M;
   field.reset();
   if (target_ptr) {
-    field.emplace();
+    auto& target_value = field.emplace();
     // ignore output: errors reported already, no need for extra error message
-    std::ignore = read_remote_into(reader, target_ptr, *field, tracer);
+    std::ignore = read_remote_into(reader, target_ptr, target_value, tracer);
+    // note: keep field emplaced even if read fails, consistent with Ref
   }
   // note: null target_ptr is ok, no error reported
   return result;
