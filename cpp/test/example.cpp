@@ -79,7 +79,7 @@ struct ErrorTracer {
   bool success() const { return ok; }
 };
 
-struct EmptyScope {};
+struct NoScope {};
 
 // Deduces Tracer::Scope from Tracer, avoiding repetition at call sites
 template <IsTracer Tracer, IsAddress Address, typename Label>
@@ -89,7 +89,7 @@ auto make_scope(Tracer& tracer, Address address, Label&& label) {
     const auto addr = static_cast<std::uint64_t>(address);
     return typename Tracer::Scope(tracer, addr, label);
   } else {
-    return EmptyScope{};
+    return NoScope{};
   }
 }
 
@@ -319,8 +319,9 @@ concept CanStoreAddressOf
 
 // Stores result of reading: address after reading, or null if read failed.
 // Note error messages are propagated separately through the tracer.
+// Nullopt means a read failed; error already reported via tracer.
 template <IsMemoryReader MemoryReader>
-using NextAddress = std::optional<address_t<MemoryReader>>;
+using Cursor = std::optional<address_t<MemoryReader>>;
 
 // Abstract unsigned addition with overflow check.
 template <std::unsigned_integral S, std::unsigned_integral T>
@@ -347,7 +348,7 @@ namespace detail {
 
 // Forward declaration to support recursive reading.
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] NextAddress<MemoryReader> read(
+[[nodiscard]] Cursor<MemoryReader> read(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
@@ -370,7 +371,7 @@ template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
-[[nodiscard]] NextAddress<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_layout_item(
   Pad<N> item,
   const MemoryReader&,
   address_t<MemoryReader>,
@@ -384,7 +385,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
-[[nodiscard]] NextAddress<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_layout_item(
   Seek<N> item,
   const MemoryReader&,
   address_t<MemoryReader> base,
@@ -399,7 +400,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
-[[nodiscard]] NextAddress<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_layout_item(
   Field<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -414,7 +415,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
   requires CanStoreAddressOf<T, MemoryReader>
-[[nodiscard]] NextAddress<MemoryReader> read_address_into(
+[[nodiscard]] Cursor<MemoryReader> read_address_into(
   const MemoryReader& reader,
   address_t<MemoryReader> address,
   T& target,
@@ -428,7 +429,7 @@ template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] NextAddress<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_layout_item(
   Ptr<M>,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -442,7 +443,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
-[[nodiscard]] NextAddress<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_layout_item(
   Ref<M>,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -465,7 +466,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<unwrap_optional_t<member_type_t<M>>>
-[[nodiscard]] NextAddress<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_layout_item(
   NullableRef<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -494,14 +495,14 @@ template <
   IsMemoryReader MemoryReader,
   IsReadable T,
   IsTracer Tracer>
-[[nodiscard]] NextAddress<MemoryReader> read_layout(
+[[nodiscard]] Cursor<MemoryReader> read_layout(
   Layout<Items...>,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
   Tracer& tracer
 ) {
-  NextAddress<MemoryReader> next_addr{base};
+  Cursor<MemoryReader> next_addr{base};
   // - ((expr), ...) is intentional: comma has the lowest precedence
   // - comma operator sequences the effects from left to right
   // - && short-circuits the evaluation so we stop on first failure
@@ -519,7 +520,7 @@ template <
 }
 
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] NextAddress<MemoryReader> read(
+[[nodiscard]] Cursor<MemoryReader> read(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
