@@ -32,33 +32,23 @@ struct member_traits;
 
 template <typename C, typename T, T C::* M>
 struct member_traits<M> {
-  using member_type = T;
+  using type = T;
 };
 
 template <auto M>
   requires IsMember<M>
-using member_type_t = typename member_traits<M>::member_type;
+using member_type_t = typename member_traits<M>::type;
 
-// helper to detect std::optional
 template <typename T>
-struct is_optional : std::false_type {};
+struct unwrap_optional {};
 
 template <typename U>
-struct is_optional<std::optional<U>> : std::true_type {};
-
-template <auto M>
-  requires is_optional<member_type_t<M>>::value
-struct member_optional_traits;
-
-template <typename C, typename U, std::optional<U> C::* M>
-struct member_optional_traits<M> {
-  using optional_value_type = U;
+struct unwrap_optional<std::optional<U>> {
+  using type = U;
 };
 
-template <auto M>
-  requires is_optional<member_type_t<M>>::value
-using optional_value_type_t =
-  typename member_optional_traits<M>::optional_value_type;
+template <typename T>
+using unwrap_optional_t = typename unwrap_optional<T>::type;
 
 // ============================================================
 // Tracing
@@ -289,7 +279,7 @@ struct Ref {
  *           Must have type std::optional<T>.
  */
 template <auto M>
-  requires IsReadable<optional_value_type_t<M>>
+  requires IsReadable<unwrap_optional_t<member_type_t<M>>>
 struct NullableRef {
   using layout_item_tag = void;
 };
@@ -476,7 +466,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-  requires IsReadable<optional_value_type_t<M>>
+  requires IsReadable<unwrap_optional_t<member_type_t<M>>>
 [[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   NullableRef<M> item,
   const MemoryReader& reader,
@@ -700,21 +690,22 @@ int main() {
   reader.write<68>(int32_t{99});   // prev_pos.y
   reader.write<80>(int32_t{55});   // tagged_pos.x
   reader.write<88>(int32_t{66});   // tagged_pos.y
+  uint16_t base{4};
 
   {
     // no tracer
     Game game{};
-    assert(mempeep::read_remote(reader, 4i16, game));
+    assert(mempeep::read_remote(reader, base, game));
   }
   {
     PrintTracer tracer{};
     Game game{};
-    assert(mempeep::read_remote(reader, 4i16, game, tracer));
+    assert(mempeep::read_remote(reader, base, game, tracer));
   }
   {
     ErrorTracer tracer{};
     Game game{};
-    assert(mempeep::read_remote(reader, 4i16, game, tracer));
+    assert(mempeep::read_remote(reader, base, game, tracer));
     assert(!tracer.err);
   }
 }
