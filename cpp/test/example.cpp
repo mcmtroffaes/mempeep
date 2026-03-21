@@ -57,57 +57,45 @@ using unwrap_optional_t = typename unwrap_optional<T>::type;
 // note: uint64_t address avoids dependence on MemoryReader
 // this is ok for logging, and keeps implementation simple
 template <typename Tracer>
-concept IsTracer
-  = requires(Tracer& tracer, std::uint64_t address, std::string_view s) {
-      typename Tracer::Scope;
-      { Tracer::Scope(tracer, address, s) };
-      { tracer.error(s) } -> std::same_as<void>;
-    };
-
-// Disables tracing
-struct NoTracer {
-  struct Scope {
-    Scope() = default;
-
-    Scope(NoTracer&, std::uint64_t, std::string_view) {}
-  };
-
-  void error(std::string_view) {}
+concept IsTracer = requires(Tracer& tracer, std::string_view s) {
+  { tracer.error(s) } -> std::same_as<void>;          // report error
+  { tracer.success() } -> std::convertible_to<bool>;  // any error reported?
 };
 
-// Tracer that detects if any error has occurred
+template <typename Tracer>
+concept IsScopedTracer
+  = IsTracer<Tracer>
+    && requires(Tracer& tracer, std::uint64_t addr, std::string_view s) {
+         typename Tracer::Scope;
+         { typename Tracer::Scope(tracer, addr, s) };
+       };
+
+// Minimal tracer that detects if any error has occurred
 struct ErrorTracer {
-  bool err = false;
+  bool ok = true;
 
-  struct Scope {
-    Scope() = default;
+  void error(std::string_view) { ok = false; }
 
-    Scope(ErrorTracer&, std::uint64_t, std::string_view) {}
-  };
-
-  void error(std::string_view) { err = true; }
+  bool success() const { return ok; }
 };
+
+struct EmptyScope {};
 
 // Deduces Tracer::Scope from Tracer, avoiding repetition at call sites
 template <IsTracer Tracer, IsAddress Address, typename Label>
   requires std::convertible_to<Label, std::string_view>
-           || (std::invocable<Label> && std::convertible_to<std::invoke_result_t<Label>, std::string_view>)
 auto make_scope(Tracer& tracer, Address address, Label&& label) {
-  if constexpr (std::same_as<Tracer, NoTracer>) {
-    return NoTracer::Scope{};  // empty, zero cost
-  } else {
+  if constexpr (IsScopedTracer<Tracer>) {
     const auto addr = static_cast<std::uint64_t>(address);
-    if constexpr (std::invocable<Label>) {
-      auto sv = std::forward<Label>(label)();
-      return typename Tracer::Scope(tracer, addr, sv);
-    } else {
-      return typename Tracer::Scope(tracer, addr, label);
-    }
+    return typename Tracer::Scope(tracer, addr, label);
+  } else {
+    return EmptyScope{};
   }
 }
 
-// Simple tracer which prints errors along with the address where they occurred.
-struct PrintTracer {
+// Simple scoped tracer which prints errors along with the address where they
+// occurred.
+struct PrintTracer : ErrorTracer {
   int indent = 0;
   uint64_t address = 0;
 
@@ -117,7 +105,10 @@ struct PrintTracer {
               << msg << std::endl;
   }
 
-  void error(std::string_view reason) { log(std::format("ERROR: {}", reason)); }
+  void error(std::string_view reason) {
+    ErrorTracer::error(reason);  // set flag
+    log(std::format("ERROR: {}", reason));
+  }
 
   struct Scope {
     PrintTracer& t;
@@ -131,6 +122,9 @@ struct PrintTracer {
     ~Scope() { t.indent--; }
   };
 };
+
+static_assert(IsTracer<ErrorTracer>);
+static_assert(IsScopedTracer<PrintTracer>);
 
 template <auto M>
 consteval std::string_view member_name() {
@@ -339,20 +333,20 @@ template <IsAddress Addr, IsTracer Tracer>
   return u;
 }
 
-// Forward declaration to support recursive reading.
-template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] NextAddress<MemoryReader> read_remote(
-  const MemoryReader& reader,
-  address_t<MemoryReader> base,
-  T& target,
-  Tracer& tracer
-);
-
 namespace detail {
 
 // ============================================================
 // Helpers
 // ============================================================
+
+// Forward declaration to support recursive reading.
+template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+[[nodiscard]] NextAddress<MemoryReader> read_remote_next_address(
+  const MemoryReader& reader,
+  address_t<MemoryReader> base,
+  T& target,
+  Tracer& tracer
+);
 
 // thin wrapper around reader with tracing
 template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
@@ -378,9 +372,8 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
   auto&,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope = make_scope(tracer, address, [&] {
-    return std::format("pad(0x{:X})", item.count);
-  });
+  [[maybe_unused]] auto scope
+    = make_scope(tracer, address, std::format("pad(0x{:X})", item.count));
   return traced_advance(address, item.count, tracer);
 }
 
@@ -393,9 +386,8 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
   auto&,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope = make_scope(tracer, address, [&] {
-    return std::format("offset(0x{:X})", item.offset);
-  });
+  [[maybe_unused]] auto scope
+    = make_scope(tracer, address, std::format("offset(0x{:X})", item.offset));
   return traced_advance(base, item.offset, tracer);
 }
 
@@ -411,7 +403,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   auto& field = target.*M;
-  return read_remote(reader, address, field, tracer);
+  return read_remote_next_address(reader, address, field, tracer);
 }
 
 template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
@@ -458,7 +450,8 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   if (!next_addr) return {};
   if (target_ptr) {
     // ignore output: errors reported already, no need for extra error message
-    std::ignore = read_remote(reader, target_ptr, target.*M, tracer);
+    std::ignore
+      = read_remote_next_address(reader, target_ptr, target.*M, tracer);
   } else {
     tracer.error("null pointer");
   }
@@ -484,7 +477,8 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   if (target_ptr) {
     auto& target_value = field.emplace();
     // ignore output: errors reported already, no need for extra error message
-    std::ignore = read_remote(reader, target_ptr, target_value, tracer);
+    std::ignore
+      = read_remote_next_address(reader, target_ptr, target_value, tracer);
     // note: keep field emplaced even if read fails
   }
   // note: null target_ptr is ok, no error reported
@@ -520,35 +514,8 @@ template <
   return next_addr;
 }
 
-}  // namespace detail
-
-// ============================================================
-// Public API: read
-// ============================================================
-
-/**
- * @brief Reads data from remote memory into a native object based on a
- * specified layout.
- *
- * The function will try to read as much data as possible, i.e. even after
- * failing to read subfields.
- * Beware that the returned NextAddress having a value only means that the
- * top-level structure was read fully,
- * so do not rely on it to decide whether the whole read was succesful!
- * To determine whether an error has occurred anywhere,
- * you must verify that the tracer has not called `error`.
- * ErrorTracer serves exactly this purpose.
- *
- * @tparam MemoryReader The type for the reader callback.
- * @tparam T          The native type to deserialize into.
- * @param memory The memory abstraction providing the `MemoryReader` function.
- * @param base   The remote address to start reading from.
- * @param target The native object to populate.
- * @return Address after the final layout item.
- *         Nullopt if a layout item failed.
- */
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] NextAddress<MemoryReader> read_remote(
+[[nodiscard]] NextAddress<MemoryReader> read_remote_next_address(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
@@ -562,13 +529,46 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   }
 }
 
-// no tracing
+}  // namespace detail
+
+// ============================================================
+// Public API: read
+// ============================================================
+
+/**
+ * @brief Reads data from remote memory into a native object based on a
+ * specified layout.
+ *
+ * The function will try to read as much data as possible, i.e. even after
+ * failing to read subfields.
+ * Returns the result of `tracer.success()`.
+ * By convention, this value is convertible to bool, and evaluates to true
+ * if no errors were reported, and false otherwise.
+ * The default tracer does exactly this.
+ *
+ * @tparam MemoryReader The type for the reader callback.
+ * @tparam T          The native type to deserialize into.
+ * @param memory The memory abstraction providing the `MemoryReader` function.
+ * @param base   The remote address to start reading from.
+ * @param target The native object to populate.
+ * @return The result of `tracer.success()` (convertible to bool).
+ */
+template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+auto read_remote(
+  const MemoryReader& reader,
+  address_t<MemoryReader> base,
+  T& target,
+  Tracer tracer
+) {
+  std::ignore = detail::read_remote_next_address(reader, base, target, tracer);
+  return tracer.success();
+}
+
 template <IsMemoryReader MemoryReader, IsReadable T>
-NextAddress<MemoryReader> read_remote(
+auto read_remote(
   const MemoryReader& reader, address_t<MemoryReader> base, T& target
 ) {
-  NoTracer t;
-  return read_remote(reader, base, target, t);
+  return read_remote(reader, base, target, ErrorTracer{});
 }
 
 }  // namespace mempeep
@@ -693,19 +693,11 @@ int main() {
   uint16_t base{4};
 
   {
-    // no tracer
     Game game{};
     assert(mempeep::read_remote(reader, base, game));
   }
   {
-    PrintTracer tracer{};
     Game game{};
-    assert(mempeep::read_remote(reader, base, game, tracer));
-  }
-  {
-    ErrorTracer tracer{};
-    Game game{};
-    assert(mempeep::read_remote(reader, base, game, tracer));
-    assert(!tracer.err);
+    assert(mempeep::read_remote(reader, base, game, PrintTracer{}));
   }
 }
