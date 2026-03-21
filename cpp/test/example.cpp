@@ -14,37 +14,15 @@ namespace mempeep {
 // Integer concepts
 // ============================================================
 
-// Shorthand.
+// possible user address types
 template <typename T>
-concept IsInteger
-  = std::is_integral_v<T> && !std::same_as<T, bool> && !std::same_as<T, char>;
-
-namespace detail {
-
-template <IsInteger T>
-struct TypeRange {
-  static constexpr auto min = std::numeric_limits<T>::lowest();
-  static constexpr auto max = std::numeric_limits<T>::max();
-};
-
-template <IsInteger auto N>
-struct ValueRange {
-  static constexpr auto min = N;
-  static constexpr auto max = N;
-};
-
-// check FromRange is inside ToRange
-// i.e. ToRange::min <= FromRange::min && FromRange::max <= ToRange::max
-// note: use std::cmp_less_equal to avoid signed/unsigned comparison pitfalls
-template <typename FromRange, typename ToRange>
-concept IsInRange = std::cmp_less_equal(ToRange::min, FromRange::min)
-                    && std::cmp_less_equal(FromRange::max, ToRange::max);
-
-}  // namespace detail
+concept IsAddress = std::unsigned_integral<T> && !std::same_as<T, bool>
+                    && !std::same_as<T, char>;
 
 template <typename From, typename To>
-concept IsTypeRepresentableAs
-  = detail::IsInRange<detail::TypeRange<From>, detail::TypeRange<To>>;
+concept IsAddressWideEnoughFor
+  = IsAddress<From> && IsAddress<To>
+    && std::numeric_limits<From>::max() <= std::numeric_limits<To>::max();
 
 // ============================================================
 // Member traits
@@ -124,8 +102,8 @@ struct NoTracer {
 };
 
 // Deduces Tracer::Scope from Tracer, avoiding repetition at call sites
-template <IsTracer Tracer, IsInteger N>
-auto make_scope(Tracer& tracer, N address, std::string_view label) {
+template <IsTracer Tracer, IsAddress Address>
+auto make_scope(Tracer& tracer, Address address, std::string_view label) {
   if constexpr (std::same_as<Tracer, NoTracer>) {
     return NoTracer::Scope{};  // empty, zero cost
   } else {
@@ -136,10 +114,10 @@ auto make_scope(Tracer& tracer, N address, std::string_view label) {
 }
 
 // Returns the scope so the caller controls its lifetime
-template <IsTracer Tracer, IsInteger N, typename F>
+template <IsTracer Tracer, IsAddress Address, typename F>
   requires std::invocable<F>
            && std::same_as<std::invoke_result_t<F>, std::string>
-auto make_lazy_scope(Tracer& tracer, N address, F&& label_fn) {
+auto make_lazy_scope(Tracer& tracer, Address address, F&& label_fn) {
   if constexpr (std::same_as<Tracer, NoTracer>) {
     return NoTracer::Scope{};
   } else {
@@ -284,8 +262,11 @@ struct Field : LayoutItem {};
  *           Its value must be representable by pointer_type_t<MemoryReader>.
  *           The read template will not instantiate otherwise.
  */
-template <IsInteger auto N>
-struct Pad : LayoutItem {};
+template <auto N>
+  requires(std::integral<decltype(N)> && N >= 0)
+struct Pad : LayoutItem {
+  static constexpr std::size_t count = static_cast<std::size_t>(N);
+};
 
 /**
  * @brief Absolute offset relative to base position of the layout.
@@ -293,8 +274,11 @@ struct Pad : LayoutItem {};
  *           Its value must be representable by pointer_type_t<MemoryReader>.
  *           The read template will not instantiate otherwise.
  */
-template <IsInteger auto N>
-struct Seek : LayoutItem {};
+template <auto N>
+  requires(std::integral<decltype(N)> && N >= 0)
+struct Seek : LayoutItem {
+  static constexpr std::size_t offset = static_cast<std::size_t>(N);
+};
 
 /**
  * @brief Raw address, not followed.
@@ -303,7 +287,7 @@ struct Seek : LayoutItem {};
  *           The read template will not instantiate otherwise.
  */
 template <auto M>
-  requires IsInteger<member_type_t<M>>
+  requires IsAddress<member_type_t<M>>
 struct Ptr : LayoutItem {};
 
 /**
@@ -351,35 +335,20 @@ concept IsMemoryReader = requires(
 template <IsMemoryReader MemoryReader>
 using ReadCursor = std::optional<pointer_type_t<MemoryReader>>;
 
-// Addition with overflow check, handling mixed types.
-template <IsInteger S, IsInteger T>
+// Abstract unsigned addition with overflow check.
+template <std::unsigned_integral S, std::unsigned_integral T>
 [[nodiscard]] constexpr std::optional<S> checked_add(S s, T t) noexcept {
-  // safely cast t to S
-  if (!std::in_range<S>(t)) {
-    return {};
-  }
-  S tt = static_cast<S>(t);
-  // safely check min <= s + tt <= max
-  using Limits = std::numeric_limits<S>;
-  constexpr S min = Limits::min();
-  constexpr S max = Limits::max();
-  if (tt > 0) {
-    if (s > max - tt) {
-      return {};
-    }
-  } else if (tt < 0) {
-    if (s < min - tt) {
-      return {};
-    }
-  }
-  return static_cast<S>(s + tt);
+  if (t > std::numeric_limits<S>::max() - s) return {};
+  return static_cast<S>(s + t);
 }
 
-// checked_add but traced (for pointer arithmetic)
-template <IsInteger S, IsInteger T, IsTracer Tracer>
-[[nodiscard]] std::optional<S> safe_offset(S s, T t, Tracer& tracer) {
-  auto u = checked_add(s, t);
-  if (!u) tracer.error("pointer overflow");
+// Advance address by n with traced error in case of overflow.
+template <IsAddress Addr, IsTracer Tracer>
+[[nodiscard]] std::optional<Addr> traced_advance(
+  Addr addr, std::size_t n, Tracer& tracer
+) {
+  auto u = checked_add(addr, n);
+  if (!u) tracer.error("remote address overflow");
   return u;
 }
 
@@ -413,42 +382,34 @@ template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
   return true;
 }
 
-template <
-  IsInteger auto N,
-  IsMemoryReader MemoryReader,
-  IsReadable T,
-  IsTracer Tracer>
+template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
   Pad<N> item,
-  const MemoryReader& reader,
+  const MemoryReader&,
   pointer_type_t<MemoryReader> base,
   pointer_type_t<MemoryReader> address,
-  T&,
+  auto&,
   Tracer& tracer
 ) {
   [[maybe_unused]] auto scope = make_lazy_scope(tracer, address, [&] {
-    return std::format("pad(0x{:X})", N);
+    return std::format("pad(0x{:X})", item.count);
   });
-  return safe_offset(address, N, tracer);
+  return traced_advance(address, item.count, tracer);
 }
 
-template <
-  IsInteger auto N,
-  IsMemoryReader MemoryReader,
-  IsReadable T,
-  IsTracer Tracer>
+template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
   Seek<N> item,
-  const MemoryReader& reader,
+  const MemoryReader&,
   pointer_type_t<MemoryReader> base,
   pointer_type_t<MemoryReader> address,
-  T&,
+  auto&,
   Tracer& tracer
 ) {
   [[maybe_unused]] auto scope = make_lazy_scope(tracer, address, [&] {
-    return std::format("offset(0x{:X})", N);
+    return std::format("offset(0x{:X})", item.offset);
   });
-  return safe_offset(base, N, tracer);
+  return traced_advance(base, item.offset, tracer);
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
@@ -467,7 +428,9 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-  requires IsTypeRepresentableAs<pointer_type_t<MemoryReader>, member_type_t<M>>
+  requires IsAddressWideEnoughFor<
+    pointer_type_t<MemoryReader>,
+    member_type_t<M>>
 [[nodiscard]] ReadCursor<MemoryReader> read_layout_item(
   Ptr<M> item,
   const MemoryReader& reader,
@@ -482,7 +445,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   auto& field = target.*M;
   // static_cast safe by requires IsTypeRepresentableAs
   field = static_cast<member_type_t<M>>(target_ptr);
-  return safe_offset(address, sizeof(target_ptr), tracer);
+  return traced_advance(address, sizeof(target_ptr), tracer);
 }
 
 template <
@@ -514,7 +477,7 @@ template <
   } else if constexpr (Required) {
     tracer.error("null pointer");
   }
-  return safe_offset(address, sizeof(target_ptr), tracer);
+  return traced_advance(address, sizeof(target_ptr), tracer);
 }
 
 template <
@@ -570,7 +533,7 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
     return detail::read_layout(layout_of_t<T>{}, reader, base, target, tracer);
   } else {
     if (!detail::read_bytes(reader, base, target, tracer)) return {};
-    return safe_offset(base, sizeof(target), tracer);
+    return traced_advance(base, sizeof(target), tracer);
   }
 }
 
@@ -633,27 +596,40 @@ constexpr std::int16_t operator"" i16(unsigned long long v) {
 #endif
 
 // example with 16 bit pointers, for fun
-template <int16_t BASE, int16_t N>
-  requires(BASE > 0 && N > 0)
+template <auto BASE, auto N>
+  requires(
+    std::is_integral_v<decltype(BASE)> && std::is_integral_v<decltype(N)>
+    && BASE > 0 && BASE <= UINT16_MAX && N > 0 && N <= SIZE_MAX
+  )
 struct MockMemoryReader {
-  using pointer_type = int16_t;
+  static const auto BASE_ = static_cast<uint16_t>(BASE);
+  static const auto N_ = static_cast<std::size_t>(N);
   std::byte data[N]{};
+  using pointer_type = uint16_t;
 
-  bool operator()(int16_t address, std::size_t size, void* buffer) const {
-    // handle overflow/underflow
-    // note: static_cast is safe, size <= N means it fits
-    if (!(buffer && size > 0 && size <= N && address >= BASE
-          && address - BASE <= N - static_cast<int16_t>(size))) {
-      return false;
-    }
-    std::memcpy(buffer, data + (address - BASE), size);
+  bool operator()(uint16_t address, std::size_t size, void* buffer) const {
+    // check buffer exists and size is positive
+    if (!buffer) return false;
+    if (!size) return false;
+    // handle overflow
+    if (N_ < size) return false;        // ensure N_ - size >= 0
+    if (address < BASE_) return false;  // ensure address - BASE_ >= 0
+    if (N_ - size < address - BASE_) return false;  // ensure no overread
+    std::memcpy(buffer, data + (address - BASE_), size);
     return true;
   }
 
-  template <int16_t Offset, typename T>
-    requires(sizeof(T) <= N && Offset >= BASE && Offset - BASE <= N - sizeof(T))
+  template <auto OFFSET, typename T>
+    requires(
+      std::is_integral_v<decltype(OFFSET)> && OFFSET >= 0
+      && OFFSET <= UINT16_MAX
+    )
   void write(T value) {
-    std::memcpy(data + (Offset - BASE), &value, sizeof(value));
+    constexpr auto OFFSET_ = static_cast<uint16_t>(OFFSET);
+    static_assert(N_ >= sizeof(T));   // ensure N_ - size >= 0
+    static_assert(OFFSET_ >= BASE_);  // ensure OFFSET_ - BASE_ >= 0
+    static_assert(N_ - sizeof(T) >= OFFSET_ - BASE_);  // ensure no overwrite
+    std::memcpy(data + (OFFSET_ - BASE_), &value, sizeof(value));
   }
 };
 
@@ -664,9 +640,9 @@ struct Pos {
 struct Player {
   int32_t health;
   Pos pos;
-  int16_t target_ptr;
-  int32_t shop_ptr;  // wider than needed, still fine
-  int16_t weapon_ptr;
+  uint16_t target_ptr;
+  uint32_t shop_ptr;  // wider than needed, still fine
+  uint16_t weapon_ptr;
   std::optional<Pos> prev_pos;
   std::optional<Pos> tagged_pos;
   std::optional<Pos> house_pos;
@@ -681,7 +657,7 @@ using namespace mempeep;
 
 // intentionally have 4 padding bytes at end, for testing
 auto layout_of(LayoutOf<Pos>)
-  -> Layout<Field<&Pos::x>, Pad<4i16>, Field<&Pos::y>, Pad<4i16>>;
+  -> Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>, Pad<4>>;
 
 auto layout_of(LayoutOf<Player>) -> Layout<
   Seek<8>,
