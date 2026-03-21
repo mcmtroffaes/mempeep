@@ -238,7 +238,7 @@ struct Field {
 /**
  * @brief Padding relative to the current position in the layout.
  * @tparam N Number of bytes (strictly positive).
- *           Its value must be representable by pointer_type_t<MemoryReader>.
+ *           Its value must be representable by address_t<MemoryReader>.
  *           The read template will not instantiate otherwise.
  */
 template <auto N>
@@ -251,7 +251,7 @@ struct Pad {
 /**
  * @brief Absolute offset relative to base position of the layout.
  * @tparam N The offset in bytes (strictly positive).
- *           Its value must be representable by pointer_type_t<MemoryReader>.
+ *           Its value must be representable by address_t<MemoryReader>.
  *           The read template will not instantiate otherwise.
  */
 template <auto N>
@@ -264,7 +264,7 @@ struct Seek {
 /**
  * @brief Raw address, not followed.
  * @tparam M The native field to deserialize the address into.
- *           Its type must be wide enough to hold pointer_type_t<MemoryReader>.
+ *           Its type must be wide enough to hold address_t<MemoryReader>.
  *           The read template will not instantiate otherwise.
  */
 template <auto M>
@@ -298,7 +298,7 @@ struct NullableRef {
  * @brief Extract pointer_type from MemoryReader.
  */
 template <typename MemoryReader>
-using pointer_type_t = typename MemoryReader::pointer_type;
+using address_t = typename MemoryReader::pointer_type;
 
 /**
  * @brief Functor concept to read a block of memory from a remote source.
@@ -314,7 +314,7 @@ using pointer_type_t = typename MemoryReader::pointer_type;
 template <typename MemoryReader>
 concept IsMemoryReader = requires(
   MemoryReader reader,
-  pointer_type_t<MemoryReader> address,
+  address_t<MemoryReader> address,
   std::size_t size,
   void* buffer
 ) {
@@ -324,13 +324,13 @@ concept IsMemoryReader = requires(
 template <typename T, typename MemoryReader>
 concept CanStoreAddressOf
   = IsAddress<T>
-    && std::numeric_limits<pointer_type_t<MemoryReader>>::max()
+    && std::numeric_limits<address_t<MemoryReader>>::max()
          <= std::numeric_limits<T>::max();
 
 // Stores result of reading: address after reading, or null if read failed.
 // Note error messages are propagated separately through the tracer.
 template <IsMemoryReader MemoryReader>
-using ReadEnd = std::optional<pointer_type_t<MemoryReader>>;
+using ReadEnd = std::optional<address_t<MemoryReader>>;
 
 // Abstract unsigned addition with overflow check.
 template <std::unsigned_integral S, std::unsigned_integral T>
@@ -353,7 +353,7 @@ template <IsAddress Addr, IsTracer Tracer>
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 [[nodiscard]] ReadEnd<MemoryReader> read_remote(
   const MemoryReader& reader,
-  pointer_type_t<MemoryReader> base,
+  address_t<MemoryReader> base,
   T& target,
   Tracer& tracer
 );
@@ -368,7 +368,7 @@ namespace detail {
 template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
 [[nodiscard]] bool read_bytes(
   const MemoryReader& reader,
-  pointer_type_t<MemoryReader> address,
+  address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
@@ -383,8 +383,8 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   Pad<N> item,
   const MemoryReader&,
-  pointer_type_t<MemoryReader> base,
-  pointer_type_t<MemoryReader> address,
+  address_t<MemoryReader> base,
+  address_t<MemoryReader> address,
   auto&,
   Tracer& tracer
 ) {
@@ -398,8 +398,8 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   Seek<N> item,
   const MemoryReader&,
-  pointer_type_t<MemoryReader> base,
-  pointer_type_t<MemoryReader> address,
+  address_t<MemoryReader> base,
+  address_t<MemoryReader> address,
   auto&,
   Tracer& tracer
 ) {
@@ -414,8 +414,8 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 [[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   Field<M> item,
   const MemoryReader& reader,
-  pointer_type_t<MemoryReader> base,
-  pointer_type_t<MemoryReader> address,
+  address_t<MemoryReader> base,
+  address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
@@ -428,11 +428,11 @@ template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
   requires CanStoreAddressOf<T, MemoryReader>
 [[nodiscard]] ReadEnd<MemoryReader> read_address_into(
   const MemoryReader& reader,
-  pointer_type_t<MemoryReader> address,
+  address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
-  pointer_type_t<MemoryReader> ptr{};
+  address_t<MemoryReader> ptr{};
   if (!read_bytes(reader, address, ptr, tracer)) return {};
   // static_cast safe by CanStoreAddressOf
   target = static_cast<T>(ptr);
@@ -443,8 +443,8 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 [[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   Ptr<M>,
   const MemoryReader& reader,
-  pointer_type_t<MemoryReader> base,
-  pointer_type_t<MemoryReader> address,
+  address_t<MemoryReader> base,
+  address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
@@ -457,13 +457,13 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 [[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   Ref<M>,
   const MemoryReader& reader,
-  pointer_type_t<MemoryReader> base,
-  pointer_type_t<MemoryReader> address,
+  address_t<MemoryReader> base,
+  address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
-  pointer_type_t<MemoryReader> target_ptr{};
+  address_t<MemoryReader> target_ptr{};
   auto result = read_address_into(reader, address, target_ptr, tracer);
   if (!result) return {};
   if (target_ptr) {
@@ -480,13 +480,13 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 [[nodiscard]] ReadEnd<MemoryReader> read_layout_item(
   NullableRef<M> item,
   const MemoryReader& reader,
-  pointer_type_t<MemoryReader> base,
-  pointer_type_t<MemoryReader> address,
+  address_t<MemoryReader> base,
+  address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
-  pointer_type_t<MemoryReader> target_ptr{};
+  address_t<MemoryReader> target_ptr{};
   auto result = read_address_into(reader, address, target_ptr, tracer);
   if (!result) return {};
   auto& field = target.*M;
@@ -509,7 +509,7 @@ template <
 [[nodiscard]] ReadEnd<MemoryReader> read_layout(
   Layout<Items...>,
   const MemoryReader& reader,
-  pointer_type_t<MemoryReader> base,
+  address_t<MemoryReader> base,
   T& target,
   Tracer& tracer
 ) {
@@ -560,7 +560,7 @@ template <
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 [[nodiscard]] ReadEnd<MemoryReader> read_remote(
   const MemoryReader& reader,
-  pointer_type_t<MemoryReader> base,
+  address_t<MemoryReader> base,
   T& target,
   Tracer& tracer
 ) {
@@ -575,7 +575,7 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 // no tracing
 template <IsMemoryReader MemoryReader, IsReadable T>
 ReadEnd<MemoryReader> read_remote(
-  const MemoryReader& reader, pointer_type_t<MemoryReader> base, T& target
+  const MemoryReader& reader, address_t<MemoryReader> base, T& target
 ) {
   NoTracer t;
   return read_remote(reader, base, target, t);
