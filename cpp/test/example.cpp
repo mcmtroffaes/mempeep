@@ -366,7 +366,8 @@ namespace detail {
 template <IsMemoryReader MemoryReader>
 using Cursor = std::optional<address_t<MemoryReader>>;
 
-// Forward declaration to support recursive reading.
+// Forward declaration to support recursive reading:
+// read -> read_layout -> read_layout_item -> read.
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read(
   const MemoryReader& reader,
