@@ -218,9 +218,9 @@ struct Field {
 
 /**
  * @brief Padding relative to the current position in the layout.
- * @tparam N Number of bytes (strictly positive).
+ * @tparam N Number of bytes (strictly positive; zero is excluded as
+ *           zero padding is never needed in practice).
  *           Its value must be representable by address_t<MemoryReader>.
- *           The read template will not instantiate otherwise.
  */
 template <auto N>
   requires(std::in_range<std::size_t>(N) && N > 0)
@@ -231,9 +231,9 @@ struct Pad {
 
 /**
  * @brief Absolute offset relative to base position of the layout.
- * @tparam N The offset in bytes (strictly positive).
+ * @tparam N The offset in bytes (strictly positive; zero is excluded as
+ *           jumping to base is never needed in practice).
  *           Its value must be representable by address_t<MemoryReader>.
- *           The read template will not instantiate otherwise.
  */
 template <auto N>
   requires(std::in_range<std::size_t>(N) && N > 0)
