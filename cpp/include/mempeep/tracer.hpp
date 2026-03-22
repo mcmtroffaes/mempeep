@@ -22,6 +22,17 @@ concept IsScopedTracer
          { typename Tracer::Scope(tracer, addr, s) };
        };
 
+/**
+ * @brief Optional extension of IsTracer that supports reporting read values.
+ *
+ * A tracer implementing this concept will have its value() method called
+ * after each successful primitive read, allowing it to log or process the
+ * value alongside the address and label provided by IsScopedTracer::Scope.
+ *
+ * Implementing this concept is optional. Call sites use a local requires
+ * expression to check for the specific value type being passed, so value()
+ * should be a function template accepting any readable type.
+ */
 template <typename Tracer>
 concept IsValueTracer = IsTracer<Tracer> && requires(Tracer& tracer) {
   { tracer.value(0) } -> std::same_as<void>;
