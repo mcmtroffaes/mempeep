@@ -6,7 +6,14 @@
 
 namespace mempeep {
 
-/** @brief Types we can define a layout for. */
+/** @brief Types we can define a layout for.
+ *
+ * A type is readable if it can be safely deserialised from raw bytes:
+ * trivially copyable (safe to memcpy into) and default constructible
+ * (so a target instance can be created before reading into it).
+ * Constrained on layout items so failures are caught at layout
+ * definition time, not at memory reading time.
+ */
 template <typename T>
 concept IsReadable
   = std::is_trivially_copyable_v<T> && std::is_default_constructible_v<T>;
