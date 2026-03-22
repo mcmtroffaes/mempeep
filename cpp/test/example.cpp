@@ -260,7 +260,11 @@ struct Ptr {
 };
 
 /**
- * @brief Follow address and read pointee.
+ * @brief Read a remote address and follow it, reading the pointee into the
+ * member. The address itself is not stored.
+ *
+ * Errors if the address is null.
+ *
  * @tparam M The native field to deserialize the pointee into.
  */
 template <auto M>
@@ -270,9 +274,14 @@ struct Ref {
 };
 
 /**
- * @brief Follow address and read pointee if not null.
+ * @brief Read a remote address and follow it, reading the pointee into the
+ * member. The address itself is not stored.
+ *
+ * If the address is null, the member is set to std::nullopt and no error
+ * is reported.
+ *
  * @tparam M The native field to deserialize the pointee into.
- *           Must have type std::optional<T>.
+ *           Must have type std::optional<T> where T is readable.
  */
 template <auto M>
   requires IsReadable<unwrap_optional_t<member_type_t<M>>>
@@ -292,7 +301,7 @@ using address_t = typename MemoryReader::address_type;
  * Copy `size` bytes into `buffer` from remote memory at `address`.
  * On failure, return false, otherwise return true.
  *
- * @param address Remote source pointer.
+ * @param address Remote source address.
  * @param size    Number of bytes to read.
  * @param buffer  Native destination buffer.
  * @return        `true` on success, `false` on failure.
@@ -347,7 +356,7 @@ namespace detail {
 //
 // Errors are contained locally: a child layout's cursor becoming nullopt
 // does not invalidate the parent's cursor. This allows reading to continue
-// past failed items (e.g. a bad pointer), recovering as much data as
+// past failed items (e.g. a bad address), recovering as much data as
 // possible. Child errors are still reported through the tracer.
 template <IsMemoryReader MemoryReader>
 using Cursor = std::optional<address_t<MemoryReader>>;
@@ -466,7 +475,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
     // ignore output: errors reported already, no need for extra error message
     std::ignore = read(reader, target_ptr, target.*M, tracer);
   } else {
-    tracer.error("null pointer");
+    tracer.error("null address");
   }
   return next_addr;
 }
@@ -615,6 +624,7 @@ struct MockMemoryReader {
     return true;
   }
 
+  // note: this function is only safe in debug mode
   template <typename Addr, typename T>
   void write(Addr addr, T value) {
     assert(std::in_range<Address>(addr));
