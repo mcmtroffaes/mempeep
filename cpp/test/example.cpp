@@ -231,6 +231,11 @@ struct Pad {
 
 /**
  * @brief Absolute offset relative to base position of the layout.
+ *
+ * Seeks are not required to be monotonically increasing. This allows
+ * skipping around a non-linear layout. It is the caller's responsibility to
+ * ensure the offsets are correct.
+ *
  * @tparam N The offset in bytes (strictly positive; zero is excluded as
  *           jumping to base is never needed in practice).
  *           Its value must be representable by address_t<MemoryReader>.
