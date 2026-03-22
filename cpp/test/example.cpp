@@ -179,29 +179,29 @@ concept IsReadable
  *
  * Example:
  *
- *   auto layout_of(LayoutOf<Pos>) -> Layout<Field<&Pos::x>, Pad<4>,
- * Field<&Pos::y>>;
+ *   auto remote_layout(remote_layout_tag<Pos>)
+ *     -> Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>;
  *
  * @tparam T Native struct to register the layout for.
  */
 template <typename T>
   requires IsReadable<T>
-struct LayoutOf {};
+struct remote_layout_tag {};
 
 /**
  * @brief Does T have a custom layout?
  *
- * Checks if the function layout_of(LayoutOf<T>) exists.
+ * Checks if the function remote_layout(remote_layout_tag<T>) exists.
  */
 template <typename T>
-concept HasLayout = requires { layout_of(LayoutOf<T>{}); };
+concept HasRemoteLayout = requires { remote_layout(remote_layout_tag<T>{}); };
 
 /**
- * @brief Shorthand for the return type of `layout_of(LayoutOf<T>{})`.
+ * @brief Shorthand for return type of `remote_layout(remote_layout_tag<T>{})`.
  */
 template <typename T>
-  requires HasLayout<T>
-using layout_of_t = decltype(layout_of(LayoutOf<T>{}));
+  requires HasRemoteLayout<T>
+using remote_layout_t = decltype(remote_layout(remote_layout_tag<T>{}));
 
 /**
  * @brief A field. Its type must be readable.
@@ -532,8 +532,10 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   T& target,
   Tracer& tracer
 ) {
-  if constexpr (HasLayout<T>) {
-    return detail::read_layout(layout_of_t<T>{}, reader, base, target, tracer);
+  if constexpr (HasRemoteLayout<T>) {
+    return detail::read_layout(
+      remote_layout_t<T>{}, reader, base, target, tracer
+    );
   } else {
     if (!detail::read_bytes(reader, base, target, tracer)) return {};
     return traced_advance(base, sizeof(target), tracer);
@@ -652,10 +654,10 @@ using namespace mempeep;
 static_assert(member_name<&Player::house_pos>() == "house_pos");
 
 // intentionally have 4 padding bytes at end, for testing
-auto layout_of(LayoutOf<Pos>)
+auto remote_layout(remote_layout_tag<Pos>)
   -> Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>, Pad<4>>;
 
-auto layout_of(LayoutOf<Player>) -> Layout<
+auto remote_layout(remote_layout_tag<Player>) -> Layout<
   Seek<8>,
   Field<&Player::health>,
   Seek<16>,
@@ -668,7 +670,8 @@ auto layout_of(LayoutOf<Player>) -> Layout<
   NullableRef<&Player::house_pos>,
   Field<&Player::mana>>;
 
-auto layout_of(LayoutOf<Game>) -> Layout<Seek<6>, Field<&Game::player>>;
+auto remote_layout(remote_layout_tag<Game>)
+  -> Layout<Seek<6>, Field<&Game::player>>;
 
 static void assert_game(const Game& game) {
   assert(game.player.health == 123);
