@@ -5,7 +5,7 @@
 #include <iostream>     // std::cout, ...
 #include <optional>     // std::optional
 #include <type_traits>  // std::same_as, ...
-#include <utility>      // std::cmp_less_equal
+#include <utility>      // std::ignore
 
 namespace mempeep {
 
@@ -586,7 +586,7 @@ auto read_remote(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
-  Tracer tracer = {}  // by value: caller's tracer is not modified
+  Tracer tracer = {}  // accepts temporaries; mutations are local to this call
 ) {
   // Passing tracer by reference internally so all recursive calls share
   // the same state, without copying on each call.
