@@ -378,7 +378,7 @@ template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
-  Pad<N> item,
+  Pad<N>,
   const MemoryReader&,
   address_t<MemoryReader>,
   address_t<MemoryReader> address,
@@ -386,22 +386,23 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
   Tracer& tracer
 ) {
   [[maybe_unused]] auto scope
-    = make_scope(tracer, address, std::format("pad(0x{:X})", item.count));
-  return traced_advance(address, item.count, tracer);
+    = make_scope(tracer, address, std::format("pad(0x{:X})", Pad<N>::count));
+  return traced_advance(address, Pad<N>::count, tracer);
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
-  Seek<N> item,
+  Seek<N>,
   const MemoryReader&,
   address_t<MemoryReader> base,
   address_t<MemoryReader> address,
   auto&,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope
-    = make_scope(tracer, address, std::format("offset(0x{:X})", item.offset));
-  return traced_advance(base, item.offset, tracer);
+  [[maybe_unused]] auto scope = make_scope(
+    tracer, address, std::format("offset(0x{:X})", Seek<N>::offset)
+  );
+  return traced_advance(base, Seek<N>::offset, tracer);
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
