@@ -313,12 +313,6 @@ concept CanStoreAddressOf
     && std::numeric_limits<address_t<MemoryReader>>::max()
          <= std::numeric_limits<T>::max();
 
-// Stores result of reading: address after reading, or null if read failed.
-// Note error messages are propagated separately through the tracer.
-// Nullopt means a read failed; error already reported via tracer.
-template <IsMemoryReader MemoryReader>
-using Cursor = std::optional<address_t<MemoryReader>>;
-
 // Abstract unsigned addition with overflow check.
 template <std::unsigned_integral S, std::unsigned_integral T>
 [[nodiscard]] constexpr std::optional<S> checked_add(S s, T t) noexcept {
@@ -341,6 +335,22 @@ namespace detail {
 // ============================================================
 // Helpers
 // ============================================================
+
+// Cursor tracks the current read position within a layout.
+//
+// It starts at the layout's base address and advances as each item is read.
+// It becomes nullopt when the current position can no longer be determined,
+// for example, due to a failed memory read or an address overflow.
+//
+// Key invariant: a cursor only becomes nullopt if an error was already
+// reported to the tracer. nullopt without a tracer error never occurs.
+//
+// Errors are contained locally: a child layout's cursor becoming nullopt
+// does not invalidate the parent's cursor. This allows reading to continue
+// past failed items (e.g. a bad pointer), recovering as much data as
+// possible. Child errors are still reported through the tracer.
+template <IsMemoryReader MemoryReader>
+using Cursor = std::optional<address_t<MemoryReader>>;
 
 // Forward declaration to support recursive reading.
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
