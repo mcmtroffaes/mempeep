@@ -132,10 +132,12 @@ int main() {
 
   {
     Game game{};
-    assert(mempeep::read_remote(reader, base, game));
+    ErrorTracer tracer{};
+    assert(mempeep::read_remote(reader, base, game, tracer));
   }
   {
     Game game{};
-    assert(mempeep::read_remote(reader, base, game, LogTracer{}));
+    LogTracer tracer{};
+    assert(mempeep::read_remote(reader, base, game, tracer));
   }
 }

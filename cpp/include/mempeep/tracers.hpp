@@ -1,7 +1,6 @@
 #pragma once
 
 #include <iostream>
-#include <mempeep/tracer.hpp>
 
 namespace mempeep {
 
@@ -45,9 +44,5 @@ struct LogTracer : ErrorTracer {
     ~Scope() { t.indent--; }
   };
 };
-
-static_assert(IsTracer<ErrorTracer>);
-static_assert(!IsScopedTracer<ErrorTracer>);
-static_assert(IsScopedTracer<LogTracer>);
 
 }  // namespace mempeep

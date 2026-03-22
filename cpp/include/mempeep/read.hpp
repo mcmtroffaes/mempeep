@@ -1,9 +1,8 @@
 #pragma once
 
-#include <mempeep/memory.hpp>
+#include <format>
 #include <mempeep/layout.hpp>
 #include <mempeep/tracer.hpp>
-#include <mempeep/tracers.hpp>
 
 namespace mempeep::detail {
 
@@ -255,7 +254,6 @@ namespace mempeep {
  * Returns the result of `tracer.success()`.
  * By convention, this value is convertible to bool, and evaluates to true
  * if no errors were reported, and false otherwise.
- * The default tracer does exactly this.
  *
  * @tparam MemoryReader The type for the reader callback.
  * @tparam T          The native type to deserialize into.
@@ -264,15 +262,12 @@ namespace mempeep {
  * @param target The native object to populate.
  * @return The result of `tracer.success()` (convertible to bool).
  */
-template <
-  IsMemoryReader MemoryReader,
-  IsReadable T,
-  IsTracer Tracer = ErrorTracer>
+template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 auto read_remote(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
-  Tracer tracer = {}  // accepts temporaries; mutations are local to this call
+  Tracer& tracer
 ) {
   // Passing tracer by reference internally so all recursive calls share
   // the same state, without copying on each call.
