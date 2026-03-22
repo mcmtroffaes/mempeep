@@ -174,7 +174,6 @@ struct Layout {};
 template <typename T>
 concept IsReadable
   = std::is_trivially_copyable_v<T> && std::is_default_constructible_v<T>;
-;
 
 /**
  * @brief Tag for registering the remote layout of a native struct.
