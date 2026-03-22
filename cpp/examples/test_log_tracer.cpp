@@ -5,7 +5,7 @@
 
 #include "log_tracer.hpp"
 
-using namespace mempeep;
+static_assert(mempeep::IsScopedTracer<LogTracer>);
 
 int main() {
   uint16_t base{4};

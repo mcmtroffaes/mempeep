@@ -39,5 +39,3 @@ struct LogTracer {
     ~Scope() { t.indent--; }
   };
 };
-
-static_assert(mempeep::IsScopedTracer<LogTracer>);
