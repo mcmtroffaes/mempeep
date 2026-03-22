@@ -91,14 +91,16 @@ auto make_scope(Tracer& tracer, Address address, Label&& label) {
 
 // Simple scoped tracer which prints errors along with the address where they
 // occurred.
-struct PrintTracer : ErrorTracer {
+struct LogTracer : ErrorTracer {
+  std::ostream& out;
   int indent = 0;
   uint64_t address = 0;
 
+  explicit LogTracer(std::ostream& out = std::cout) : out(out) {}
+
   void log(std::string_view msg) {
-    auto whitespace = std::string(indent, ' ');
-    std::cout << std::format("[{:08X}] ", address) << whitespace << whitespace
-              << msg << std::endl;
+    const auto whitespace = std::string(indent, ' ');
+    out << std::format("[{:08X}] ", address) << whitespace << msg << std::endl;
   }
 
   void error(std::string_view reason) {
@@ -107,9 +109,9 @@ struct PrintTracer : ErrorTracer {
   }
 
   struct Scope {
-    PrintTracer& t;
+    LogTracer& t;
 
-    Scope(PrintTracer& _t, uint64_t address, std::string_view label) : t(_t) {
+    Scope(LogTracer& _t, uint64_t address, std::string_view label) : t(_t) {
       t.address = address;
       t.log(label);
       t.indent++;
@@ -121,7 +123,7 @@ struct PrintTracer : ErrorTracer {
 
 static_assert(IsTracer<ErrorTracer>);
 static_assert(!IsScopedTracer<ErrorTracer>);
-static_assert(IsScopedTracer<PrintTracer>);
+static_assert(IsScopedTracer<LogTracer>);
 
 template <auto M>
 consteval std::string_view member_name() {
@@ -727,6 +729,6 @@ int main() {
   }
   {
     Game game{};
-    assert(mempeep::read_remote(reader, base, game, PrintTracer{}));
+    assert(mempeep::read_remote(reader, base, game, LogTracer{}));
   }
 }
