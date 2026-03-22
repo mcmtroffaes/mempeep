@@ -321,7 +321,7 @@ concept IsMemoryReader = requires(
 };
 
 template <typename T, typename MemoryReader>
-concept CanStoreAddressOf
+concept CanHoldAddress
   = IsAddress<T>
     && std::numeric_limits<address_t<MemoryReader>>::max()
          <= std::numeric_limits<T>::max();
@@ -335,7 +335,7 @@ template <std::unsigned_integral S, std::unsigned_integral T>
 
 // Advance address by n with traced error in case of overflow.
 template <IsAddress Addr, IsTracer Tracer>
-[[nodiscard]] std::optional<Addr> traced_advance(
+[[nodiscard]] std::optional<Addr> advance(
   Addr addr, std::size_t n, Tracer& tracer
 ) {
   auto u = checked_add(addr, n);
@@ -377,7 +377,7 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 // thin wrapper around reader with tracing
 template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
-[[nodiscard]] bool traced_reader(
+[[nodiscard]] bool read_bytes(
   const MemoryReader& reader,
   address_t<MemoryReader> address,
   T& target,
@@ -399,7 +399,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 ) {
   [[maybe_unused]] auto scope
     = make_scope(tracer, address, std::format("pad(0x{:X})", Pad<N>::count));
-  return traced_advance(address, Pad<N>::count, tracer);
+  return advance(address, Pad<N>::count, tracer);
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
@@ -414,7 +414,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
   [[maybe_unused]] auto scope = make_scope(
     tracer, address, std::format("offset(0x{:X})", Seek<N>::offset)
   );
-  return traced_advance(base, Seek<N>::offset, tracer);
+  return advance(base, Seek<N>::offset, tracer);
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
@@ -433,7 +433,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 }
 
 template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
-  requires CanStoreAddressOf<T, MemoryReader>
+  requires CanHoldAddress<T, MemoryReader>
 [[nodiscard]] Cursor<MemoryReader> read_address_into(
   const MemoryReader& reader,
   address_t<MemoryReader> address,
@@ -441,10 +441,10 @@ template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
   Tracer& tracer
 ) {
   address_t<MemoryReader> ptr{};
-  if (!traced_reader(reader, address, ptr, tracer)) return {};
-  // static_cast safe by CanStoreAddressOf
+  if (!read_bytes(reader, address, ptr, tracer)) return {};
+  // static_cast safe by CanHoldAddress
   target = static_cast<T>(ptr);
-  return traced_advance(address, sizeof(ptr), tracer);
+  return advance(address, sizeof(ptr), tracer);
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
@@ -548,8 +548,8 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
       remote_layout_t<T>{}, reader, base, target, tracer
     );
   } else {
-    if (!detail::traced_reader(reader, base, target, tracer)) return {};
-    return traced_advance(base, sizeof(target), tracer);
+    if (!detail::read_bytes(reader, base, target, tracer)) return {};
+    return advance(base, sizeof(target), tracer);
   }
 }
 
