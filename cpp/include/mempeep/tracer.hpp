@@ -1,16 +1,17 @@
 #pragma once
 
-#include <cstdint>      // std::uint64_t
-#include <string_view>  // std::string_view
-#include <type_traits>  // std::convertible_to
+#include <cstdint>            // std::uint64_t
+#include <mempeep/error.hpp>  // Error
+#include <string_view>        // std::string_view
+#include <type_traits>        // std::convertible_to
 
 namespace mempeep {
 
 // note: uint64_t address avoids dependence on MemoryReader
 // this is ok for logging, and keeps implementation simple
 template <typename Tracer>
-concept IsTracer = requires(Tracer& tracer, std::string_view s) {
-  { tracer.error(s) } -> std::same_as<void>;          // report error
+concept IsTracer = requires(Tracer& tracer, Error e) {
+  { tracer.error(e) } -> std::same_as<void>;          // report error
   { tracer.success() } -> std::convertible_to<bool>;  // any error reported?
 };
 
@@ -42,7 +43,7 @@ concept IsValueTracer = IsTracer<Tracer> && requires(Tracer& tracer) {
 struct ErrorTracer {
   bool ok = true;
 
-  void error(std::string_view) { ok = false; }
+  void error(Error e) { ok = false; }
 
   bool success() const { return ok; }
 };

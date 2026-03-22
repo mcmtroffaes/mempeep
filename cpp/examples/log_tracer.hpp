@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mempeep/error.hpp>
 #include <mempeep/tracer.hpp>
 #include <ostream>
 
@@ -21,9 +22,9 @@ struct LogTracer {
     out << std::format("[{:08X}] ", address) << whitespace << msg << std::endl;
   }
 
-  void error(std::string_view reason) {
+  void error(mempeep::Error e) {
     ok = false;
-    log(std::format("{} [ERROR] {}", label, reason));
+    log(std::format("{} [ERROR {}]", label, static_cast<int>(e)));
   }
 
   template <typename T>

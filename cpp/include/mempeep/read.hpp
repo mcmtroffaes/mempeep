@@ -35,7 +35,7 @@ template <IsAddress Addr, IsTracer Tracer>
   Addr addr, std::size_t n, Tracer& tracer
 ) {
   auto u = checked_add(addr, n);
-  if (!u) tracer.error("remote address overflow");
+  if (!u) tracer.error(Error::ADDRESS_OVERFLOW);
   return u;
 }
 
@@ -74,7 +74,7 @@ template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
   Tracer& tracer
 ) {
   bool ok = reader(address, sizeof(target), &target);
-  if (!ok) tracer.error("memory read failed");
+  if (!ok) tracer.error(Error::READ_FAILED);
   return ok;
 }
 
@@ -172,7 +172,7 @@ template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
     // so ignore output since cursor is still valid, only inner read failed
     std::ignore = read_into(reader, target_ptr, target.*M, tracer);
   } else {
-    tracer.error("null address");
+    tracer.error(Error::ADDRESS_NULL);
   }
   return cursor;
 }
