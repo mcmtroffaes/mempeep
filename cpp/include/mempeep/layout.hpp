@@ -69,12 +69,11 @@ struct Field {
 
 /**
  * @brief Padding relative to the current position in the layout.
- * @tparam N Number of bytes (strictly positive; zero is excluded as
- *           zero padding is never needed in practice).
+ * @tparam N Number of bytes.
  *           Its value must be representable by address_t<MemoryReader>.
  */
 template <auto N>
-  requires(std::in_range<std::size_t>(N) && N > 0)
+  requires(std::in_range<std::size_t>(N))
 struct Pad {
   using layout_item_tag = void;
   static constexpr std::size_t count = static_cast<std::size_t>(N);
@@ -87,12 +86,11 @@ struct Pad {
  * skipping around a non-linear layout. It is the caller's responsibility to
  * ensure the offsets are correct.
  *
- * @tparam N The offset in bytes (strictly positive; zero is excluded as
- *           jumping to base is never needed in practice).
+ * @tparam N The offset in bytes.
  *           Its value must be representable by address_t<MemoryReader>.
  */
 template <auto N>
-  requires(std::in_range<std::size_t>(N) && N > 0)
+  requires(std::in_range<std::size_t>(N))
 struct Seek {
   using layout_item_tag = void;
   static constexpr std::size_t offset = static_cast<std::size_t>(N);
