@@ -32,19 +32,19 @@ struct MockMemoryReader {
     return true;
   }
 
-  // note: this function is only safe in debug mode
   template <typename Addr, typename T>
-  void write(Addr addr, T value) {
-    assert(std::in_range<Address>(addr));
+  bool write(Addr addr, T value) {
+    if (!std::in_range<Address>(addr)) return false;
     const auto address = static_cast<Address>(addr);
-    assert(n >= sizeof(T));   // ensure n - sizeof(T) >= 0
-    assert(address >= base);  // ensure off - base >= 0
+    if (n < sizeof(T)) return false;   // ensure n - sizeof(T) >= 0
+    if (address < base) return false;  // ensure off - base >= 0
     // both sides of inequality below are non-negative so safe to compare
-    assert(n - sizeof(T) >= address - base);  // ensure no overwrite
+    if (n - sizeof(T) >= address - base) return false;  // ensure no overwrite
     // address - base <= n so now it is safe to cast to std::size_t
     std::memcpy(
       data + static_cast<std::size_t>(address - base), &value, sizeof(value)
     );
+    return true;
   }
 };
 
