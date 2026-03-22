@@ -397,7 +397,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
   auto&,
   Tracer& tracer
 ) {
-  auto scope
+  [[maybe_unused]] auto scope
     = make_scope(tracer, address, std::format("pad(0x{:X})", Pad<N>::count));
   return traced_advance(address, Pad<N>::count, tracer);
 }
@@ -411,7 +411,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
   auto&,
   Tracer& tracer
 ) {
-  auto scope = make_scope(
+  [[maybe_unused]] auto scope = make_scope(
     tracer, address, std::format("offset(0x{:X})", Seek<N>::offset)
   );
   return traced_advance(base, Seek<N>::offset, tracer);
@@ -427,7 +427,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   T& target,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, address, member_name<M>());
+  [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   auto& field = target.*M;
   return read(reader, address, field, tracer);
 }
@@ -456,7 +456,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   T& target,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, address, member_name<M>());
+  [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   return read_address_into(reader, address, target.*M, tracer);
 }
 
@@ -470,7 +470,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   T& target,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, address, member_name<M>());
+  [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   address_t<MemoryReader> target_ptr{};
   auto cursor = read_address_into(reader, address, target_ptr, tracer);
   if (!cursor) return {};
@@ -493,7 +493,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   T& target,
   Tracer& tracer
 ) {
-  auto scope = make_scope(tracer, address, member_name<M>());
+  [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   address_t<MemoryReader> target_ptr{};
   auto cursor = read_address_into(reader, address, target_ptr, tracer);
   if (!cursor) return {};
