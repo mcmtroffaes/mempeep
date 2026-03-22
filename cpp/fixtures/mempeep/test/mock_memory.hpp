@@ -39,7 +39,7 @@ struct MockMemoryReader {
     if (n < sizeof(T)) return false;   // ensure n - sizeof(T) >= 0
     if (address < base) return false;  // ensure off - base >= 0
     // both sides of inequality below are non-negative so safe to compare
-    if (n - sizeof(T) >= address - base) return false;  // ensure no overwrite
+    if (n - sizeof(T) < address - base) return false;  // ensure no overwrite
     // address - base <= n so now it is safe to cast to std::size_t
     std::memcpy(
       data + static_cast<std::size_t>(address - base), &value, sizeof(value)
