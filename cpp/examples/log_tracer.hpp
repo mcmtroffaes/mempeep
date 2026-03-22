@@ -1,26 +1,19 @@
 #pragma once
 
-#include <iostream>
+#include <mempeep/tracer.hpp>
+#include <ostream>
 
-namespace mempeep {
-
-// Minimal tracer that detects if any error has occurred
-struct ErrorTracer {
-  bool ok = true;
-
-  void error(std::string_view) { ok = false; }
-
-  bool success() const { return ok; }
-};
-
-// Simple scoped tracer which prints errors along with the address where they
-// occurred.
-struct LogTracer : ErrorTracer {
+/** @brief Simple scoped tracer.
+ * 
+ * Logs read operations throughout the layout.
+ * Logs errors too.
+ * Tracks if an error happened at any point.
+ */
+struct LogTracer {
   std::ostream& out;
+  bool ok = true;
   int indent = 0;
   uint64_t address = 0;
-
-  explicit LogTracer(std::ostream& out = std::cout) : out(out) {}
 
   void log(std::string_view msg) {
     const auto whitespace = std::string(indent, ' ');
@@ -28,9 +21,11 @@ struct LogTracer : ErrorTracer {
   }
 
   void error(std::string_view reason) {
-    ErrorTracer::error(reason);  // set flag
+    ok = false;
     log(std::format("ERROR: {}", reason));
   }
+
+  bool success() const { return ok; }
 
   struct Scope {
     LogTracer& t;
@@ -45,4 +40,4 @@ struct LogTracer : ErrorTracer {
   };
 };
 
-}  // namespace mempeep
+static_assert(mempeep::IsScopedTracer<LogTracer>);

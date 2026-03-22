@@ -22,4 +22,16 @@ concept IsScopedTracer
          { typename Tracer::Scope(tracer, addr, s) };
        };
 
+// Minimal tracer that detects if any error has occurred
+struct ErrorTracer {
+  bool ok = true;
+
+  void error(std::string_view) { ok = false; }
+
+  bool success() const { return ok; }
+};
+
+static_assert(IsTracer<ErrorTracer>);
+static_assert(!IsScopedTracer<ErrorTracer>);
+
 }  // namespace mempeep
