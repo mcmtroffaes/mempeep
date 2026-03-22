@@ -223,7 +223,7 @@ struct Field {
  *           The read template will not instantiate otherwise.
  */
 template <auto N>
-  requires(std::integral<decltype(N)> && N > 0)
+  requires(std::in_range<std::size_t>(N) && N > 0)
 struct Pad {
   using layout_item_tag = void;
   static constexpr std::size_t count = static_cast<std::size_t>(N);
@@ -236,7 +236,7 @@ struct Pad {
  *           The read template will not instantiate otherwise.
  */
 template <auto N>
-  requires(std::integral<decltype(N)> && N > 0)
+  requires(std::in_range<std::size_t>(N) && N > 0)
 struct Seek {
   using layout_item_tag = void;
   static constexpr std::size_t offset = static_cast<std::size_t>(N);
@@ -576,43 +576,44 @@ auto read_remote(
 // Example
 // ============================================================
 
-// example with 16 bit pointers, for fun
-template <auto BASE, auto N>
+// mock reader for testing
+template <typename Address, auto BASE, auto N>
   requires(
-    std::is_integral_v<decltype(BASE)> && std::is_integral_v<decltype(N)>
-    && BASE > 0 && BASE <= UINT16_MAX && N > 0 && N <= SIZE_MAX
+    IsAddress<Address> && std::in_range<Address>(BASE)
+    && std::in_range<std::size_t>(N)
   )
 struct MockMemoryReader {
-  static const auto BASE_ = static_cast<uint16_t>(BASE);
-  static const auto N_ = static_cast<std::size_t>(N);
-  std::byte data[N]{};
-  using address_type = uint16_t;
+  using address_type = Address;
+  static constexpr Address base = static_cast<Address>(BASE);
+  static constexpr std::size_t n = static_cast<std::size_t>(N);
+  std::byte data[n]{};
 
-  bool operator()(uint16_t address, std::size_t size, void* buffer) const {
-    // check buffer exists and size is positive
-    if (!buffer) return false;
-    if (!size) return false;
+  bool operator()(Address address, std::size_t size, void* buffer) const {
+    // check buffer exists and n is positive
+    if (buffer == nullptr) return false;
+    if (size == 0) return false;
     // handle overflow
-    if (N_ < size) return false;        // ensure N_ - size >= 0
-    if (address < BASE_) return false;  // ensure address - BASE_ >= 0
-    // by above, both sides of next inequality are non-negative
-    // so compiler will safely cast them to std::size_t
-    if (N_ - size < address - BASE_) return false;  // ensure no overread
-    std::memcpy(buffer, data + (address - BASE_), size);
+    if (n < size) return false;        // ensure n - size >= 0
+    if (address < base) return false;  // ensure address - base >= 0
+    // both sides of inequality below are non-negative so safe to compare
+    if (n - size < address - base) return false;  // ensure no overread
+    // address - base <= n so now it is safe to cast to std::size_t
+    std::memcpy(buffer, data + static_cast<std::size_t>(address - base), size);
     return true;
   }
 
-  template <auto OFFSET, typename T>
-    requires(
-      std::is_integral_v<decltype(OFFSET)> && OFFSET >= 0
-      && OFFSET <= UINT16_MAX
-    )
-  void write(T value) {
-    constexpr auto OFFSET_ = static_cast<uint16_t>(OFFSET);
-    static_assert(N_ >= sizeof(T));   // ensure N_ - size >= 0
-    static_assert(OFFSET_ >= BASE_);  // ensure OFFSET_ - BASE_ >= 0
-    static_assert(N_ - sizeof(T) >= OFFSET_ - BASE_);  // ensure no overwrite
-    std::memcpy(data + (OFFSET_ - BASE_), &value, sizeof(value));
+  template <typename Addr, typename T>
+  void write(Addr addr, T value) {
+    assert(std::in_range<Address>(addr));
+    const auto address = static_cast<Address>(addr);
+    assert(n >= sizeof(T));   // ensure n - sizeof(T) >= 0
+    assert(address >= base);  // ensure off - base >= 0
+    // both sides of inequality below are non-negative so safe to compare
+    assert(n - sizeof(T) >= address - base);  // ensure no overwrite
+    // address - base <= n so now it is safe to cast to std::size_t
+    std::memcpy(
+      data + static_cast<std::size_t>(address - base), &value, sizeof(value)
+    );
   }
 };
 
@@ -676,21 +677,21 @@ static void assert_game(const Game& game) {
 }
 
 int main() {
-  MockMemoryReader<1, 128> reader{};
-  reader.write<18>(int32_t{123});  // health
-  reader.write<26>(int32_t{11});   // pos.x
-  reader.write<34>(int32_t{22});   // pos.y
-  reader.write<42>(uint16_t{0});   // target_ptr
-  reader.write<44>(uint16_t{2});   // shop_ptr; u16 remote, u32 native
-  reader.write<46>(uint16_t{6});   // weapon_ptr
-  reader.write<48>(uint16_t{60});  // prev_pos ref
-  reader.write<50>(uint16_t{80});  // tagged_pos nullable ref
-  reader.write<52>(uint16_t{0});   // house_pos nullable ref
-  reader.write<54>(int32_t{47});   // mana
-  reader.write<60>(int32_t{88});   // prev_pos.x
-  reader.write<68>(int32_t{99});   // prev_pos.y
-  reader.write<80>(int32_t{55});   // tagged_pos.x
-  reader.write<88>(int32_t{66});   // tagged_pos.y
+  MockMemoryReader<uint16_t, 1, 128> reader{};
+  reader.write(18, int32_t{123});  // health
+  reader.write(26, int32_t{11});   // pos.x
+  reader.write(34, int32_t{22});   // pos.y
+  reader.write(42, uint16_t{0});   // target_ptr
+  reader.write(44, uint16_t{2});   // shop_ptr; u16 remote, u32 native
+  reader.write(46, uint16_t{6});   // weapon_ptr
+  reader.write(48, uint16_t{60});  // prev_pos ref
+  reader.write(50, uint16_t{80});  // tagged_pos nullable ref
+  reader.write(52, uint16_t{0});   // house_pos nullable ref
+  reader.write(54, int32_t{47});   // mana
+  reader.write(60, int32_t{88});   // prev_pos.x
+  reader.write(68, int32_t{99});   // prev_pos.y
+  reader.write(80, int32_t{55});   // tagged_pos.x
+  reader.write(88, int32_t{66});   // tagged_pos.y
   uint16_t base{4};
 
   {
