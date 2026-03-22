@@ -10,11 +10,6 @@ template <typename T>
 concept IsAddress = std::unsigned_integral<T> && !std::same_as<T, bool>
                     && !std::same_as<T, char>;
 
-/** @brief Types we can read from remote memory. */
-template <typename T>
-concept IsReadable
-  = std::is_trivially_copyable_v<T> && std::is_default_constructible_v<T>;
-
 /**
  * @brief Extract address_type from MemoryReader.
  */

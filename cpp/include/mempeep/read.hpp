@@ -2,6 +2,7 @@
 
 #include <format>
 #include <mempeep/layout.hpp>
+#include <mempeep/memory.hpp>
 #include <mempeep/tracer.hpp>
 
 namespace mempeep::detail {

@@ -1,9 +1,13 @@
 #pragma once
 
-#include <mempeep/memory.hpp>
 #include <mempeep/traits.hpp>
 
 namespace mempeep {
+
+/** @brief Types we can define a layout for. */
+template <typename T>
+concept IsReadable
+  = std::is_trivially_copyable_v<T> && std::is_default_constructible_v<T>;
 
 template <typename T>
 concept IsLayoutItem = requires { typename T::layout_item_tag; };
