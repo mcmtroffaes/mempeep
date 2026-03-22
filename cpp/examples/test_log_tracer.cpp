@@ -1,8 +1,8 @@
 #include <cassert>
 #include <iostream>  // std::cout, ...
 #include <mempeep/read.hpp>
+#include <mempeep/test/mock_game_data.hpp>
 
-#include "fixtures/mock_game_data.hpp"
 #include "log_tracer.hpp"
 
 using namespace mempeep;
