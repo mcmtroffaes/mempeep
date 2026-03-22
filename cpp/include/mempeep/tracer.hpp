@@ -22,6 +22,11 @@ concept IsScopedTracer
          { typename Tracer::Scope(tracer, addr, s) };
        };
 
+template <typename Tracer>
+concept IsValueTracer = IsTracer<Tracer> && requires(Tracer& tracer) {
+  { tracer.value(0) } -> std::same_as<void>;
+};
+
 // Minimal tracer that detects if any error has occurred
 struct ErrorTracer {
   bool ok = true;
@@ -33,5 +38,6 @@ struct ErrorTracer {
 
 static_assert(IsTracer<ErrorTracer>);
 static_assert(!IsScopedTracer<ErrorTracer>);
+static_assert(!IsValueTracer<ErrorTracer>);
 
 }  // namespace mempeep

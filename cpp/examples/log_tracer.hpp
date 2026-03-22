@@ -23,7 +23,7 @@ struct LogTracer {
 
   void error(std::string_view reason) {
     ok = false;
-    log(std::format("ERROR: {}", reason));
+    log(std::format("{} [ERROR] {}", label, reason));
   }
 
   template <typename T>
