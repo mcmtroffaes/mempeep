@@ -4,7 +4,7 @@
 #include <ostream>
 
 /** @brief Simple scoped tracer.
- * 
+ *
  * Logs read operations throughout the layout.
  * Logs errors too.
  * Tracks if an error happened at any point.
@@ -14,6 +14,7 @@ struct LogTracer {
   bool ok = true;
   int indent = 0;
   uint64_t address = 0;
+  std::string_view label{};
 
   void log(std::string_view msg) {
     const auto whitespace = std::string(indent, ' ');
@@ -25,6 +26,15 @@ struct LogTracer {
     log(std::format("ERROR: {}", reason));
   }
 
+  template <typename T>
+  void value(const T& val) {
+    if constexpr (std::formattable<T, char>) {
+      log(std::format("{}={}", label, val));
+    } else {
+      log(std::format("{}=???", label));
+    }
+  }
+
   bool success() const { return ok; }
 
   struct Scope {
@@ -32,7 +42,7 @@ struct LogTracer {
 
     Scope(LogTracer& _t, uint64_t address, std::string_view label) : t(_t) {
       t.address = address;
-      t.log(label);
+      t.label = label;
       t.indent++;
     }
 

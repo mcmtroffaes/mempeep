@@ -244,6 +244,9 @@ template <IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
     );
   } else {
     if (!detail::read_bytes(reader, base, target, tracer)) return {};
+    if constexpr (requires { tracer.value(target); }) {
+      tracer.value(target);
+    }
     return advance(base, sizeof(target), tracer);
   }
 }
