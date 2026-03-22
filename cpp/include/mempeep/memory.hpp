@@ -37,9 +37,4 @@ concept IsMemoryReader = requires(
   { reader(address, size, buffer) } -> std::same_as<bool>;
 };
 
-template <typename T, typename MemoryReader>
-concept CanHoldAddress = IsAddress<T>
-                         && std::numeric_limits<address_t<MemoryReader>>::max()
-                              <= std::numeric_limits<T>::max();
-
 }  // namespace mempeep

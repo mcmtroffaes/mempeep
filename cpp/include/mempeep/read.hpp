@@ -121,8 +121,11 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   return read(reader, address, field, tracer);
 }
 
-template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
-  requires CanHoldAddress<T, MemoryReader>
+template <IsAddress T, IsMemoryReader MemoryReader, IsTracer Tracer>
+  requires(
+    std::numeric_limits<address_t<MemoryReader>>::max()
+    <= std::numeric_limits<T>::max()
+  )
 [[nodiscard]] Cursor<MemoryReader> read_address_into(
   const MemoryReader& reader,
   address_t<MemoryReader> address,
@@ -131,7 +134,7 @@ template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
 ) {
   address_t<MemoryReader> ptr{};
   if (!read_bytes(reader, address, ptr, tracer)) return {};
-  // static_cast safe by CanHoldAddress
+  // static_cast safe since target can hold ptr by requires
   target = static_cast<T>(ptr);
   return advance(address, sizeof(ptr), tracer);
 }
