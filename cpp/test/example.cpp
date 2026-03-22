@@ -474,15 +474,15 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   address_t<MemoryReader> target_ptr{};
-  auto next_addr = read_address_into(reader, address, target_ptr, tracer);
-  if (!next_addr) return {};
+  auto cursor = read_address_into(reader, address, target_ptr, tracer);
+  if (!cursor) return {};
   if (target_ptr) {
     // ignore output: errors reported already, no need for extra error message
     std::ignore = read(reader, target_ptr, target.*M, tracer);
   } else {
     tracer.error("null address");
   }
-  return next_addr;
+  return cursor;
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
@@ -497,8 +497,8 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   address_t<MemoryReader> target_ptr{};
-  auto next_addr = read_address_into(reader, address, target_ptr, tracer);
-  if (!next_addr) return {};
+  auto cursor = read_address_into(reader, address, target_ptr, tracer);
+  if (!cursor) return {};
   auto& field = target.*M;
   field.reset();
   if (target_ptr) {
@@ -508,7 +508,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
     // note: keep field emplaced even if read fails
   }
   // note: null target_ptr is ok, no error reported
-  return next_addr;
+  return cursor;
 }
 
 template <
@@ -523,21 +523,19 @@ template <
   T& target,
   Tracer& tracer
 ) {
-  Cursor<MemoryReader> next_addr{base};
-  // - ((expr), ...) is intentional: comma has the lowest precedence
-  // - comma operator sequences the effects from left to right
-  // - && short-circuits the evaluation so we stop on first failure
-  // - Items{} is just a tag to select the overload, construction costs nothing
-  // We can read this comma fold as follows:
-  // If the current next_addr (i.e. address position) is valid (i.e. evaluates
-  // to true) then update it using read_layout_item, and now keep repeating that
-  // for all items.
+  Cursor<MemoryReader> cursor{base};
+  // Process each layout item in order, stopping if the cursor becomes nullopt.
+  // This is a comma fold: (expr, ...) evaluates each expr left-to-right.
+  // Each expr is: cursor && (cursor = read_layout_item(...))
+  // The && is plain short-circuit evaluation, not a fold operator:
+  // if cursor is nullopt (falsy), the assignment is skipped.
+  // Items{} constructs a tag value at zero cost to select the right overload.
   ((
-     next_addr
-     && (next_addr = read_layout_item(Items{}, reader, base, next_addr.value(), target, tracer))
+     cursor
+     && (cursor = read_layout_item(Items{}, reader, base, cursor.value(), target, tracer))
    ),
    ...);
-  return next_addr;
+  return cursor;
 }
 
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
