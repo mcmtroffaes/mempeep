@@ -1,7 +1,6 @@
 #pragma once
 
 #include <concepts>  // std::unsigned_integral, ...
-#include <limits>    // std::numeric_limits
 
 namespace mempeep {
 

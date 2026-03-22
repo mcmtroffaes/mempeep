@@ -1,6 +1,7 @@
 #pragma once
 
-#include <format>
+#include <format>  // std::format
+#include <limits>  // std::numeric_limits
 #include <mempeep/layout.hpp>
 #include <mempeep/memory.hpp>
 #include <mempeep/tracer.hpp>
