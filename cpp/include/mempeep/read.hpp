@@ -168,7 +168,8 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   auto cursor = read_address_into(reader, address, target_ptr, tracer);
   if (!cursor) return {};
   if (target_ptr) {
-    // ignore output: errors reported already, no need for extra error message
+    // we always try to read as much as possible
+    // so ignore output since cursor is still valid, only inner read failed
     std::ignore = read(reader, target_ptr, target.*M, tracer);
   } else {
     tracer.error("null address");
@@ -194,9 +195,10 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   field.reset();
   if (target_ptr) {
     auto& target_value = field.emplace();
-    // ignore output: errors reported already, no need for extra error message
+    // we always try to read as much as possible
+    // so ignore output since cursor is still valid, only inner read failed
+    // keep field emplaced even if read fails to retain partially read data
     std::ignore = read(reader, target_ptr, target_value, tracer);
-    // note: keep field emplaced even if read fails
   }
   // note: null target_ptr is ok, no error reported
   return cursor;
