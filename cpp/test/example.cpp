@@ -422,7 +422,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
-  Field<M> item,
+  Field<M>,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   address_t<MemoryReader> address,
@@ -453,7 +453,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
   Ptr<M>,
   const MemoryReader& reader,
-  address_t<MemoryReader> base,
+  address_t<MemoryReader>,
   address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
@@ -467,7 +467,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
   Ref<M>,
   const MemoryReader& reader,
-  address_t<MemoryReader> base,
+  address_t<MemoryReader>,
   address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
@@ -488,9 +488,9 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<unwrap_optional_t<member_type_t<M>>>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
-  NullableRef<M> item,
+  NullableRef<M>,
   const MemoryReader& reader,
-  address_t<MemoryReader> base,
+  address_t<MemoryReader>,
   address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
