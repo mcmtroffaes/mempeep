@@ -11,7 +11,7 @@ struct BufferReader {
   using address_type = std::uintptr_t;
   const char* data;
 
-  bool operator()(std::intptr_t addr, std::size_t size, void* buf) const {
+  bool operator()(std::uintptr_t addr, std::size_t size, void* buf) const {
     std::memcpy(buf, data + addr, size);
     return true;
   }
