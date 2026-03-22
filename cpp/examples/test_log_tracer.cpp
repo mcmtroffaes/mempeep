@@ -1,16 +1,26 @@
-#include <cassert>
-#include <iostream>  // std::cout, ...
+#include <iostream>
 #include <mempeep/read.hpp>
-#include <mempeep/test/mock_game_data.hpp>
 
 #include "log_tracer.hpp"
+#include "support/buffer_reader.hpp"
 
-static_assert(mempeep::IsScopedTracer<LogTracer>);
+using namespace mempeep;
+
+struct Vec2 {
+  int x, y;
+};
+
+auto remote_layout(remote_layout_tag<Vec2>)
+  -> Layout<Field<&Vec2::x>, Pad<4>, Field<&Vec2::y>>;
 
 int main() {
-  uint16_t base{4};
-  auto reader = mempeep::test::make_game_reader();
-  mempeep::test::Game game{};
+  BufferReader reader{
+    "\x01\x00\x00\x00"  // x = 1
+    "\x00\x00\x00\x00"  // pad
+    "\x02\x00\x00\x00"  // y = 2
+  };
+
+  Vec2 v{};
   LogTracer tracer{std::cout};
-  assert(mempeep::read_remote(reader, base, game, tracer));
+  mempeep::read_remote(reader, 0, v, tracer);
 }

@@ -1,3 +1,0 @@
-add_library(mempeep_fixtures INTERFACE)
-target_include_directories(mempeep_fixtures INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(mempeep_fixtures INTERFACE mempeep)

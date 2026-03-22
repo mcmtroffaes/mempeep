@@ -1,7 +1,7 @@
 #pragma once
 
-#include <mempeep/test/mock_game.hpp>
-#include <mempeep/test/mock_memory.hpp>
+#include "mock_game.hpp"
+#include "mock_memory.hpp"
 
 namespace mempeep::test {
 

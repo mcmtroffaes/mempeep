@@ -6,7 +6,7 @@
 
 namespace mempeep::test {
 
-// mock reader for testing
+// mock reader for testing; fails gracefully
 template <typename Address, auto BASE, auto N>
   requires(
     IsAddress<Address> && std::in_range<Address>(BASE)

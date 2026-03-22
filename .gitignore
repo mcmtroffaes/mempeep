@@ -1,4 +1,4 @@
 *.exe
 /.vs/
 /out/
-/Testing/
+Testing/
