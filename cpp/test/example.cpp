@@ -260,7 +260,7 @@ struct Seek {
  */
 template <auto M>
   requires IsAddress<member_type_t<M>>
-struct Ptr {
+struct RawAddr {
   using layout_item_tag = void;
 };
 
@@ -451,7 +451,7 @@ template <typename T, IsMemoryReader MemoryReader, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
-  Ptr<M>,
+  RawAddr<M>,
   const MemoryReader& reader,
   address_t<MemoryReader>,
   address_t<MemoryReader> address,
@@ -676,9 +676,9 @@ auto remote_layout(remote_layout_tag<Player>) -> Layout<
   Field<&Player::health>,
   Seek<16>,
   Field<&Player::pos>,
-  Ptr<&Player::target_ptr>,
-  Ptr<&Player::shop_ptr>,
-  Ptr<&Player::weapon_ptr>,
+  RawAddr<&Player::target_ptr>,
+  RawAddr<&Player::shop_ptr>,
+  RawAddr<&Player::weapon_ptr>,
   Ref<&Player::prev_pos>,
   NullableRef<&Player::tagged_pos>,
   NullableRef<&Player::house_pos>,
