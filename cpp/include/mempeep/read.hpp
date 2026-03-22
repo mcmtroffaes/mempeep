@@ -57,7 +57,7 @@ using Cursor = std::optional<address_t<MemoryReader>>;
 
 // Forward declaration to support recursive reading:
 // read -> read_layout -> read_layout_item -> read.
-template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+template <IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -107,8 +107,8 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
   return advance(base, Seek<N>::offset, tracer);
 }
 
-template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-  requires IsReadable<member_type_t<M>>
+template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
+  requires IsTrivial<member_type_t<M>>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
   Field<M>,
   const MemoryReader& reader,
@@ -140,7 +140,7 @@ template <IsAddress T, IsMemoryReader MemoryReader, IsTracer Tracer>
   return advance(address, sizeof(ptr), tracer);
 }
 
-template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
   RawAddr<M>,
   const MemoryReader& reader,
@@ -153,8 +153,8 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   return read_address_into(reader, address, target.*M, tracer);
 }
 
-template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-  requires IsReadable<member_type_t<M>>
+template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
+  requires IsTrivial<member_type_t<M>>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
   Ref<M>,
   const MemoryReader& reader,
@@ -177,8 +177,8 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   return cursor;
 }
 
-template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-  requires IsReadable<unwrap_optional_t<member_type_t<M>>>
+template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
+  requires IsTrivial<unwrap_optional_t<member_type_t<M>>>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
   NullableRef<M>,
   const MemoryReader& reader,
@@ -207,7 +207,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 template <
   IsLayoutItem... Items,
   IsMemoryReader MemoryReader,
-  IsReadable T,
+  IsTrivial T,
   IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_layout(
   Layout<Items...>,
@@ -231,7 +231,7 @@ template <
   return cursor;
 }
 
-template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+template <IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -269,7 +269,7 @@ namespace mempeep {
  * @param target The native object to populate.
  * @return The result of `tracer.success()` (convertible to bool).
  */
-template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+template <IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
 auto read_remote(
   const MemoryReader& reader,
   address_t<MemoryReader> base,

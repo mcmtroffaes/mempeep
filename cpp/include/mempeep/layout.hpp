@@ -8,15 +8,13 @@ namespace mempeep {
 
 /** @brief Types we can define a layout for.
  *
- * A type is readable if it can be safely deserialised from raw bytes:
- * trivially copyable (safe to memcpy into) and default constructible
- * (so a target instance can be created before reading into it).
+ * Shorthand for std::is_trivially_copyable_v<T> as used a lot.
+ * Restricts to types that can be deserialised from raw bytes.
  * Constrained on layout items so failures are caught at layout
  * definition time, not at memory reading time.
  */
 template <typename T>
-concept IsReadable
-  = std::is_trivially_copyable_v<T> && std::is_default_constructible_v<T>;
+concept IsTrivial = std::is_trivially_copyable_v<T>;
 
 template <typename T>
 concept IsLayoutItem = requires { typename T::layout_item_tag; };
@@ -45,7 +43,7 @@ struct Layout {};
  * @tparam T Native struct to register the layout for.
  */
 template <typename T>
-  requires IsReadable<T>
+  requires IsTrivial<T>
 struct remote_layout_tag {};
 
 /**
@@ -71,7 +69,7 @@ using remote_layout_t = decltype(remote_layout(remote_layout_tag<T>{}));
  * @tparam M The native field to deserialize into.
  */
 template <auto M>
-  requires IsReadable<member_type_t<M>>
+  requires IsTrivial<member_type_t<M>>
 struct Field {
   using layout_item_tag = void;
 };
@@ -129,7 +127,7 @@ struct RawAddr {
  * @tparam M The native field to deserialize the pointee into.
  */
 template <auto M>
-  requires IsReadable<member_type_t<M>>
+  requires IsTrivial<member_type_t<M>>
 struct Ref {
   using layout_item_tag = void;
 };
@@ -145,7 +143,7 @@ struct Ref {
  *           Must have type std::optional<T> where T is readable.
  */
 template <auto M>
-  requires IsReadable<unwrap_optional_t<member_type_t<M>>>
+  requires IsTrivial<unwrap_optional_t<member_type_t<M>>>
 struct NullableRef {
   using layout_item_tag = void;
 };
