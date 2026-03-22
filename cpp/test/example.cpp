@@ -24,20 +24,16 @@ concept IsAddress = std::unsigned_integral<T> && !std::same_as<T, bool>
 // ============================================================
 
 template <auto M>
-concept IsMember = std::is_member_object_pointer_v<decltype(M)>;
-
-template <auto M>
-  requires IsMember<M>
-struct member_traits;
+  requires std::is_member_object_pointer_v<decltype(M)>
+struct member_type;
 
 template <typename C, typename T, T C::* M>
-struct member_traits<M> {
+struct member_type<M> {
   using type = T;
 };
 
 template <auto M>
-  requires IsMember<M>
-using member_type_t = typename member_traits<M>::type;
+using member_type_t = typename member_type<M>::type;
 
 template <typename T>
 struct unwrap_optional {};
