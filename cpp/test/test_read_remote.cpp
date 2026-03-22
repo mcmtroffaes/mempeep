@@ -9,5 +9,5 @@ int main() {
   auto reader = mempeep::test::make_game_reader();
   mempeep::test::Game game{};
   mempeep::ErrorTracer tracer{};
-  assert(mempeep::read_remote(reader, base, game, tracer));
+  assert(mempeep::read(reader, base, game, tracer));
 }

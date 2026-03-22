@@ -58,7 +58,7 @@ using Cursor = std::optional<address_t<MemoryReader>>;
 // Forward declaration to support recursive reading:
 // read -> read_layout -> read_layout_item -> read.
 template <IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
-[[nodiscard]] Cursor<MemoryReader> read(
+[[nodiscard]] Cursor<MemoryReader> read_into(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
@@ -119,7 +119,7 @@ template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
   auto& field = target.*M;
-  return read(reader, address, field, tracer);
+  return read_into(reader, address, field, tracer);
 }
 
 template <IsAddress T, IsMemoryReader MemoryReader, IsTracer Tracer>
@@ -170,7 +170,7 @@ template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
   if (target_ptr) {
     // we always try to read as much as possible
     // so ignore output since cursor is still valid, only inner read failed
-    std::ignore = read(reader, target_ptr, target.*M, tracer);
+    std::ignore = read_into(reader, target_ptr, target.*M, tracer);
   } else {
     tracer.error("null address");
   }
@@ -198,7 +198,7 @@ template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
     // we always try to read as much as possible
     // so ignore output since cursor is still valid, only inner read failed
     // keep field emplaced even if read fails to retain partially read data
-    std::ignore = read(reader, target_ptr, target_value, tracer);
+    std::ignore = read_into(reader, target_ptr, target_value, tracer);
   }
   // note: null target_ptr is ok, no error reported
   return cursor;
@@ -232,7 +232,7 @@ template <
 }
 
 template <IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
-[[nodiscard]] Cursor<MemoryReader> read(
+[[nodiscard]] Cursor<MemoryReader> read_into(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
@@ -270,7 +270,7 @@ namespace mempeep {
  * @return The result of `tracer.success()` (convertible to bool).
  */
 template <IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
-auto read_remote(
+auto read(
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
@@ -278,7 +278,7 @@ auto read_remote(
 ) {
   // Passing tracer by reference internally so all recursive calls share
   // the same state, without copying on each call.
-  std::ignore = detail::read(reader, base, target, tracer);
+  std::ignore = detail::read_into(reader, base, target, tracer);
   return tracer.success();
 }
 

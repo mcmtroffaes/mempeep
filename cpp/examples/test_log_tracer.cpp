@@ -22,5 +22,5 @@ int main() {
 
   Vec2 v{};
   LogTracer tracer{std::cout};
-  mempeep::read_remote(reader, 0, v, tracer);
+  mempeep::read(reader, 0, v, tracer);
 }
