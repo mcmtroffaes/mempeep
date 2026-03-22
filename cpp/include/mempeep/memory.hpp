@@ -1,13 +1,10 @@
 #pragma once
 
-#include <concepts>  // std::unsigned_integral, ...
+#include <concepts>             // std::same_as
+#include <cstddef>              // std::size_t
+#include <mempeep/address.hpp>  // IsAddress
 
 namespace mempeep {
-
-/** @brief Possible user address types. */
-template <typename T>
-concept IsAddress = std::unsigned_integral<T> && !std::same_as<T, bool>
-                    && !std::same_as<T, char>;
 
 /**
  * @brief Extract address_type from MemoryReader.
@@ -33,6 +30,7 @@ concept IsMemoryReader = requires(
   std::size_t size,
   void* buffer
 ) {
+  IsAddress<address_t<MemoryReader>>;
   { reader(address, size, buffer) } -> std::same_as<bool>;
 };
 

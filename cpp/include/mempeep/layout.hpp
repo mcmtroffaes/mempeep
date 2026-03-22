@@ -1,6 +1,8 @@
 #pragma once
 
-#include <mempeep/traits.hpp>
+#include <cstddef>              // std::size_t
+#include <mempeep/address.hpp>  // IsAddress
+#include <mempeep/traits.hpp>   // std::is_trivially_copyable_v, ...
 
 namespace mempeep {
 
