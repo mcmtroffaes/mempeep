@@ -1,9 +1,10 @@
 #pragma once
 
-#include "memory.hpp"
+#include <mempeep/memory.hpp>
+#include <mempeep/traits.hpp>
 
 namespace mempeep {
-	
+
 template <typename T>
 concept IsLayoutItem = requires { typename T::layout_item_tag; };
 
@@ -138,4 +139,4 @@ struct NullableRef {
   using layout_item_tag = void;
 };
 
-}
+}  // namespace mempeep

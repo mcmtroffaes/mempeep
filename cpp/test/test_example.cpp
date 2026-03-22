@@ -10,6 +10,8 @@
 #include "mempeep/read.hpp"
 #include "mempeep/tracers.hpp"
 
+using namespace mempeep;
+
 // mock reader for testing
 template <typename Address, auto BASE, auto N>
   requires(
@@ -71,8 +73,6 @@ struct Player {
 struct Game {
   Player player;
 };
-
-using namespace mempeep;
 
 static_assert(member_name<&Player::house_pos>() == "house_pos");
 

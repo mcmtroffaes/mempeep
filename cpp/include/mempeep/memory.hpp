@@ -1,9 +1,7 @@
 #pragma once
 
-#include <type_traits>
-#include <cstddef>
-
-#include "traits.hpp"
+#include <concepts>  // std::unsigned_integral, ...
+#include <limits>    // std::numeric_limits
 
 namespace mempeep {
 

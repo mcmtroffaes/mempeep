@@ -1,8 +1,8 @@
 #pragma once
 
-#include <cstdint>  // std::uint64_t
-#include <string_view>
-#include <type_traits>
+#include <cstdint>      // std::uint64_t
+#include <string_view>  // std::string_view
+#include <type_traits>  // std::convertible_to
 
 namespace mempeep {
 
