@@ -1,6 +1,5 @@
 #pragma once
 
-#include <format>  // std::format
 #include <limits>  // std::numeric_limits
 #include <mempeep/layout.hpp>
 #include <mempeep/memory.hpp>
@@ -11,12 +10,11 @@ namespace mempeep::detail {
 struct NoScope {};
 
 // Deduces Tracer::Scope from Tracer, avoiding repetition at call sites
-template <IsTracer Tracer, IsAddress Address, typename Label>
-  requires std::convertible_to<Label, std::string_view>
-auto make_scope(Tracer& tracer, Address address, Label&& label) {
+template <IsTracer Tracer, IsAddress Address, IsLayoutItem Item>
+auto make_scope(Tracer& tracer, Address address, Item item) {
   if constexpr (IsScopedTracer<Tracer>) {
     const auto addr = static_cast<std::uint64_t>(address);
-    return typename Tracer::Scope(tracer, addr, label);
+    return typename Tracer::Scope(tracer, addr, item);
   } else {
     return NoScope{};
   }
@@ -83,44 +81,41 @@ template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
-  Pad<N>,
+  Pad<N> item,
   const MemoryReader&,
   address_t<MemoryReader>,
   address_t<MemoryReader> address,
   auto&,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope
-    = make_scope(tracer, address, std::format("pad(0x{:X})", Pad<N>::count));
+  [[maybe_unused]] auto scope = make_scope(tracer, address, item);
   return advance(address, Pad<N>::count, tracer);
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
-  Seek<N>,
+  Seek<N> item,
   const MemoryReader&,
   address_t<MemoryReader> base,
   address_t<MemoryReader> address,
   auto&,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope = make_scope(
-    tracer, address, std::format("offset(0x{:X})", Seek<N>::offset)
-  );
+  [[maybe_unused]] auto scope = make_scope(tracer, address, item);
   return advance(base, Seek<N>::offset, tracer);
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
   requires IsTrivial<member_type_t<M>>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
-  Field<M>,
+  Field<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
+  [[maybe_unused]] auto scope = make_scope(tracer, address, item);
   auto& field = target.*M;
   return read_into(reader, address, field, tracer);
 }
@@ -145,28 +140,28 @@ template <IsAddress T, IsMemoryReader MemoryReader, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
-  RawAddr<M>,
+  RawAddr<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader>,
   address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
+  [[maybe_unused]] auto scope = make_scope(tracer, address, item);
   return read_address_into(reader, address, target.*M, tracer);
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
   requires IsTrivial<member_type_t<M>>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
-  Ref<M>,
+  Ref<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader>,
   address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
+  [[maybe_unused]] auto scope = make_scope(tracer, address, item);
   address_t<MemoryReader> target_ptr{};
   auto cursor = read_address_into(reader, address, target_ptr, tracer);
   if (!cursor) return {};
@@ -183,14 +178,14 @@ template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
 template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
   requires IsTrivial<unwrap_optional_t<member_type_t<M>>>
 [[nodiscard]] Cursor<MemoryReader> read_layout_item(
-  NullableRef<M>,
+  NullableRef<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader>,
   address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope = make_scope(tracer, address, member_name<M>());
+  [[maybe_unused]] auto scope = make_scope(tracer, address, item);
   address_t<MemoryReader> target_ptr{};
   auto cursor = read_address_into(reader, address, target_ptr, tracer);
   if (!cursor) return {};
