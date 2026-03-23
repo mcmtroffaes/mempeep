@@ -1,13 +1,14 @@
-#include <cassert>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <doctest/doctest.h>
 #include <iostream>  // std::cout, ...
 #include <mempeep/read.hpp>
 
 #include "support/mock_game_data.hpp"
 
-int main() {
+TEST_CASE("read") {
   uint16_t base{4};
   auto reader = mempeep::test::make_game_reader();
   mempeep::test::Game game{};
   mempeep::ErrorTracer tracer{};
-  assert(mempeep::read(reader, base, game, tracer));
+  CHECK(mempeep::read(reader, base, game, tracer));
 }
