@@ -86,9 +86,9 @@ struct LogTracer {
 
     template <typename Item>
     Scope(LogTracer& t, uint64_t address, Item item) : t(t) {
+      t.address = address;
       t.log(item_label(item));
       t.indent++;
-      t.address = address;
     }
 
     ~Scope() { t.indent--; }
