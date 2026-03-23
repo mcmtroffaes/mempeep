@@ -1,5 +1,6 @@
 #pragma once
 
+#include <format>
 #include <mempeep/layout.hpp>
 #include <mempeep/tracer.hpp>
 #include <ostream>
@@ -28,37 +29,23 @@ consteval std::string_view member_name() {
   );
   constexpr auto len = close - last_colon - 1;
   static_assert(len > 0, "member_name(): extracted name is empty");
-  return sig.substr(last_colon + 1, close - last_colon - 1);
+  return sig.substr(last_colon + 1, len);
 }
 
-template <auto M>
-std::string_view item_label(mempeep::Field<M>) {
-  return member_name<M>();
-}
-
-template <auto M>
-std::string_view item_label(mempeep::RawAddr<M>) {
-  return member_name<M>();
-}
-
-template <auto M>
-std::string_view item_label(mempeep::Ref<M>) {
-  return member_name<M>();
-}
-
-template <auto M>
-std::string_view item_label(mempeep::NullableRef<M>) {
+template <auto M, template <auto> class Item>
+  requires std::is_member_object_pointer_v<decltype(M)>
+std::string_view item_label(Item<M>) {
   return member_name<M>();
 }
 
 template <auto N>
 std::string_view item_label(mempeep::Pad<N>) {
-  return "pad";
+  return std::format("pad(0x{:X})", N);
 }
 
 template <auto N>
 std::string_view item_label(mempeep::Seek<N>) {
-  return "seek";
+  return std::format("seek(0x{:X})", N);
 }
 
 /** @brief Simple scoped tracer.
@@ -75,8 +62,7 @@ struct LogTracer {
   std::string_view label{};
 
   void log(std::string_view msg) {
-    const auto whitespace = std::string(indent, ' ');
-    out << std::format("[{:08X}] ", address) << whitespace << msg << std::endl;
+    out << std::format("[{:08X}] {:{}}", address, "", indent) << msg << '\n';
   }
 
   void error(mempeep::Error e) {
@@ -100,9 +86,9 @@ struct LogTracer {
 
     template <typename Item>
     Scope(LogTracer& _t, uint64_t address, Item item) : t(_t) {
+      t.indent++;
       t.address = address;
       t.label = item_label(item);
-      t.indent++;
     }
 
     ~Scope() { t.indent--; }
