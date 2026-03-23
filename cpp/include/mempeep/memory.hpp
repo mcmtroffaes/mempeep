@@ -24,14 +24,16 @@ using address_t = typename MemoryReader::address_type;
  * @return        `true` on success, `false` on failure.
  */
 template <typename MemoryReader>
-concept IsMemoryReader = requires(
-  MemoryReader reader,
-  address_t<MemoryReader> address,
-  std::size_t size,
-  void* buffer
-) {
-  IsAddress<address_t<MemoryReader>>;
-  { reader(address, size, buffer) } -> std::same_as<bool>;
-};
+concept IsMemoryReader = IsAddress<address_t<MemoryReader>>
+                         && requires(
+                           MemoryReader reader,
+                           address_t<MemoryReader> address,
+                           std::size_t size,
+                           void* buffer
+                         ) {
+                              {
+                                reader(address, size, buffer)
+                              } -> std::same_as<bool>;
+                            };
 
 }  // namespace mempeep
