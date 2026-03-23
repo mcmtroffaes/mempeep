@@ -4,6 +4,7 @@
 #include <mempeep/layout.hpp>
 #include <mempeep/tracer.hpp>
 #include <ostream>
+#include <print>
 
 template <auto M>
 consteval std::string_view member_name() {
@@ -83,14 +84,21 @@ struct LogTracer {
 
   struct Scope {
     LogTracer& t;
+    uint64_t prev_address;
+    std::string_view prev_label;
 
     template <typename Item>
-    Scope(LogTracer& _t, uint64_t address, Item item) : t(_t) {
+    Scope(LogTracer& t, uint64_t address, Item item)
+        : t(t), prev_address(t.address), prev_label(t.label) {
       t.indent++;
       t.address = address;
       t.label = item_label(item);
     }
 
-    ~Scope() { t.indent--; }
+    ~Scope() {
+      t.indent--;
+      t.address = prev_address;
+      t.label = prev_label;
+    }
   };
 };
