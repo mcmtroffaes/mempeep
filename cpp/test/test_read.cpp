@@ -7,7 +7,7 @@
 
 TEST_CASE("read") {
   uint16_t base{4};
-  auto reader = mempeep::test::make_game_reader();
+  auto reader = mempeep::test::GameReader{};
   mempeep::test::Game game{};
   mempeep::ErrorTracer tracer{};
   CHECK(mempeep::read(reader, base, game, tracer));

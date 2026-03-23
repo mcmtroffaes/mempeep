@@ -23,9 +23,7 @@ static constexpr char k_game_memory[]
     "\x58\x63\x00\x00"      // 26: prev_pos = (88, 99, pad(2))
     "\x37\x42\x00\x00";     // 30: tagged_pos = (55, 66, pad(2))
 
-using GameReader = MockMemoryReader<uint8_t>;
-
-inline GameReader make_game_reader() { return GameReader{k_game_memory}; }
+using GameReader = MockMemoryReader<uint8_t, k_game_memory>;
 
 inline void check_game(const Game& game) {
   SUBCASE("level") { CHECK_EQ(game.level, 17); }

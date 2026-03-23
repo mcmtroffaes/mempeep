@@ -1,8 +1,8 @@
 #pragma once
 
-#include <cstddef>
-#include <cstring>
+#include <cstring>  // std::memcpy
 #include <mempeep/memory.hpp>
+#include <string>  // std::data, std::size
 
 namespace mempeep::test {
 
@@ -19,27 +19,21 @@ namespace mempeep::test {
  * All reads are bounds-checked.  Reads that extend past the end of the buffer
  * fail gracefully by returning false without touching the output buffer.
  */
-template <typename Address>
+template <typename Address, auto& Data>
   requires IsAddress<Address>
 struct MockMemoryReader {
   using address_type = Address;
+  static constexpr auto data = std::data(Data);
+  static constexpr auto data_size = std::size(Data);
 
-  template <std::size_t N>
-  explicit constexpr MockMemoryReader(const char (&literal)[N])
-      : _data(literal), _size(N) {}
-
-  bool operator()(Address address, std::size_t size, void* buffer) const {
+  static bool operator()(Address address, std::size_t size, void* buffer) {
     if (buffer == nullptr) return false;
     if (size == 0) return false;
-    if (size > _size) return false;
-    if (address > _size - size) return false;
-    std::memcpy(buffer, _data + address, size);
+    if (size > data_size) return false;
+    if (address > data_size - size) return false;
+    std::memcpy(buffer, data + address, size);
     return true;
   }
-
-private:
-  const char* _data;
-  std::size_t _size;
 };
 
 }  // namespace mempeep::test
