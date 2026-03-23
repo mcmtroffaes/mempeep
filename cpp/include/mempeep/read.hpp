@@ -134,7 +134,12 @@ template <IsAddress T, IsMemoryReader MemoryReader, IsTracer Tracer>
   address_t<MemoryReader> ptr{};
   auto cursor = read_bytes(reader, address, ptr, tracer);
   // static_cast safe since target can hold ptr by requires
-  if (cursor) target = static_cast<T>(ptr);
+  if (cursor) {
+    target = static_cast<T>(ptr);
+    if constexpr (requires { tracer.value(target); }) {
+      tracer.value(target);
+    }
+  }
   return cursor;
 }
 
