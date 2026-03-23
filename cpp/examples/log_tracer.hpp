@@ -41,12 +41,12 @@ std::string_view item_label(Item<M>) {
 
 template <auto N>
 std::string_view item_label(mempeep::Pad<N>) {
-  return std::format("pad(0x{:X})", mempeep::Pad<N>::count);
+  return "(pad)";
 }
 
 template <auto N>
 std::string_view item_label(mempeep::Seek<N>) {
-  return std::format("seek(0x{:X})", mempeep::Seek<N>::offset);
+  return "(seek)";
 }
 
 /** @brief Simple scoped tracer.
@@ -60,7 +60,6 @@ struct LogTracer {
   bool ok = true;
   int indent = 0;
   uint64_t address = 0;
-  std::string_view label{};
 
   void log(std::string_view msg) {
     std::print(out, "[{:08X}] {: >{}}{}\n", address, "", indent, msg);
@@ -68,15 +67,15 @@ struct LogTracer {
 
   void error(mempeep::Error e) {
     ok = false;
-    log(std::format("{} [ERROR {}]", label, static_cast<int>(e)));
+    log(std::format("[ERROR {}]", static_cast<int>(e)));
   }
 
   template <typename T>
   void value(const T& val) {
     if constexpr (std::formattable<T, char>) {
-      log(std::format("{}={}", label, val));
+      log(std::format("={}", val));
     } else {
-      log(std::format("{}=???", label));
+      log("=???");
     }
   }
 
@@ -84,21 +83,14 @@ struct LogTracer {
 
   struct Scope {
     LogTracer& t;
-    uint64_t prev_address;
-    std::string_view prev_label;
 
     template <typename Item>
-    Scope(LogTracer& t, uint64_t address, Item item)
-        : t(t), prev_address(t.address), prev_label(t.label) {
+    Scope(LogTracer& t, uint64_t address, Item item) : t(t) {
+      t.log(item_label(item));
       t.indent++;
       t.address = address;
-      t.label = item_label(item);
     }
 
-    ~Scope() {
-      t.indent--;
-      t.address = prev_address;
-      t.label = prev_label;
-    }
+    ~Scope() { t.indent--; }
   };
 };

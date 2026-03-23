@@ -6,12 +6,12 @@
 #include <cstddef>
 #include <cstring>
 
-// No bounds checking, for examples only
+// No bounds checking, tiny address_type, for examples only.
 struct BufferReader {
-  using address_type = std::uintptr_t;
+  using address_type = std::uint8_t;
   const char* data;
 
-  bool operator()(std::uintptr_t addr, std::size_t size, void* buf) const {
+  bool operator()(std::uint8_t addr, std::size_t size, void* buf) const {
     std::memcpy(buf, data + addr, size);
     return true;
   }
