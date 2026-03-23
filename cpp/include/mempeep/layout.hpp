@@ -65,7 +65,7 @@ template <typename T>
 using remote_layout_t = typename T::remote_layout;
 
 template <typename T>
-concept IsReadable = requires { IsPrimitive<T> || HasRemoteLayout<T>; };
+concept IsReadable = IsPrimitive<T> || HasRemoteLayout<T>;
 
 /**
  * @brief A field. Its type must be readable.
