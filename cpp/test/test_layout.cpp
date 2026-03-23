@@ -1,6 +1,4 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include <doctest/doctest.h>
-
+// not a doctest since we only need static_asserts
 #include <mempeep/layout.hpp>
 #include <optional>
 #include <vector>
@@ -74,3 +72,5 @@ static_assert(mempeep::IsLayoutItem<mempeep::NullableRef<&SomeStruct::z>>);
 static_assert(mempeep::IsReadable<PrimTriv>);
 static_assert(mempeep::IsReadable<RemTriv>);
 static_assert(!mempeep::IsReadable<SomeStruct>);
+
+int main() { return 0; };
