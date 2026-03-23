@@ -41,12 +41,12 @@ std::string_view item_label(Item<M>) {
 
 template <auto N>
 std::string_view item_label(mempeep::Pad<N>) {
-  return std::format("pad(0x{:X})", N);
+  return std::format("pad(0x{:X})", mempeep::Pad<N>::count);
 }
 
 template <auto N>
 std::string_view item_label(mempeep::Seek<N>) {
-  return std::format("seek(0x{:X})", N);
+  return std::format("seek(0x{:X})", mempeep::Seek<N>::offset);
 }
 
 /** @brief Simple scoped tracer.
@@ -63,7 +63,7 @@ struct LogTracer {
   std::string_view label{};
 
   void log(std::string_view msg) {
-    out << std::format("[{:08X}] {:{}}", address, "", indent) << msg << '\n';
+    std::print(out, "[{:08X}] {: >{}}{}\n", address, "", indent, msg);
   }
 
   void error(mempeep::Error e) {
