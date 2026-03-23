@@ -50,32 +50,19 @@ template <IsLayoutItem... Items>
 struct Layout {};
 
 /**
- * @brief Tag for registering the remote layout of a class.
- *
- * Example:
- *
- *   auto remote_layout(remote_layout_tag<Pos>)
- *     -> Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>;
- *
- * @tparam T Class to register the layout for.
- */
-template <typename T>
-struct remote_layout_tag {};
-
-/**
  * @brief Does T have a custom layout?
  *
  * Checks if the function remote_layout(remote_layout_tag<T>) exists.
  */
 template <typename T>
-concept HasRemoteLayout = requires { remote_layout(remote_layout_tag<T>{}); };
+concept HasRemoteLayout = requires { typename T::remote_layout; };
 
 /**
  * @brief Shorthand for return type of `remote_layout(remote_layout_tag<T>{})`.
  */
 template <typename T>
   requires HasRemoteLayout<T>
-using remote_layout_t = decltype(remote_layout(remote_layout_tag<T>{}));
+using remote_layout_t = typename T::remote_layout;
 
 template <typename T>
 concept IsReadable = requires { IsPrimitive<T> || HasRemoteLayout<T>; };

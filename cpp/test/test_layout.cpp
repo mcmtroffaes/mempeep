@@ -1,9 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#include <array>
 #include <mempeep/layout.hpp>
-#include <optional>
 #include <vector>
 
 struct Prim {
@@ -12,7 +10,7 @@ struct Prim {
 };
 
 struct NonPrim {
-  int x;
+  std::vector<int> x;
 };
 
 static_assert(mempeep::IsPrimitive<int>);
@@ -21,5 +19,7 @@ static_assert(!mempeep::IsPrimitive<std::optional<int>>);
 static_assert(!mempeep::IsPrimitive<std::array<int, 5>>);
 static_assert(!mempeep::IsPrimitive<std::vector<int>>);
 static_assert(!mempeep::IsPrimitive<NonPrim>);
+
+static_assert(mempeep::IsLayoutItem<mempeep::Field<&NonPrim::x>>);
 
 TEST_CASE("trivial") {}

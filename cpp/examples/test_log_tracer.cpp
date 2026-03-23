@@ -12,6 +12,12 @@ using namespace mempeep;
 
 struct Pos {
   int8_t x, y;
+
+  // 0: x
+  // 1: pad
+  // 2: y
+  // 3: pad
+  using remote_layout = Layout<Field<&Pos::x>, Pad<1>, Field<&Pos::y>, Pad<1>>;
 };
 
 struct Entity {
@@ -20,32 +26,23 @@ struct Entity {
   uint8_t target_addr;         // raw address, not followed
   Pos extra_pos;               // followed non-nullable address to Pos
   std::optional<Pos> opt_pos;  // followed nullable address to Pos
+
+  // 0-1: pad
+  // 2:   id
+  // 3:   pad
+  // 4-7: pos
+  // 8:   target_addr (raw address)
+  // 9:   extra_pos (read address, follow)
+  // 10:  opt_pos (read address, follow if non-null)
+  using remote_layout = Layout<
+    Seek<2>,
+    Field<&Entity::id>,
+    Pad<1>,
+    Field<&Entity::pos>,
+    RawAddr<&Entity::target_addr>,
+    Ref<&Entity::extra_pos>,
+    NullableRef<&Entity::opt_pos>>;
 };
-
-// Pos:
-// 0: x
-// 1: pad
-// 2: y
-// 3: pad
-auto remote_layout(remote_layout_tag<Pos>)
-  -> Layout<Field<&Pos::x>, Pad<1>, Field<&Pos::y>, Pad<1>>;
-
-// Entity:
-// 0-1: pad
-// 2:   id
-// 3:   pad
-// 4-7: pos
-// 8:   target_addr (raw address)
-// 9:   extra_pos (read address, follow)
-// 10:  opt_pos (read address, follow if non-null)
-auto remote_layout(remote_layout_tag<Entity>) -> Layout<
-  Seek<2>,
-  Field<&Entity::id>,
-  Pad<1>,
-  Field<&Entity::pos>,
-  RawAddr<&Entity::target_addr>,
-  Ref<&Entity::extra_pos>,
-  NullableRef<&Entity::opt_pos>>;
 
 int main() {
   // Memory map (byte offsets from base=0, address_type=uint8_t).
