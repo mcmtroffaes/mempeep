@@ -27,7 +27,7 @@ struct Entity {
   Pos extra_pos;               // followed non-nullable address to Pos
   std::optional<Pos> opt_pos;  // followed nullable address to Pos
 
-  // 0-1: pad
+  // 0-1: header
   // 2:   id
   // 3:   pad
   // 4-7: pos
@@ -50,13 +50,12 @@ int main() {
     "\x13\x37"          // 0-1:   header bytes
     "\x07"              // 2:     id = 7
     "\x00"              // 3:     Pad<1>
-    "\x03\x00\xFE\x00"  // 4-7:   pos x=3, pad, y=-2, pad
-    "\x0F"              // 8:     target_addr -> offset 15
-    "\x13"              // 9:     extra_pos addr -> offset 19
-    "\x00"              // 10:    opt_pos addr = null
-    "\x00\x00\x00\x00"  // 11-18: gap
-    "\x00\x00\x00\x00"  // ...
-    "\x05\x00\xFF\x00"  // 19-22: extra_pos x=5, pad, y=-1, pad
+    "\x03\x00\xfe\x00"  // 4-7:   pos x=3, pad, y=-2, pad
+    "\x0b"              // 8:     target_addr -> offset 0b
+    "\x0f"              // 9:     extra_pos addr -> offset 0f
+    "\x00"              // 0a:    opt_pos addr = null
+    "\x00\x00\x00\x00"  // 0b-0e: gap
+    "\x05\x00\xff\x00"  // 0f-12: extra_pos x=5, pad, y=-1, pad
   };
 
   Entity e{};
