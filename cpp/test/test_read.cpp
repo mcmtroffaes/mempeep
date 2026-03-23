@@ -11,4 +11,5 @@ TEST_CASE("read") {
   mempeep::test::Game game{};
   mempeep::ErrorTracer tracer{};
   CHECK(mempeep::read(reader, base, game, tracer));
+  mempeep::test::check_game(game);
 }

@@ -1,51 +1,45 @@
 #pragma once
 
 #include <cstddef>
+#include <cstring>
 #include <mempeep/memory.hpp>
-#include <utility>
 
 namespace mempeep::test {
 
-// mock reader for testing; fails gracefully
-template <typename Address, auto BASE, auto N>
-  requires(
-    IsAddress<Address> && std::in_range<Address>(BASE)
-    && std::in_range<std::size_t>(N)
-  )
+/**
+ * @brief Mock memory reader backed by an immutable string literal.
+ * Addresses are zero-based byte indices into the buffer.
+ *
+ * Construct from a string literal:
+ *
+ *   MockMemoryReader<uint8_t> reader{"\x01\x02\x03"};
+ *
+ * The buffer length is deduced from the string literal.
+ *
+ * All reads are bounds-checked.  Reads that extend past the end of the buffer
+ * fail gracefully by returning false without touching the output buffer.
+ */
+template <typename Address>
+  requires IsAddress<Address>
 struct MockMemoryReader {
   using address_type = Address;
-  static constexpr Address base = static_cast<Address>(BASE);
-  static constexpr std::size_t n = static_cast<std::size_t>(N);
-  std::byte data[n]{};
+
+  template <std::size_t N>
+  explicit constexpr MockMemoryReader(const char (&literal)[N])
+      : _data(literal), _size(N) {}
 
   bool operator()(Address address, std::size_t size, void* buffer) const {
-    // check buffer exists and n is positive
     if (buffer == nullptr) return false;
     if (size == 0) return false;
-    // handle overflow
-    if (n < size) return false;        // ensure n - size >= 0
-    if (address < base) return false;  // ensure address - base >= 0
-    // both sides of inequality below are non-negative so safe to compare
-    if (n - size < address - base) return false;  // ensure no overread
-    // address - base <= n so now it is safe to cast to std::size_t
-    std::memcpy(buffer, data + static_cast<std::size_t>(address - base), size);
+    if (size > _size) return false;
+    if (address > _size - size) return false;
+    std::memcpy(buffer, _data + address, size);
     return true;
   }
 
-  template <typename Addr, typename T>
-  bool write(Addr addr, T value) {
-    if (!std::in_range<Address>(addr)) return false;
-    const auto address = static_cast<Address>(addr);
-    if (n < sizeof(T)) return false;   // ensure n - sizeof(T) >= 0
-    if (address < base) return false;  // ensure off - base >= 0
-    // both sides of inequality below are non-negative so safe to compare
-    if (n - sizeof(T) < address - base) return false;  // ensure no overwrite
-    // address - base <= n so now it is safe to cast to std::size_t
-    std::memcpy(
-      data + static_cast<std::size_t>(address - base), &value, sizeof(value)
-    );
-    return true;
-  }
+private:
+  const char* _data;
+  std::size_t _size;
 };
 
 }  // namespace mempeep::test

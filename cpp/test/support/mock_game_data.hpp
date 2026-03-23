@@ -7,27 +7,25 @@
 
 namespace mempeep::test {
 
-using GameReader = MockMemoryReader<uint16_t, 1, 128>;
+static constexpr char k_game_memory[]
+  = "\x00\x00\x00\x00"      // 0:  unused
+    "\x00\x01\x00\x00"      // 4:  pad(1), level = 1, pad(2)
+    "\x00\x00\x7b\x00"      // 8:  pad(2), health = 123, pad(1)
+    "\x0b\x16\x00\x00"      // 12: pos = (11, 22, pad(2))
+    "\x00"                  // 16: target_ptr = 0
+    "\x02"                  // 17: shop_ptr = 2
+    "\x06"                  // 18: weapon_ptr = 6
+    "\x1a"                  // 19: prev_pos ref = 26
+    "\x1e"                  // 20: tagged_pos ref = 30
+    "\x00"                  // 21: house_pos ref = 0 (null)
+    "\x2f"                  // 22: mana = 47
+    "\x00\x00\x00"          // 23: unused
+    "\x58\x63\x00\x00"      // 26: prev_pos = (88, 99, pad(2))
+    "\x37\x42\x00\x00";     // 30: tagged_pos = (55, 66, pad(2))
 
-// reader for game data (base 4)
-inline GameReader make_game_reader() {
-  GameReader reader{};
-  REQUIRE(reader.write(18, int32_t{123}));  // health
-  REQUIRE(reader.write(26, int32_t{11}));  // pos.x
-  REQUIRE(reader.write(34, int32_t{22}));   // pos.y
-  REQUIRE(reader.write(42, uint16_t{0}));  // target_ptr
-  REQUIRE(reader.write(44, uint16_t{2}));   // shop_ptr; u16 remote, u32 native
-  REQUIRE(reader.write(46, uint16_t{6}));  // weapon_ptr
-  REQUIRE(reader.write(48, uint16_t{60}));  // prev_pos ref
-  REQUIRE(reader.write(50, uint16_t{80}));  // tagged_pos nullable ref
-  REQUIRE(reader.write(52, uint16_t{0}));   // house_pos nullable ref
-  REQUIRE(reader.write(54, int32_t{47}));   // mana
-  REQUIRE(reader.write(60, int32_t{88}));   // prev_pos.x
-  REQUIRE(reader.write(68, int32_t{99}));   // prev_pos.y
-  REQUIRE(reader.write(80, int32_t{55}));   // tagged_pos.x
-  REQUIRE(reader.write(88, int32_t{66}));   // tagged_pos.y
-  return reader;
-}
+using GameReader = MockMemoryReader<uint8_t>;
+
+inline GameReader make_game_reader() { return GameReader{k_game_memory}; }
 
 inline void check_game(const Game& game) {
   CHECK(game.player.health == 123);
@@ -39,9 +37,11 @@ inline void check_game(const Game& game) {
   CHECK(game.player.prev_pos.x == 88);
   CHECK(game.player.prev_pos.y == 99);
   CHECK(game.player.mana == 47);
-  CHECK(game.player.tagged_pos.has_value());
-  CHECK(game.player.tagged_pos->x == 55);
-  CHECK(game.player.tagged_pos->y == 66);
+  SUBCASE("tagged_pos") {
+    REQUIRE(game.player.tagged_pos.has_value());
+    CHECK(game.player.tagged_pos->x == 55);
+    CHECK(game.player.tagged_pos->y == 66);
+  }
   CHECK(!game.player.house_pos.has_value());
 }
 
