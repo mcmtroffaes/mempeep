@@ -2,19 +2,36 @@
 
 #include <cstddef>              // std::size_t
 #include <mempeep/address.hpp>  // IsAddress
-#include <mempeep/traits.hpp>   // std::is_trivially_copyable_v, ...
+#include <mempeep/traits.hpp>   // member_type_t, ...
 
 namespace mempeep {
 
-/** @brief Types we can define a layout for.
+/** @brief Primitive types that be directly copied in memory.
  *
- * Shorthand for std::is_trivially_copyable_v<T> as used a lot.
- * Restricts to types that can be deserialised from raw bytes.
+ * A type satisfies IsPrimitive if it can be copied byte-for-byte
+ * (e.g. via memcpy) without requiring construction, destruction,
+ * or pointer fixups.
+ *
+ * This includes all numeric types, and all types tagged with the
+ * `is_primitive_tag`.
+ *
+ * @warning
+ * Incorrectly tagging a type as primitive may lead to undefined behavior.
+ *
+ * Example:
+ * @code
+ * struct Pos {
+ *   using is_primitive_tag = void;
+ *   float x, y, z;
+ * }
+ * @endcode
+ *
  * Constrained on layout items so failures are caught at layout
  * definition time, not at memory reading time.
  */
 template <typename T>
-concept IsTrivial = std::is_trivially_copyable_v<T>;
+concept IsPrimitive = requires { typename T::is_primitive_tag; }
+                      || std::integral<T> || std::floating_point<T>;
 
 template <typename T>
 concept IsLayoutItem = requires { typename T::layout_item_tag; };
@@ -33,17 +50,16 @@ template <IsLayoutItem... Items>
 struct Layout {};
 
 /**
- * @brief Tag for registering the remote layout of a native struct.
+ * @brief Tag for registering the remote layout of a class.
  *
  * Example:
  *
  *   auto remote_layout(remote_layout_tag<Pos>)
  *     -> Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>;
  *
- * @tparam T Native struct to register the layout for.
+ * @tparam T Class to register the layout for.
  */
 template <typename T>
-  requires IsTrivial<T>
 struct remote_layout_tag {};
 
 /**
@@ -61,15 +77,18 @@ template <typename T>
   requires HasRemoteLayout<T>
 using remote_layout_t = decltype(remote_layout(remote_layout_tag<T>{}));
 
+template <typename T>
+concept IsReadable = requires { IsPrimitive<T> || HasRemoteLayout<T>; };
+
 /**
  * @brief A field. Its type must be readable.
  *
  * For example, Field<&Class::member>.
  *
- * @tparam M The native field to deserialize into.
+ * @tparam M The field to deserialize into.
  */
 template <auto M>
-  requires IsTrivial<member_type_t<M>>
+  requires IsReadable<member_type_t<M>>
 struct Field {
   using layout_item_tag = void;
 };
@@ -110,7 +129,7 @@ struct Seek {
  * sizeof(member_type_t<M>). The result is cast to the member type, which must
  * be wide enough to hold address_t<MemoryReader>, or a compile error results.
  *
- * @tparam M The native field to store the address into.
+ * @tparam M The field to store the address into.
  */
 template <auto M>
   requires IsAddress<member_type_t<M>>
@@ -124,10 +143,10 @@ struct RawAddr {
  *
  * Errors if the address is null.
  *
- * @tparam M The native field to deserialize the pointee into.
+ * @tparam M The field to deserialize the pointee into.
  */
 template <auto M>
-  requires IsTrivial<member_type_t<M>>
+  requires IsReadable<member_type_t<M>>
 struct Ref {
   using layout_item_tag = void;
 };
@@ -139,11 +158,11 @@ struct Ref {
  * If the address is null, the member is set to std::nullopt and no error
  * is reported.
  *
- * @tparam M The native field to deserialize the pointee into.
+ * @tparam M The field to deserialize the pointee into.
  *           Must have type std::optional<T> where T is readable.
  */
 template <auto M>
-  requires IsTrivial<unwrap_optional_t<member_type_t<M>>>
+  requires IsReadable<unwrap_optional_t<member_type_t<M>>>
 struct NullableRef {
   using layout_item_tag = void;
 };
