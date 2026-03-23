@@ -67,15 +67,18 @@ template <IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
 
 // thin wrapper around reader with tracing
 template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
-[[nodiscard]] bool read_bytes(
+[[nodiscard]] Cursor<MemoryReader> read_bytes(
   const MemoryReader& reader,
   address_t<MemoryReader> address,
   T& target,
   Tracer& tracer
 ) {
-  bool ok = reader(address, sizeof(target), &target);
-  if (!ok) tracer.error(Error::READ_FAILED);
-  return ok;
+  if (reader(address, sizeof(target), &target)) {
+    return advance(address, sizeof(target), tracer);
+  } else {
+    tracer.error(Error::READ_FAILED);
+    return {};
+  }
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
@@ -134,10 +137,10 @@ template <IsAddress T, IsMemoryReader MemoryReader, IsTracer Tracer>
   Tracer& tracer
 ) {
   address_t<MemoryReader> ptr{};
-  if (!read_bytes(reader, address, ptr, tracer)) return {};
+  auto cursor = read_bytes(reader, address, ptr, tracer);
   // static_cast safe since target can hold ptr by requires
-  target = static_cast<T>(ptr);
-  return advance(address, sizeof(ptr), tracer);
+  if (cursor) target = static_cast<T>(ptr);
+  return cursor;
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
@@ -243,11 +246,11 @@ template <IsMemoryReader MemoryReader, IsTrivial T, IsTracer Tracer>
       remote_layout_t<T>{}, reader, base, target, tracer
     );
   } else {
-    if (!detail::read_bytes(reader, base, target, tracer)) return {};
+    auto cursor = detail::read_bytes(reader, base, target, tracer);
     if constexpr (requires { tracer.value(target); }) {
-      tracer.value(target);
+      if (cursor) tracer.value(target);
     }
-    return advance(base, sizeof(target), tracer);
+    return cursor;
   }
 }
 
