@@ -34,15 +34,23 @@ struct Player {
     Ref<&Player::prev_pos>,
     NullableRef<&Player::tagged_pos>,
     NullableRef<&Player::house_pos>,
-    Field<&Player::mana>>;
+    Field<&Player::mana>,
+    Pad<1>>;
 };
 
 struct Game {
   uint8_t level;
   Player player;
+  std::array<Pos, 2> hands;
+  std::vector<Pos> pets;
 
-  using remote_layout
-    = Layout<Seek<1>, Field<&Game::level>, Seek<4>, Field<&Game::player>>;
+  using remote_layout = Layout<
+    Seek<1>,
+    Field<&Game::level>,
+    Seek<4>,
+    Field<&Game::player>,
+    Array<&Game::hands>,
+    Vector<&Game::pets>>;
 };
 
 }  // namespace mempeep::test

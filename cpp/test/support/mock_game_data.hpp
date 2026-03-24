@@ -17,13 +17,20 @@ static constexpr char game_data[]
     "\x00"               // 16: target_ptr = 0
     "\x02"               // 17: shop_ptr = 2
     "\x06"               // 18: weapon_ptr = 6
-    "\x1a"               // 19: prev_pos ref = 26
-    "\x1e"               // 20: tagged_pos nullable ref = 30
+    "\x24"               // 19: prev_pos ref = 36
+    "\x28"               // 20: tagged_pos nullable ref = 40
     "\x00"               // 21: house_pos nullable ref = 0 (null)
     "\x2f"               // 22: mana = 47
-    "\x00\x00\x00"       // 23: unused
-    "\x58\x63\x00\x00"   // 26: prev_pos = (88, 99, pad(2))
-    "\x37\x42\x00\x00";  // 30: tagged_pos = (55, 66, pad(2))
+    "\x00"               // 23: pad(1)
+    "\x01\x02\x00\x00"   // 24: hands[0] = (1, 2, pad(2))
+    "\x03\x04\x00\x00"   // 28: hands[1] = (1, 2, pad(2))
+    "\x2c\x38"           // 32: pets vec (44, 48)
+    "\x00\x00"           // 34: unused
+    "\x58\x63\x00\x00"   // 36: prev_pos = (88, 99, pad(2))
+    "\x37\x42\x00\x00"   // 40: tagged_pos = (55, 66, pad(2))
+    "\x05\x06\x00\x00"   // 44: pets[0] = (5, 6, pad(2))
+    "\x07\x08\x00\x00"   // 48: pets[1] = (7, 8, pad(2))
+    "\x09\x0a\x00\x00";  // 52: pets[2] = (9, 10, pad(2))
 
 inline void check_game(const Game& game) {
   SUBCASE("level") { CHECK_EQ(game.level, 17); }
@@ -39,10 +46,25 @@ inline void check_game(const Game& game) {
     CHECK_EQ(game.player.mana, 47);
     SUBCASE("tagged_pos") {
       REQUIRE(game.player.tagged_pos.has_value());
-      CHECK(game.player.tagged_pos->x == 55);
-      CHECK(game.player.tagged_pos->y == 66);
+      CHECK_EQ(game.player.tagged_pos->x, 55);
+      CHECK_EQ(game.player.tagged_pos->y, 66);
     }
     CHECK(!game.player.house_pos.has_value());
+  }
+  SUBCASE("hands") {
+    CHECK_EQ(game.hands[0].x, 1);
+    CHECK_EQ(game.hands[0].y, 2);
+    CHECK_EQ(game.hands[1].x, 3);
+    CHECK_EQ(game.hands[1].y, 4);
+  }
+  SUBCASE("pets") {
+    REQUIRE_EQ(game.pets.size(), 3);
+    CHECK_EQ(game.pets[0].x, 5);
+    CHECK_EQ(game.pets[0].y, 6);
+    CHECK_EQ(game.pets[1].x, 7);
+    CHECK_EQ(game.pets[1].y, 8);
+    CHECK_EQ(game.pets[2].x, 9);
+    CHECK_EQ(game.pets[2].y, 10);
   }
 }
 
