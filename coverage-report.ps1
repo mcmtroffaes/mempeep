@@ -13,16 +13,16 @@ ctest --preset coverage
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 # Merge profiles
-$ProfileFiles = Get-ChildItem "$ProfilesDir/*.profraw" | ForEach-Object { $_.FullName }
+$ProfileFiles = @(Get-ChildItem "$ProfilesDir/*.profraw" | ForEach-Object { $_.FullName })
 llvm-profdata merge @ProfileFiles -o $MergedProfile
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$TestBinaries = Get-ChildItem "$BuildDir/cpp/test/test_*.exe", "$BuildDir/cpp/examples/test_*.exe"
-$Objects = $TestBinaries | Select-Object -First 1
-$ExtraObjects = $TestBinaries | Select-Object -Skip 1 | ForEach-Object { "-object", $_.FullName }
+$TestBinaries = Get-ChildItem "$BuildDir/cpp/test/test_*.exe"
+$Object = $TestBinaries | Select-Object -First 1
+$ExtraObjects = @($TestBinaries | Select-Object -Skip 1 | ForEach-Object { "-object", $_.FullName })
 
 # Generate report
-llvm-cov show $Objects.FullName `
+llvm-cov show $Object.FullName `
     @ExtraObjects `
     -instr-profile $MergedProfile `
     -sources "$PSScriptRoot/cpp/include/mempeep" `
