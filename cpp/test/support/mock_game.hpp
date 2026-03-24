@@ -12,6 +12,13 @@ struct Pos {
   using remote_layout = Layout<Field<&Pos::x>, Field<&Pos::y>, Pad<2>>;
 };
 
+struct Cave {
+  uint8_t id;
+  uint8_t next;
+
+  using is_primitive_tag = void;
+};
+
 struct Player {
   uint8_t health;
   Pos pos;
@@ -43,6 +50,7 @@ struct Game {
   Player player;
   std::array<Pos, 2> hands;
   std::vector<Pos> pets;
+  std::vector<Cave> caves;
 
   using remote_layout = Layout<
     Seek<1>,
@@ -50,7 +58,8 @@ struct Game {
     Seek<4>,
     Field<&Game::player>,
     Array<&Game::hands>,
-    Vector<&Game::pets>>;
+    Vector<&Game::pets>,
+    CircularList<&Game::caves, &Cave::next, 100>>;
 };
 
 }  // namespace mempeep::test

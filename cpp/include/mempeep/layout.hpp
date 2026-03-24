@@ -166,4 +166,10 @@ struct Vector {
   using layout_item_tag = void;
 };
 
+template <auto M, auto N, std::size_t L>
+  requires IsReadable<unwrap_vector_t<member_type_t<M>>> && IsAddress<member_type_t<N>>
+struct CircularList {
+  using layout_item_tag = void;
+};
+
 }  // namespace mempeep
