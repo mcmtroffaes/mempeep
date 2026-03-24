@@ -1,4 +1,7 @@
 file(GLOB TEST_SOURCES "test_*.cpp")
+if(ENABLE_COVERAGE)
+  list(FILTER TEST_SOURCES EXCLUDE REGEX "test_(header|static)_.*\\.cpp$")
+endif()
 foreach(TEST_SOURCE ${TEST_SOURCES})
   cmake_path(GET TEST_SOURCE STEM TEST_NAME)
   add_executable(${TEST_NAME} ${TEST_SOURCE})
