@@ -8,7 +8,7 @@
 
 template <auto M>
 consteval std::string_view member_name() {
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) && !defined(__clang__)
   constexpr std::string_view sig = __FUNCSIG__;
   constexpr auto last_colon = sig.rfind(':');
   constexpr auto close = sig.rfind('>');
