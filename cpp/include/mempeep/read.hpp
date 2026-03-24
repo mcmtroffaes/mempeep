@@ -207,6 +207,64 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   return cursor;
 }
 
+template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+  requires IsReadable<unwrap_array_t<member_type_t<M>>>
+[[nodiscard]] Cursor<MemoryReader> read_layout_item(
+  Array<M> item,
+  const MemoryReader& reader,
+  address_t<MemoryReader> base,
+  address_t<MemoryReader> address,
+  T& target,
+  Tracer& tracer
+) {
+  [[maybe_unused]] auto scope = make_scope(tracer, address, item);
+  auto& field = target.*M;
+  Cursor<MemoryReader> cursor{address};
+  for (auto& elem : field) {
+    cursor = read_into(reader, cursor.value(), elem, tracer);
+    if (!cursor) return {};  // quit when cursor becomes invalid
+  }
+  return cursor;
+}
+
+template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
+  requires IsReadable<unwrap_vector_t<member_type_t<M>>>
+[[nodiscard]] Cursor<MemoryReader> read_layout_item(
+  Vector<M> item,
+  const MemoryReader& reader,
+  address_t<MemoryReader> base,
+  address_t<MemoryReader> address,
+  T& target,
+  Tracer& tracer
+) {
+  [[maybe_unused]] auto scope = make_scope(tracer, address, item);
+  address_t<MemoryReader> begin_ptr{};
+  auto cursor = read_address_into(reader, address, begin_ptr, tracer);
+  if (!cursor) return {};
+  address_t<MemoryReader> end_ptr{};
+  cursor = read_address_into(reader, cursor.value(), end_ptr, tracer);
+  if (!cursor) return {};
+  if (begin_ptr == 0) {
+    tracer.error(Error::ADDRESS_NULL);
+    return cursor;
+  }
+  if (begin_ptr > end_ptr) {
+    tracer.error(Error::VECTOR_INVALID_RANGE);
+    return cursor;
+  }
+  auto& field = target.*M;
+  Cursor<MemoryReader> vector_cursor{begin_ptr};
+  field.clear();
+  while (vector_cursor && vector_cursor.value() < end_ptr) {
+    auto& elem = field.emplace_back();
+    vector_cursor = read_into(reader, vector_cursor.value(), elem, tracer);
+  }
+  if (vector_cursor && vector_cursor.value() != end_ptr) {
+    tracer.error(Error::VECTOR_MISALIGNED);
+  }
+  return cursor;
+}
+
 template <
   IsLayoutItem... Items,
   IsMemoryReader MemoryReader,

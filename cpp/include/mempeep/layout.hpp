@@ -154,4 +154,16 @@ struct NullableRef {
   using layout_item_tag = void;
 };
 
+template <auto M>
+  requires IsReadable<unwrap_array_t<member_type_t<M>>>
+struct Array {
+  using layout_item_tag = void;
+};
+
+template <auto M>
+  requires IsReadable<unwrap_vector_t<member_type_t<M>>>
+struct Vector {
+  using layout_item_tag = void;
+};
+
 }  // namespace mempeep
