@@ -7,6 +7,19 @@
 namespace mempeep::test {
 
 /**
+ * @brief Mock memory reader which always gives same result.
+ */
+template <typename Address, bool Result>
+  requires IsAddress<Address>
+struct MockMemoryConst {
+  using address_type = Address;
+
+  static bool operator()(Address address, std::size_t size, void* buffer) {
+    return Result;
+  }
+};
+
+/**
  * @brief Mock memory reader backed by an immutable string literal.
  * Addresses are zero-based byte indices into the buffer.
  *

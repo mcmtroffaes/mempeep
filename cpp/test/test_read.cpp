@@ -1,15 +1,63 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
-#include <iostream>  // std::cout, ...
+
 #include <mempeep/read.hpp>
+#include <string_view>
 
 #include "support/mock_game_data.hpp"
 
 TEST_CASE("read") {
-  uint16_t base{4};
-  auto reader = mempeep::test::GameReader{};
+  static constexpr uint8_t base{4};
+  auto reader
+    = mempeep::test::MockMemoryReader<uint8_t, mempeep::test::game_data>{};
   mempeep::test::Game game{};
   mempeep::ErrorTracer tracer{};
   CHECK(mempeep::read(reader, base, game, tracer));
   mempeep::test::check_game(game);
+}
+
+TEST_CASE("partial_read") {
+  static constexpr uint8_t base{4};
+  static constexpr std::string_view data{mempeep::test::game_data, 23};
+  auto reader = mempeep::test::MockMemoryReader<uint8_t, data>{};
+  mempeep::test::Game game{};
+  mempeep::ErrorTracer tracer{};
+  CHECK(!mempeep::read(reader, base, game, tracer));
+  SUBCASE("level") { CHECK_EQ(game.level, 17); }
+  SUBCASE("player") {
+    CHECK_EQ(game.player.health, 123);
+    CHECK_EQ(game.player.pos.x, 11);
+    CHECK_EQ(game.player.pos.y, 22);
+    CHECK_EQ(game.player.target_ptr, 0);
+    CHECK_EQ(game.player.shop_ptr, 2);
+    CHECK_EQ(game.player.weapon_ptr, 6);
+    CHECK_EQ(game.player.prev_pos.x, 0);  // failed
+    CHECK_EQ(game.player.prev_pos.y, 0);  // failed
+    CHECK_EQ(game.player.mana, 47);
+    SUBCASE("tagged_pos") {
+      REQUIRE(game.player.tagged_pos.has_value());  // pointer was not null
+      CHECK(game.player.tagged_pos->x == 0);        // failed
+      CHECK(game.player.tagged_pos->y == 0);        // failed
+    }
+    CHECK(!game.player.house_pos.has_value());
+  }
+}
+
+TEST_CASE("failed_read") {
+  auto reader = mempeep::test::MockMemoryConst<uint8_t, false>{};
+  mempeep::test::Game game{};
+  mempeep::ErrorTracer tracer{};
+  CHECK(!mempeep::read(reader, 0, game, tracer));
+}
+
+TEST_CASE("overflow") {
+  struct Overflow {
+    using remote_layout
+      = mempeep::Layout<mempeep::Pad<0xff>, mempeep::Pad<0xff>>;
+  };
+
+  auto reader = mempeep::test::MockMemoryConst<uint8_t, true>{};
+  Overflow overflow{};
+  mempeep::ErrorTracer tracer{};
+  CHECK(!mempeep::read(reader, 0, overflow, tracer));
 }
