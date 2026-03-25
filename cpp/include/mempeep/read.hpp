@@ -2,7 +2,6 @@
 
 #include <limits>  // std::numeric_limits
 #include <mempeep/descriptor.hpp>
-#include <mempeep/layout.hpp>
 #include <mempeep/memory.hpp>
 #include <mempeep/tracer.hpp>
 

@@ -37,7 +37,4 @@ template <typename T>
   requires IsDescriptor<T>
 using native_type_t = typename T::native_type;
 
-template <typename T>
-concept IsFieldsItem = requires { typename T::fields_item_tag; };
-
 }  // namespace mempeep

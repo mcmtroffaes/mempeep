@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <mempeep/layout.hpp>
+#include <mempeep/descriptor.hpp>
 
 namespace mempeep::test {
 
