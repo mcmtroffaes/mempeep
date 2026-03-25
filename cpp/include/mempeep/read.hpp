@@ -139,7 +139,7 @@ template <IsAddress AddrT, IsMemoryReader MemoryReader, IsTracer Tracer>
     <= std::numeric_limits<AddrT>::max()
   )
 [[nodiscard]] Cursor<MemoryReader> read_value_impl(
-  RawAddr<AddrT> item,
+  RawAddr<AddrT>,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
   native_type_t<RawAddr<AddrT>>& target,  // AddrT
@@ -178,7 +178,7 @@ template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
 
 template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_value_impl(
-  NullableRef<Desc> item,
+  NullableRef<Desc>,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
   native_type_t<NullableRef<Desc>>& target,  // std::optional
@@ -207,7 +207,7 @@ template <
   IsMemoryReader MemoryReader,
   IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_value_impl(
-  Array<Desc, N> item,
+  Array<Desc, N>,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
   native_type_t<Array<Desc, N>>& target,  // std::array
@@ -227,7 +227,7 @@ template <
   IsMemoryReader MemoryReader,
   IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_value_impl(
-  Vector<Desc, MaxLen> item,
+  Vector<Desc, MaxLen>,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
   native_type_t<Vector<Desc, MaxLen>>& target,  // std::vector
@@ -279,7 +279,7 @@ template <
     <= std::numeric_limits<detail::member_type_t<Next>>::max()
   )
 [[nodiscard]] Cursor<MemoryReader> read_value_impl(
-  CircularList<Desc, Next, MaxLen> item,
+  CircularList<Desc, Next, MaxLen>,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
   native_type_t<CircularList<Desc, Next, MaxLen>>& target,
