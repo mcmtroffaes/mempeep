@@ -1,37 +1,10 @@
 #pragma once
 
 #include <cstddef>              // std::size_t
-#include <mempeep/address.hpp>  // IsAddress
-#include <mempeep/traits.hpp>   // member_type_t, ...
+#include <mempeep/concepts.hpp>  // IsAddress
+#include <mempeep/detail/traits.hpp>   // member_type_t, ...
 
 namespace mempeep {
-
-/** @brief Primitive types that be directly copied in memory.
- *
- * A type satisfies IsPrimitive if it can be copied byte-for-byte
- * (e.g. via memcpy) without requiring construction, destruction,
- * or pointer fixups.
- *
- * This includes all numeric types, and all types tagged with the
- * `is_primitive_tag`.
- *
- * @warning
- * Incorrectly tagging a type as primitive may lead to undefined behavior.
- *
- * Example:
- * @code
- * struct Pos {
- *   using is_primitive_tag = void;
- *   float x, y, z;
- * }
- * @endcode
- *
- * Constrained on layout items so failures are caught at layout
- * definition time, not at memory reading time.
- */
-template <typename T>
-concept IsPrimitive = requires { typename T::is_primitive_tag; }
-                      || std::integral<T> || std::floating_point<T>;
 
 template <typename T>
 concept IsFieldsItem = requires { typename T::fields_item_tag; };
@@ -49,21 +22,6 @@ concept IsFieldsItem = requires { typename T::fields_item_tag; };
 template <IsFieldsItem... Items>
 struct Fields {};
 
-/**
- * @brief Does T have a custom layout?
- *
- * Checks if the function fields(fields_tag<T>) exists.
- */
-template <typename T>
-concept IsStruct = requires { typename T::fields; };
-
-/**
- * @brief Shorthand for return type of `fields(fields_tag<T>{})`.
- */
-template <typename T>
-  requires IsStruct<T>
-using fields_t = typename T::fields;
-
 template <typename T>
 concept IsReadable = IsPrimitive<T> || IsStruct<T>;
 
@@ -75,7 +33,7 @@ concept IsReadable = IsPrimitive<T> || IsStruct<T>;
  * @tparam M The field to deserialize into.
  */
 template <auto M>
-  requires IsReadable<member_type_t<M>>
+  requires IsReadable<detail::member_type_t<M>>
 struct Field {
   using fields_item_tag = void;
 };
@@ -119,7 +77,7 @@ struct Seek {
  * @tparam M The field to store the address into.
  */
 template <auto M>
-  requires IsAddress<member_type_t<M>>
+  requires IsAddress<detail::member_type_t<M>>
 struct RawAddr {
   using fields_item_tag = void;
 };
@@ -133,7 +91,7 @@ struct RawAddr {
  * @tparam M The field to deserialize the pointee into.
  */
 template <auto M>
-  requires IsReadable<member_type_t<M>>
+  requires IsReadable<detail::member_type_t<M>>
 struct Ref {
   using fields_item_tag = void;
 };
@@ -149,25 +107,26 @@ struct Ref {
  *           Must have type std::optional<T> where T is readable.
  */
 template <auto M>
-  requires IsReadable<unwrap_optional_t<member_type_t<M>>>
+  requires IsReadable<detail::unwrap_optional_t<detail::member_type_t<M>>>
 struct NullableRef {
   using fields_item_tag = void;
 };
 
 template <auto M>
-  requires IsReadable<unwrap_array_t<member_type_t<M>>>
+  requires IsReadable<detail::unwrap_array_t<detail::member_type_t<M>>>
 struct Array {
   using fields_item_tag = void;
 };
 
 template <auto M>
-  requires IsReadable<unwrap_vector_t<member_type_t<M>>>
+  requires IsReadable<detail::unwrap_vector_t<detail::member_type_t<M>>>
 struct Vector {
   using fields_item_tag = void;
 };
 
 template <auto M, auto N, std::size_t L>
-  requires IsReadable<unwrap_vector_t<member_type_t<M>>> && IsAddress<member_type_t<N>>
+  requires IsReadable<detail::unwrap_vector_t<detail::member_type_t<M>>>
+           && IsAddress<detail::member_type_t<N>>
 struct CircularList {
   using fields_item_tag = void;
 };

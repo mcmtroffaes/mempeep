@@ -1,22 +1,13 @@
+// All descriptors.
+
 #pragma once
 
 #include <cstddef>
-#include <mempeep/layout.hpp>
+#include <mempeep/concepts.hpp>
+#include <mempeep/detail/traits.hpp>
 #include <optional>
 
-namespace mempeep::wip {
-
-/**
- * @brief Concept satisfied by all descriptor types.
- *
- * A descriptor describes how to read a value from remote memory and what
- * native type it produces. Every descriptor exposes a `native_type` alias
- * giving the native type it populates.
- */
-template <typename Desc>
-concept IsDescriptor = requires {
-  typename Desc::native_type;
-};
+namespace mempeep {
 
 /**
  * @brief Reads sizeof(T) bytes directly from remote memory into a T.
@@ -151,12 +142,13 @@ struct Vector {
  *                infinite loops on corrupt data.
  */
 template <IsDescriptor Desc, auto Next, std::size_t MaxLen>
-  requires std::same_as<member_class_t<Next>, typename Desc::native_type>
-           && IsAddress<member_type_t<Next>>
+  requires std::
+             same_as<detail::member_class_t<Next>, typename Desc::native_type>
+           && IsAddress<detail::member_type_t<Next>>
 struct CircularList {
   using native_type = std::vector<typename Desc::native_type>;
   using element_descriptor = Desc;
   static constexpr std::size_t max_len = MaxLen;
 };
 
-}  // namespace mempeep::wip
+}  // namespace mempeep

@@ -5,7 +5,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace mempeep {
+namespace mempeep::detail {
 
 template <auto M>
   requires std::is_member_object_pointer_v<decltype(M)>
@@ -60,4 +60,4 @@ struct unwrap_vector<std::vector<U>> {
 template <typename T>
 using unwrap_vector_t = typename unwrap_vector<T>::type;
 
-}  // namespace mempeep
+}  // namespace mempeep::detail

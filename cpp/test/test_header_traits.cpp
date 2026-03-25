@@ -1,4 +1,4 @@
 // not a doctest to ensure no other includes
-#include <mempeep/traits.hpp>
+#include <mempeep/detail/traits.hpp>
 
 int main() { return 0; }

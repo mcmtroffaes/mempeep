@@ -3,9 +3,7 @@
 #include <optional>
 #include <vector>
 
-struct PrimTriv {
-  using is_primitive_tag = void;
-};
+struct PrimTriv {};
 
 struct RemTriv {
   using fields = mempeep::Fields<>;
@@ -54,8 +52,8 @@ static_assert(mempeep::IsPrimitive<uintmax_t>);
 static_assert(mempeep::IsPrimitive<size_t>);
 static_assert(mempeep::IsPrimitive<ptrdiff_t>);
 static_assert(mempeep::IsPrimitive<PrimTriv>);
-static_assert(!mempeep::IsPrimitive<std::optional<int>>);
-static_assert(!mempeep::IsPrimitive<std::array<int, 5>>);
+static_assert(mempeep::IsPrimitive<std::optional<int>>);  // it is!
+static_assert(mempeep::IsPrimitive<std::array<int, 5>>);  // it is!
 static_assert(!mempeep::IsPrimitive<std::vector<int>>);
 static_assert(!mempeep::IsPrimitive<RemTriv>);
 static_assert(!mempeep::IsPrimitive<SomeStruct>);

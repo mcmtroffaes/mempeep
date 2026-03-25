@@ -2,7 +2,7 @@
 #include <concepts>
 #include <mempeep/descriptor.hpp>
 
-using namespace mempeep::wip;
+using namespace mempeep;
 
 using Int = Primitive<int>;
 
