@@ -6,11 +6,24 @@
 
 namespace mempeep::wip {
 
-template <typename D>
-concept IsDescriptor = requires { typename D::descriptor_tag; };
+/**
+ * @brief Concept satisfied by all descriptor types.
+ *
+ * A descriptor describes how to read a value from remote memory and what
+ * native type it produces. Every descriptor exposes a `value_type` alias
+ * giving the native type it populates.
+ */
+template <typename Desc>
+concept IsDescriptor = requires {
+  // extra tag to exclude non-mempeep types who expose value_type
+  typename Desc::descriptor_tag;
+  typename Desc::value_type;
+};
 
 /**
- * @brief Reads sizeof(T) bytes directly into a T.
+ * @brief Reads sizeof(T) bytes directly from remote memory into a T.
+ *
+ * @tparam T The primitive type to read. Must satisfy IsPrimitive.
  */
 template <typename T>
   requires IsPrimitive<T>
@@ -20,7 +33,13 @@ struct Primitive {
 };
 
 /**
- * @brief Reads a T using its remote_layout.
+ * @brief Reads a struct using its own remote_layout.
+ *
+ * Delegates to the layout machinery for T, allowing structs with a
+ * `remote_layout` to be used as descriptors and composed inside `Array`,
+ * `Vector`, `Ref`, etc.
+ *
+ * @tparam T The struct type to read. Must satisfy HasRemoteLayout.
  */
 template <HasRemoteLayout T>
 struct RemoteLayout {
@@ -29,9 +48,13 @@ struct RemoteLayout {
 };
 
 /**
- * @brief Reads sizeof(address_t) bytes.
+ * @brief Reads an address without following it.
  *
- * Stores the raw address as AddrT.
+ * Reads sizeof(reader's address type) bytes and stores the raw address
+ * value as `AddrT`. No indirection is performed.
+ *
+ * @tparam AddrT The type to store the address in. Must satisfy IsAddress
+ *               and be wide enough to hold the reader's address type.
  */
 template <IsAddress AddrT>
 struct RawAddr {
@@ -40,33 +63,49 @@ struct RawAddr {
 };
 
 /**
- * @brief Reads an address, follows it, reads the pointee using Desc.
+ * @brief Reads an address and follows it, reading the pointee
+ * using `Desc`.
  *
- * Errors if null.
+ * Reports `Error::ADDRESS_NULL` if the address is zero. The address
+ * itself is not stored; only the pointee value is written into the native
+ * object.
+ *
+ * @tparam Desc Descriptor for the pointee. `Desc::value_type` is the native
+ *              type produced.
  */
 template <IsDescriptor Desc>
 struct Ref {
   using descriptor_tag = void;
   using value_type = typename Desc::value_type;
-  using pointee_descriptor = Desc;
+  using element_descriptor = Desc;
 };
 
 /**
- * @brief Like Ref, but null is allowed.
+ * @brief Like `Ref`, but a null address is allowed.
  *
- * Stored as `std::optional<...>`.
+ * If the address is zero, the field is set to `std::nullopt` and no error
+ * is reported. If non-zero, the pointee is read using `Desc`. The address
+ * word itself is not stored.
+ *
+ * @tparam Desc Descriptor for the pointee. The native type produced is
+ *              `std::optional<Desc::value_type>`.
  */
 template <IsDescriptor Desc>
 struct NullableRef {
   using descriptor_tag = void;
   using value_type = std::optional<typename Desc::value_type>;
-  using pointee_descriptor = Desc;
+  using element_descriptor = Desc;
 };
 
 /**
- * @brief Array descriptor.
+ * @brief Reads N consecutive elements from remote memory using Desc.
  *
- * Read N consecutive elements using Desc into `std::array<value_type, N>`.
+ * Elements are read sequentially with no gaps between them. The cursor
+ * advances by the total size of all elements.
+ *
+ * @tparam Desc Descriptor for each element. `Desc::value_type` is the
+ *              element type.
+ * @tparam N    Number of elements to read.
  */
 template <IsDescriptor Desc, std::size_t N>
 struct Array {
@@ -77,14 +116,20 @@ struct Array {
 };
 
 /**
- * @brief Reads a begin/end pointer pair, then each element using Desc,
- * into `std::vector<Desc::value_type>`.
+ * @brief Reads a begin/end address pair, then each element using `Desc`.
  *
- * @tparam Desc   Descriptor for each element.
- *                `Desc::value_type` is the element type.
+ * The two addresses are read from the current address. Elements are
+ * then read from [begin, end). Reports `Error::ADDRESS_NULL` if begin is
+ * zero, `Error::VECTOR_INVALID_RANGE` if begin is past end,
+ * `Error::VECTOR_MISALIGNED` if end is not reachable by advancing by whole
+ * element sizes, and `Error::VECTOR_TOO_LONG` if the element count exceeds
+ * `MaxLen`. The cursor advances past the two addresses only, not past
+ * the elements.
+ *
+ * @tparam Desc   Descriptor for each element. `Desc::value_type` is the
+ *                element type.
  * @tparam MaxLen Maximum number of elements to read before reporting
  *                `Error::VECTOR_TOO_LONG` and stopping.
- *                Prevents infinite loops on corrupt data.
  */
 template <IsDescriptor Desc, std::size_t MaxLen>
 struct Vector {
@@ -97,20 +142,26 @@ struct Vector {
 /**
  * @brief Descriptor for a circular intrusive linked list.
  *
- * Reads a head pointer from the current address (like NullableRef: null means
- * empty list), then follows next pointers until the address wraps back to the
- * head. Produces a `std::list<Desc::value_type>` containing the nodes in
- * traversal order.
+ * Reads a head address from the current address. If null, the list is
+ * empty and no error is reported. Otherwise, nodes are read starting from
+ * the head address using Desc, and traversal continues by following the
+ * address stored in the `Next` field of each decoded node until that address
+ * equals the head address. Reports `Error::CIRCULAR_LIST_TOO_LONG` if the
+ * node count exceeds `MaxLen` before the list closes. The cursor advances
+ * past the stored head address only, not past the nodes themselves.
  *
- * @tparam Desc   Descriptor for each node. `Desc::value_type` is the node type.
- * @tparam Next   Member pointer into `Desc::value_type` pointing at the field
- *                that holds the raw address of the next node.
+ * @tparam Desc   Descriptor for each node. Desc::value_type is the node
+ *                type.
+ * @tparam Next   Member pointer into Desc::value_type identifying the
+ *                field that holds the raw address of the next node. Must
+ *                satisfy IsAddress.
  * @tparam MaxLen Maximum number of nodes to read before reporting
- *                `Error::CIRCULAR_LIST_TOO_LONG` and stopping.
- *                Prevents infinite loops on corrupt data.
+ *                Error::CIRCULAR_LIST_TOO_LONG and stopping. Prevents
+ *                infinite loops on corrupt data.
  */
 template <IsDescriptor Desc, auto Next, std::size_t MaxLen>
-  requires IsAddress<member_type_t<Next>>
+  requires std::same_as<member_class_t<Next>, typename Desc::value_type>
+           && IsAddress<member_type_t<Next>>
 struct CircularList {
   using descriptor_tag = void;
   using value_type = std::vector<typename Desc::value_type>;
