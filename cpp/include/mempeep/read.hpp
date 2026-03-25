@@ -64,7 +64,7 @@ template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_value(
   const MemoryReader& reader,
   address_t<MemoryReader> addr,
-  typename Desc::native_type& out,
+  native_type_t<Desc>& out,
   Tracer& tracer
 );
 
@@ -73,7 +73,7 @@ Cursor<MemoryReader> read_value_impl(
   Primitive<T>,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
-  typename Primitive<T>::native_type& target,  // i.e. T&
+  native_type_t<Primitive<T>>& target,  // T
   Tracer& tracer
 ) {
   if (reader(address, sizeof(target), &target)) {
@@ -139,7 +139,7 @@ template <IsAddress AddrT, IsMemoryReader MemoryReader, IsTracer Tracer>
   RawAddr<AddrT> item,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
-  typename RawAddr<AddrT>::native_type& target,  // AddrT
+  native_type_t<RawAddr<AddrT>>& target,  // AddrT
   Tracer& tracer
 ) {
   address_t<MemoryReader> raw{};
@@ -160,7 +160,7 @@ template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
   Ref<Desc>,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
-  typename Ref<Desc>::native_type& target,  // Desc::native_type
+  native_type_t<Ref<Desc>>& target,  // native_type_t<Desc>
   Tracer& tracer
 ) {
   address_t<MemoryReader> target_ptr{};
@@ -183,7 +183,7 @@ template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
   NullableRef<Desc> item,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
-  typename NullableRef<Desc>::native_type& target,  // std::optional
+  native_type_t<NullableRef<Desc>>& target,  // std::optional
   Tracer& tracer
 ) {
   address_t<MemoryReader> target_ptr{};
@@ -212,7 +212,7 @@ template <
   Array<Desc, N> item,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
-  typename Array<Desc, N>::native_type& target,  // std::array
+  native_type_t<Array<Desc, N>>& target,  // std::array
   Tracer& tracer
 ) {
   Cursor<MemoryReader> cursor{address};
@@ -232,7 +232,7 @@ template <
   Vector<Desc, MaxLen> item,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
-  typename Vector<Desc, MaxLen>::native_type& target,  // std::vector
+  native_type_t<Vector<Desc, MaxLen>>& target,  // std::vector
   Tracer& tracer
 ) {
   address_t<MemoryReader> begin_ptr{};
@@ -344,7 +344,7 @@ template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_value(
   const MemoryReader& reader,
   address_t<MemoryReader> addr,
-  typename Desc::native_type& out,
+  native_type_t<Desc>& out,
   Tracer& tracer
 ) {
   return read_value_impl(Desc{}, reader, addr, out, tracer);
@@ -375,7 +375,7 @@ template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] auto read(
   const MemoryReader& reader,
   address_t<MemoryReader> address,
-  typename Desc::native_type& target,
+  native_type_t<Desc>& target,
   Tracer& tracer
 ) {
   std::ignore = detail::read_value<Desc>(reader, address, target, tracer);

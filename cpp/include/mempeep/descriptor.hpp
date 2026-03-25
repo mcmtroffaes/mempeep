@@ -79,7 +79,7 @@ struct RawAddr {
  */
 template <IsDescriptor Desc>
 struct Ref {
-  using native_type = typename Desc::native_type;
+  using native_type = native_type_t<Desc>;
 };
 
 /**
@@ -90,11 +90,11 @@ struct Ref {
  * word itself is not stored.
  *
  * @tparam Desc Descriptor for the pointee. The native type produced is
- *              `std::optional<Desc::native_type>`.
+ *              `std::optional<native_type_t<Desc>>`.
  */
 template <IsDescriptor Desc>
 struct NullableRef {
-  using native_type = std::optional<typename Desc::native_type>;
+  using native_type = std::optional<native_type_t<Desc>>;
 };
 
 /**
@@ -103,13 +103,13 @@ struct NullableRef {
  * Elements are read sequentially with no gaps between them. The cursor
  * advances by the total size of all elements.
  *
- * @tparam Desc Descriptor for each element. `Desc::native_type` is the
+ * @tparam Desc Descriptor for each element. `native_type_t<Desc>` is the
  *              element type.
  * @tparam N    Number of elements to read.
  */
 template <IsDescriptor Desc, std::size_t N>
 struct Array {
-  using native_type = std::array<typename Desc::native_type, N>;
+  using native_type = std::array<native_type_t<Desc>, N>;
 };
 
 /**
@@ -130,7 +130,7 @@ struct Array {
  */
 template <IsDescriptor Desc, std::size_t MaxLen>
 struct Vector {
-  using native_type = std::vector<typename Desc::native_type>;
+  using native_type = std::vector<native_type_t<Desc>>;
 };
 
 /**
@@ -155,10 +155,10 @@ struct Vector {
  */
 template <IsDescriptor Desc, auto Next, std::size_t MaxLen>
   requires std::
-             same_as<detail::member_class_t<Next>, typename Desc::native_type>
+             same_as<detail::member_class_t<Next>, native_type_t<Desc>>
            && IsAddress<detail::member_type_t<Next>>
 struct CircularList {
-  using native_type = std::vector<typename Desc::native_type>;
+  using native_type = std::vector<native_type_t<Desc>>;
 };
 
 // In the remainder of this file we set up everything for the Struct descriptor.
@@ -174,7 +174,7 @@ struct CircularList {
  * @tparam M    The field to deserialize into (where it is copied to natively).
  */
 template <IsDescriptor Desc, auto M>
-  requires std::same_as<typename Desc::native_type, detail::member_type_t<M>>
+  requires std::same_as<native_type_t<Desc>, detail::member_type_t<M>>
 struct Field {
   using fields_item_tag = void;
 };
