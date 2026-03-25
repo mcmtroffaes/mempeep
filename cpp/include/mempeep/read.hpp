@@ -353,22 +353,19 @@ template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
 namespace mempeep {
 
 /**
- * @brief Reads data from remote memory into a native object based on a
- * specified layout.
+ * @brief Reads data from remote memory into a native object.
  *
- * The function will try to read as much data as possible, i.e. even after
- * failing to read subfields.
- * Returns the result of `tracer.success()`.
- * By convention, this value is convertible to bool, and evaluates to true
- * if no errors were reported, and false otherwise.
+ * Reads `native_type_t<Desc>` from `address` using `reader`, populating
+ * `target`. Attempts to read as much as possible even after partial
+ * failures. Returns the result of `tracer.success()`.
  *
- * @tparam MemoryReader The type for the reader callback.
- * @tparam Desc   The descriptor for the deserialization layout.
- * @param reader  The memory abstraction providing the `MemoryReader` function.
- * @param address The remote address to start reading from.
- * @param target  The native object to populate
- *                Must have type `native_type_t<Desc>`.
- * @param tracer  The tracer for producing the return value.
+ * @tparam Desc          Descriptor controlling how the value is read.
+ * @tparam MemoryReader  Type satisfying IsMemoryReader.
+ * @tparam Tracer        Type satisfying IsTracer.
+ * @param reader  The memory reader.
+ * @param address Remote address to read from.
+ * @param target  Native object to populate.
+ * @param tracer  Receives error reports; its `success()` is returned.
  * @return The result of `tracer.success()` (convertible to bool).
  */
 template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
