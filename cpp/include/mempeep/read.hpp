@@ -53,12 +53,6 @@ template <IsAddress Addr, IsTracer Tracer>
 template <IsMemoryReader MemoryReader>
 using Cursor = std::optional<address_t<MemoryReader>>;
 
-/**
- * @brief Reads from `addr` using the descriptor.
- *
- * Writes into `out`, and returns the cursor positioned just after the
- * bytes consumed at `addr` (not at the pointee for `Ref`, `Vector`, ...).
- */
 // Forward declaration for mutual recursion.
 template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_value(
@@ -337,7 +331,12 @@ template <
   return cursor;
 }
 
-// read_value dispatch
+/**
+ * @brief Reads value from `addr` using the descriptor `Desc`.
+ *
+ * Writes into `out`, and returns the cursor positioned just after the
+ * bytes consumed at `addr` (not at the pointee for `Ref`, `Vector`, ...).
+ */
 template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_value(
   const MemoryReader& reader,
