@@ -10,14 +10,12 @@ namespace mempeep::wip {
  * @brief Concept satisfied by all descriptor types.
  *
  * A descriptor describes how to read a value from remote memory and what
- * native type it produces. Every descriptor exposes a `value_type` alias
+ * native type it produces. Every descriptor exposes a `native_type` alias
  * giving the native type it populates.
  */
 template <typename Desc>
 concept IsDescriptor = requires {
-  // extra tag to exclude non-mempeep types who expose value_type
-  typename Desc::descriptor_tag;
-  typename Desc::value_type;
+  typename Desc::native_type;
 };
 
 /**
@@ -28,8 +26,7 @@ concept IsDescriptor = requires {
 template <typename T>
   requires IsPrimitive<T>
 struct Primitive {
-  using descriptor_tag = void;
-  using value_type = T;
+  using native_type = T;
 };
 
 /**
@@ -43,8 +40,7 @@ struct Primitive {
  */
 template <IsStruct T>
 struct Struct {
-  using descriptor_tag = void;
-  using value_type = T;
+  using native_type = T;
 };
 
 /**
@@ -58,8 +54,7 @@ struct Struct {
  */
 template <IsAddress AddrT>
 struct RawAddr {
-  using descriptor_tag = void;
-  using value_type = AddrT;
+  using native_type = AddrT;
 };
 
 /**
@@ -70,13 +65,12 @@ struct RawAddr {
  * itself is not stored; only the pointee value is written into the native
  * object.
  *
- * @tparam Desc Descriptor for the pointee. `Desc::value_type` is the native
+ * @tparam Desc Descriptor for the pointee. `Desc::native_type` is the native
  *              type produced.
  */
 template <IsDescriptor Desc>
 struct Ref {
-  using descriptor_tag = void;
-  using value_type = typename Desc::value_type;
+  using native_type = typename Desc::native_type;
   using element_descriptor = Desc;
 };
 
@@ -88,12 +82,11 @@ struct Ref {
  * word itself is not stored.
  *
  * @tparam Desc Descriptor for the pointee. The native type produced is
- *              `std::optional<Desc::value_type>`.
+ *              `std::optional<Desc::native_type>`.
  */
 template <IsDescriptor Desc>
 struct NullableRef {
-  using descriptor_tag = void;
-  using value_type = std::optional<typename Desc::value_type>;
+  using native_type = std::optional<typename Desc::native_type>;
   using element_descriptor = Desc;
 };
 
@@ -103,14 +96,13 @@ struct NullableRef {
  * Elements are read sequentially with no gaps between them. The cursor
  * advances by the total size of all elements.
  *
- * @tparam Desc Descriptor for each element. `Desc::value_type` is the
+ * @tparam Desc Descriptor for each element. `Desc::native_type` is the
  *              element type.
  * @tparam N    Number of elements to read.
  */
 template <IsDescriptor Desc, std::size_t N>
 struct Array {
-  using descriptor_tag = void;
-  using value_type = std::array<typename Desc::value_type, N>;
+  using native_type = std::array<typename Desc::native_type, N>;
   using element_descriptor = Desc;
   static constexpr std::size_t count = N;
 };
@@ -126,15 +118,14 @@ struct Array {
  * `MaxLen`. The cursor advances past the two addresses only, not past
  * the elements.
  *
- * @tparam Desc   Descriptor for each element. `Desc::value_type` is the
+ * @tparam Desc   Descriptor for each element. `Desc::native_type` is the
  *                element type.
  * @tparam MaxLen Maximum number of elements to read before reporting
  *                `Error::VECTOR_TOO_LONG` and stopping.
  */
 template <IsDescriptor Desc, std::size_t MaxLen>
 struct Vector {
-  using descriptor_tag = void;
-  using value_type = std::vector<typename Desc::value_type>;
+  using native_type = std::vector<typename Desc::native_type>;
   using element_descriptor = Desc;
   static constexpr std::size_t max_len = MaxLen;
 };
@@ -150,9 +141,9 @@ struct Vector {
  * node count exceeds `MaxLen` before the list closes. The cursor advances
  * past the stored head address only, not past the nodes themselves.
  *
- * @tparam Desc   Descriptor for each node. Desc::value_type is the node
+ * @tparam Desc   Descriptor for each node. Desc::native_type is the node
  *                type.
- * @tparam Next   Member pointer into Desc::value_type identifying the
+ * @tparam Next   Member pointer into Desc::native_type identifying the
  *                field that holds the raw address of the next node. Must
  *                satisfy IsAddress.
  * @tparam MaxLen Maximum number of nodes to read before reporting
@@ -160,11 +151,10 @@ struct Vector {
  *                infinite loops on corrupt data.
  */
 template <IsDescriptor Desc, auto Next, std::size_t MaxLen>
-  requires std::same_as<member_class_t<Next>, typename Desc::value_type>
+  requires std::same_as<member_class_t<Next>, typename Desc::native_type>
            && IsAddress<member_type_t<Next>>
 struct CircularList {
-  using descriptor_tag = void;
-  using value_type = std::vector<typename Desc::value_type>;
+  using native_type = std::vector<typename Desc::native_type>;
   using element_descriptor = Desc;
   static constexpr std::size_t max_len = MaxLen;
 };
