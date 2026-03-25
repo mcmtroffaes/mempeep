@@ -9,15 +9,19 @@ namespace mempeep {
 
 template <auto M>
   requires std::is_member_object_pointer_v<decltype(M)>
-struct member_type;
+struct member_traits;
 
 template <typename C, typename T, T C::* M>
-struct member_type<M> {
-  using type = T;
+struct member_traits<M> {
+  using class_type = C;
+  using member_type = T;
 };
 
 template <auto M>
-using member_type_t = typename member_type<M>::type;
+using member_class_t = typename member_traits<M>::class_type;
+
+template <auto M>
+using member_type_t = typename member_traits<M>::member_type;
 
 template <typename T>
 struct unwrap_optional {};
