@@ -296,7 +296,7 @@ template <
   target.clear();
   do {
     auto& elem = target.emplace_back();
-    if (!read_value<Desc>(reader, *list_cursor, elem, tracer)) return {};
+    if (!read_value<Desc>(reader, *list_cursor, elem, tracer)) return cursor;
     list_cursor = static_cast<address_t<MemoryReader>>(elem.*Next);
     if (!list_cursor) {
       tracer.error(Error::ADDRESS_NULL);
