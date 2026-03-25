@@ -21,32 +21,6 @@ struct Primitive {
 };
 
 /**
- * @brief Sequence of field items.
- * 
- * Packs the field items inside a `Struct`.
- * 
- * @tparam Items The field items, mapping the memory layout.
- */
-template <IsFieldsItem... Items>
-struct Fields {};
-
-// Helper class for packing the field items inside `Struct`.
-template <typename T, typename FieldsT>
-struct Struct;
-
-/**
- * @brief Reads a struct using its own fields.
- *
- * @tparam T     The struct type to read.
- * @tparam Items The field items, mapping the memory layout.
- */
-template <typename T, IsFieldsItem... Items>
-struct Struct<T, Fields<Items...>> {
-  using native_type = T;
-  using fields_type = Fields<Items...>;
-};
-
-/**
  * @brief Reads an address without following it.
  *
  * Reads sizeof(reader's address type) bytes and stores the raw address
@@ -161,6 +135,29 @@ struct CircularList {
   using native_type = std::vector<typename Desc::native_type>;
   using element_descriptor = Desc;
   static constexpr std::size_t max_len = MaxLen;
+};
+
+/**
+ * @brief Sequence of field items.
+ *
+ * @tparam Items The field items, mapping the memory layout.
+ */
+template <IsFieldsItem... Items>
+struct Fields {};
+
+// Base template for packing the field items inside `Struct`.
+template <typename T, typename FieldsT>
+struct Struct;
+
+/**
+ * @brief Reads a struct using its own fields.
+ *
+ * @tparam T     The struct type to read.
+ * @tparam Items The field items, mapping the memory layout.
+ */
+template <typename T, IsFieldsItem... Items>
+struct Struct<T, Fields<Items...>> {
+  using native_type = T;
 };
 
 }  // namespace mempeep
