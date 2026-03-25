@@ -42,12 +42,12 @@ concept IsFieldsItem = requires { typename T::fields_item_tag; };
  * Each item must be a Field, Pad, or Seek.
  * Example:
  *
- *   Layout<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>
+ *   Fields<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>
  *
  * @tparam Items Sequence of Field, Seek, and Pad types.
  */
 template <IsFieldsItem... Items>
-struct Layout {};
+struct Fields {};
 
 /**
  * @brief Does T have a custom layout?

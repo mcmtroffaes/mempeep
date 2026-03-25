@@ -9,7 +9,7 @@ struct Pos {
   uint8_t x, y;
 
   // intentionally have padding bytes at end, for testing
-  using fields = Layout<Field<&Pos::x>, Field<&Pos::y>, Pad<2>>;
+  using fields = Fields<Field<&Pos::x>, Field<&Pos::y>, Pad<2>>;
 };
 
 struct Cave {
@@ -30,7 +30,7 @@ struct Player {
   std::optional<Pos> house_pos;
   uint8_t mana;
 
-  using fields = Layout<
+  using fields = Fields<
     Pad<2>,
     Field<&Player::health>,
     Pad<1>,
@@ -52,7 +52,7 @@ struct Game {
   std::vector<Pos> pets;
   std::vector<Cave> caves;
 
-  using fields = Layout<
+  using fields = Fields<
     Seek<1>,
     Field<&Game::level>,
     Seek<4>,

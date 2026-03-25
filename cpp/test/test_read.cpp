@@ -59,7 +59,7 @@ TEST_CASE("failed read: invalid addresses") {
 TEST_CASE("failed read: pad overflow") {
   struct Overflow {
     using fields
-      = mempeep::Layout<mempeep::Pad<0xff>, mempeep::Pad<0xff>>;
+      = mempeep::Fields<mempeep::Pad<0xff>, mempeep::Pad<0xff>>;
   };
 
   auto reader = mempeep::test::MockMemoryReader<uint8_t>{empty_data};
@@ -71,7 +71,7 @@ TEST_CASE("failed read: pad overflow") {
 TEST_CASE("failed read: null ref") {
   struct Obj {
     uint8_t item;
-    using fields = mempeep::Layout<mempeep::Ref<&Obj::item>>;
+    using fields = mempeep::Fields<mempeep::Ref<&Obj::item>>;
   };
 
   auto reader = mempeep::test::MockMemoryReader<uint8_t>{"\x00"};
@@ -83,7 +83,7 @@ TEST_CASE("failed read: null ref") {
 TEST_CASE("failed read: missing ref") {
   struct Obj {
     uint8_t item;
-    using fields = mempeep::Layout<mempeep::Ref<&Obj::item>>;
+    using fields = mempeep::Fields<mempeep::Ref<&Obj::item>>;
   };
 
   auto reader = mempeep::test::MockMemoryReader<uint8_t>{empty_data};
@@ -95,7 +95,7 @@ TEST_CASE("failed read: missing ref") {
 TEST_CASE("failed read: missing nullable ref") {
   struct Obj {
     std::optional<uint8_t> item;
-    using fields = mempeep::Layout<mempeep::NullableRef<&Obj::item>>;
+    using fields = mempeep::Fields<mempeep::NullableRef<&Obj::item>>;
   };
 
   auto reader = mempeep::test::MockMemoryReader<uint8_t>{empty_data};

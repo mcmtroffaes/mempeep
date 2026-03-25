@@ -306,7 +306,7 @@ template <
   IsReadable T,
   IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_layout(
-  Layout<Items...>,
+  Fields<Items...>,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
   T& target,
