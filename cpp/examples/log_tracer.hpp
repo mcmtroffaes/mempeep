@@ -33,9 +33,9 @@ consteval std::string_view member_name() {
   return sig.substr(last_colon + 1, len);
 }
 
-template <auto M, template <auto> class Item>
+template <mempeep::IsDescriptor Desc, auto M>
   requires std::is_member_object_pointer_v<decltype(M)>
-std::string_view item_label(Item<M>) {
+std::string_view item_label(mempeep::Field_<Desc, M>) {
   return member_name<M>();
 }
 

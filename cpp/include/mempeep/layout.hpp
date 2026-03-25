@@ -1,8 +1,9 @@
 #pragma once
 
-#include <cstddef>              // std::size_t
-#include <mempeep/concepts.hpp>  // IsAddress
-#include <mempeep/detail/traits.hpp>   // member_type_t, ...
+#include <cstddef>                    // std::size_t
+#include <mempeep/concepts.hpp>       // IsAddress
+#include <mempeep/descriptor.hpp>     // Primitive, Ref, Array, Struct, ...
+#include <mempeep/detail/traits.hpp>  // member_type_t, ...
 
 namespace mempeep {
 
@@ -10,31 +11,23 @@ template <typename T>
 concept IsFieldsItem = requires { typename T::fields_item_tag; };
 
 /**
- * @brief Defines a remote layout.
+ * @brief Defines the fields of a Struct.
  *
- * Each item must be a Field, Pad, or Seek.
- * Example:
- *
- *   Fields<Field<&Pos::x>, Pad<4>, Field<&Pos::y>>
- *
- * @tparam Items Sequence of Field, Seek, and Pad types.
+ * @tparam Items Sequence of Field_, Seek, and Pad types.
  */
 template <IsFieldsItem... Items>
 struct Fields {};
 
-template <typename T>
-concept IsReadable = IsPrimitive<T> || IsStruct<T>;
-
 /**
  * @brief A field. Its type must be readable.
  *
- * For example, Field<&Class::member>.
+ * For example, Field_<&Class::member>.
  *
  * @tparam M The field to deserialize into.
  */
-template <auto M>
-  requires IsReadable<detail::member_type_t<M>>
-struct Field {
+template <IsDescriptor Desc, auto M>
+  requires std::same_as<typename Desc::native_type, detail::member_type_t<M>>
+struct Field_ {
   using fields_item_tag = void;
 };
 
@@ -65,70 +58,6 @@ template <auto N>
 struct Seek {
   using fields_item_tag = void;
   static constexpr std::size_t offset = static_cast<std::size_t>(N);
-};
-
-/**
- * @brief Read a remote address without following it, storing it in the member.
- *
- * Always reads exactly sizeof(address_type) bytes, not
- * sizeof(member_type_t<M>). The result is cast to the member type, which must
- * be wide enough to hold address_t<MemoryReader>, or a compile error results.
- *
- * @tparam M The field to store the address into.
- */
-template <auto M>
-  requires IsAddress<detail::member_type_t<M>>
-struct RawAddr {
-  using fields_item_tag = void;
-};
-
-/**
- * @brief Read a remote address and follow it, reading the pointee into the
- * member. The address itself is not stored.
- *
- * Errors if the address is null.
- *
- * @tparam M The field to deserialize the pointee into.
- */
-template <auto M>
-  requires IsReadable<detail::member_type_t<M>>
-struct Ref {
-  using fields_item_tag = void;
-};
-
-/**
- * @brief Read a remote address and follow it, reading the pointee into the
- * member. The address itself is not stored.
- *
- * If the address is null, the member is set to std::nullopt and no error
- * is reported.
- *
- * @tparam M The field to deserialize the pointee into.
- *           Must have type std::optional<T> where T is readable.
- */
-template <auto M>
-  requires IsReadable<detail::unwrap_optional_t<detail::member_type_t<M>>>
-struct NullableRef {
-  using fields_item_tag = void;
-};
-
-template <auto M>
-  requires IsReadable<detail::unwrap_array_t<detail::member_type_t<M>>>
-struct Array {
-  using fields_item_tag = void;
-};
-
-template <auto M>
-  requires IsReadable<detail::unwrap_vector_t<detail::member_type_t<M>>>
-struct Vector {
-  using fields_item_tag = void;
-};
-
-template <auto M, auto N, std::size_t L>
-  requires IsReadable<detail::unwrap_vector_t<detail::member_type_t<M>>>
-           && IsAddress<detail::member_type_t<N>>
-struct CircularList {
-  using fields_item_tag = void;
 };
 
 }  // namespace mempeep

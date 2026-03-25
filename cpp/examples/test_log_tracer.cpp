@@ -11,6 +11,8 @@ using namespace mempeep;
 
 // --- Types ---
 
+using TInt8 = Primitive<int8_t>;
+
 struct Pos {
   int8_t x, y;
 
@@ -18,8 +20,11 @@ struct Pos {
   // 1: pad
   // 2: y
   // 3: pad
-  using fields = Fields<Field<&Pos::x>, Pad<1>, Field<&Pos::y>, Pad<1>>;
+  using fields
+    = Fields<Field_<TInt8, &Pos::x>, Pad<1>, Field_<TInt8, &Pos::y>, Pad<1>>;
 };
+
+using TPos = Struct<Pos>;
 
 struct Entity {
   int8_t id;
@@ -37,13 +42,15 @@ struct Entity {
   // 10:  opt_pos (read address, follow if non-null)
   using fields = Fields<
     Seek<2>,
-    Field<&Entity::id>,
+    Field_<TInt8, &Entity::id>,
     Pad<1>,
-    Field<&Entity::pos>,
-    RawAddr<&Entity::target_addr>,
-    Ref<&Entity::extra_pos>,
-    NullableRef<&Entity::opt_pos>>;
+    Field_<TPos, &Entity::pos>,
+    Field_<RawAddr<uint8_t>, &Entity::target_addr>,
+    Field_<Ref<TPos>, &Entity::extra_pos>,
+    Field_<NullableRef<TPos>, &Entity::opt_pos>>;
 };
+
+using TEntity = Struct<Entity>;
 
 static void report(bool ok, const Entity& e) {
   std::cout << "-- decoded (success=" << std::boolalpha << ok << ") --\n";
@@ -66,7 +73,7 @@ static void read_entity(const char (&data)[N]) {
   BufferReader reader{data};
   Entity e{};
   LogTracer tracer{std::cout};
-  const bool ok = mempeep::read(reader, uint8_t{0}, e, tracer);
+  const bool ok = mempeep::read<TEntity>(reader, uint8_t{0}, e, tracer);
   report(ok, e);
 }
 

@@ -8,34 +8,37 @@
 
 #include "support/mock_game_data.hpp"
 
+using namespace mempeep;
+
 // truly empty data
 // (can't use "" as it includes null terminator)
 static constexpr std::array<uint8_t, 0> empty_data{};
 
+using TUInt8 = Primitive<uint8_t>;
+
 TEST_CASE("successful read") {
   static constexpr uint8_t base{4};
-  auto reader
-    = mempeep::test::MockMemoryReader<uint8_t>{mempeep::test::game_data};
-  mempeep::test::Game game{};
-  mempeep::ErrorTracer tracer{};
-  CHECK(mempeep::read(reader, base, game, tracer));
-  mempeep::test::check_game(game);
+  auto reader = test::MockMemoryReader<uint8_t>{test::game_data};
+  test::Game game{};
+  ErrorTracer tracer{};
+  CHECK(read<test::TGame>(reader, base, game, tracer));
+  test::check_game(game);
 }
 
 TEST_CASE("failed read: complete failure") {
-  auto reader = mempeep::test::MockMemoryReader<uint8_t>{empty_data};
-  mempeep::test::Game game{};
-  mempeep::ErrorTracer tracer{};
-  CHECK(!mempeep::read(reader, 0, game, tracer));
+  auto reader = test::MockMemoryReader<uint8_t>{empty_data};
+  test::Game game{};
+  ErrorTracer tracer{};
+  CHECK(!read<test::TGame>(reader, 0, game, tracer));
 }
 
 TEST_CASE("failed read: invalid addresses") {
   static constexpr uint8_t base{4};
-  static constexpr std::string_view data{mempeep::test::game_data, 23};
-  auto reader = mempeep::test::MockMemoryReader<uint8_t>{data};
-  mempeep::test::Game game{};
-  mempeep::ErrorTracer tracer{};
-  CHECK(!mempeep::read(reader, base, game, tracer));
+  static constexpr std::string_view data{test::game_data, 23};
+  auto reader = test::MockMemoryReader<uint8_t>{data};
+  test::Game game{};
+  ErrorTracer tracer{};
+  CHECK(!read<test::TGame>(reader, base, game, tracer));
   SUBCASE("level") { CHECK_EQ(game.level, 17); }
   SUBCASE("player") {
     CHECK_EQ(game.player.health, 123);
@@ -58,48 +61,47 @@ TEST_CASE("failed read: invalid addresses") {
 
 TEST_CASE("failed read: pad overflow") {
   struct Overflow {
-    using fields
-      = mempeep::Fields<mempeep::Pad<0xff>, mempeep::Pad<0xff>>;
+    using fields = Fields<Pad<0xff>, Pad<0xff>>;
   };
 
-  auto reader = mempeep::test::MockMemoryReader<uint8_t>{empty_data};
+  auto reader = test::MockMemoryReader<uint8_t>{empty_data};
   Overflow overflow{};
-  mempeep::ErrorTracer tracer{};
-  CHECK(!mempeep::read(reader, 0, overflow, tracer));
+  ErrorTracer tracer{};
+  CHECK(!read<Struct<Overflow>>(reader, 0, overflow, tracer));
 }
 
 TEST_CASE("failed read: null ref") {
   struct Obj {
     uint8_t item;
-    using fields = mempeep::Fields<mempeep::Ref<&Obj::item>>;
+    using fields = Fields<Field_<Ref<TUInt8>, &Obj::item>>;
   };
 
-  auto reader = mempeep::test::MockMemoryReader<uint8_t>{"\x00"};
+  auto reader = test::MockMemoryReader<uint8_t>{"\x00"};
   Obj obj{};
-  mempeep::ErrorTracer tracer{};
-  CHECK(!mempeep::read(reader, 0, obj, tracer));
+  ErrorTracer tracer{};
+  CHECK(!read<Struct<Obj>>(reader, 0, obj, tracer));
 }
 
 TEST_CASE("failed read: missing ref") {
   struct Obj {
     uint8_t item;
-    using fields = mempeep::Fields<mempeep::Ref<&Obj::item>>;
+    using fields = Fields<Field_<Ref<TUInt8>, &Obj::item>>;
   };
 
-  auto reader = mempeep::test::MockMemoryReader<uint8_t>{empty_data};
+  auto reader = test::MockMemoryReader<uint8_t>{empty_data};
   Obj obj{};
-  mempeep::ErrorTracer tracer{};
-  CHECK(!mempeep::read(reader, 0, obj, tracer));
+  ErrorTracer tracer{};
+  CHECK(!read<Struct<Obj>>(reader, 0, obj, tracer));
 }
 
 TEST_CASE("failed read: missing nullable ref") {
   struct Obj {
     std::optional<uint8_t> item;
-    using fields = mempeep::Fields<mempeep::NullableRef<&Obj::item>>;
+    using fields = Fields<Field_<NullableRef<TUInt8>, &Obj::item>>;
   };
 
-  auto reader = mempeep::test::MockMemoryReader<uint8_t>{empty_data};
+  auto reader = test::MockMemoryReader<uint8_t>{empty_data};
   Obj obj{};
-  mempeep::ErrorTracer tracer{};
-  CHECK(!mempeep::read(reader, 0, obj, tracer));
+  ErrorTracer tracer{};
+  CHECK(!read<Struct<Obj>>(reader, 0, obj, tracer));
 }

@@ -5,19 +5,23 @@
 
 namespace mempeep::test {
 
+using TUInt8 = Primitive<uint8_t>;
+
 struct Pos {
   uint8_t x, y;
 
   // intentionally have padding bytes at end, for testing
-  using fields = Fields<Field<&Pos::x>, Field<&Pos::y>, Pad<2>>;
+  using fields = Fields<Field_<TUInt8, &Pos::x>, Field_<TUInt8, &Pos::y>, Pad<2>>;
 };
+
+using TPos = Struct<Pos>;
 
 struct Cave {
   uint8_t id;
   uint8_t next;
-
-  using is_primitive_tag = void;
 };
+
+using TCave = Primitive<Cave>;
 
 struct Player {
   uint8_t health;
@@ -32,18 +36,21 @@ struct Player {
 
   using fields = Fields<
     Pad<2>,
-    Field<&Player::health>,
+    Field_<TUInt8, &Player::health>,
     Pad<1>,
-    Field<&Player::pos>,
-    RawAddr<&Player::target_ptr>,
-    RawAddr<&Player::shop_ptr>,
-    RawAddr<&Player::weapon_ptr>,
-    Ref<&Player::prev_pos>,
-    NullableRef<&Player::tagged_pos>,
-    NullableRef<&Player::house_pos>,
-    Field<&Player::mana>,
+    Field_<TPos, &Player::pos>,
+    Field_<RawAddr<uint8_t>, & Player::target_ptr>,
+        Field_<
+          RawAddr<uint16_t>, &Player::shop_ptr>,
+    Field_<RawAddr<uint8_t>, &Player::weapon_ptr>,
+    Field_<Ref<TPos>, &Player::prev_pos>,
+    Field_<NullableRef<TPos>, &Player::tagged_pos>,
+    Field_<NullableRef<TPos>, &Player::house_pos>,
+    Field_<TUInt8, &Player::mana>,
     Pad<1>>;
 };
+
+using TPlayer = Struct<Player>;
 
 struct Game {
   uint8_t level;
@@ -54,12 +61,14 @@ struct Game {
 
   using fields = Fields<
     Seek<1>,
-    Field<&Game::level>,
+    Field_<TUInt8, &Game::level>,
     Seek<4>,
-    Field<&Game::player>,
-    Array<&Game::hands>,
-    Vector<&Game::pets>,
-    CircularList<&Game::caves, &Cave::next, 100>>;
+    Field_<TPlayer, &Game::player>,
+    Field_<Array<TPos, 2>, &Game::hands>,
+    Field_<Vector<TPos, 0x1000>, &Game::pets>>;
+    // CircularList<&Game::caves, &Cave::next, 100>>;
 };
+
+using TGame = Struct<Game>;
 
 }  // namespace mempeep::test
