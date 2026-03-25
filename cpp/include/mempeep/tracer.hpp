@@ -41,7 +41,7 @@ concept IsTracer = requires(Tracer& tracer, Error e) {
  *   Scope(tracer, address, item)
  * @endcode
  * where address is std::uint64_t and item is a layout item tag value
- * (Field_<M>, Pad<N>, Seek<N>, ...).
+ * (Field<M>, Pad<N>, Seek<N>, ...).
  *
  * The concept only checks that Scope exists as a member type.
  * If Scope is not constructible with a given item type, no scope is created

@@ -73,7 +73,7 @@ TEST_CASE("failed read: pad overflow") {
 TEST_CASE("failed read: null ref") {
   struct Obj {
     uint8_t item;
-    using fields = Fields<Field_<Ref<TUInt8>, &Obj::item>>;
+    using fields = Fields<Field<Ref<TUInt8>, &Obj::item>>;
   };
 
   auto reader = test::MockMemoryReader<uint8_t>{"\x00"};
@@ -85,7 +85,7 @@ TEST_CASE("failed read: null ref") {
 TEST_CASE("failed read: missing ref") {
   struct Obj {
     uint8_t item;
-    using fields = Fields<Field_<Ref<TUInt8>, &Obj::item>>;
+    using fields = Fields<Field<Ref<TUInt8>, &Obj::item>>;
   };
 
   auto reader = test::MockMemoryReader<uint8_t>{empty_data};
@@ -97,7 +97,7 @@ TEST_CASE("failed read: missing ref") {
 TEST_CASE("failed read: missing nullable ref") {
   struct Obj {
     std::optional<uint8_t> item;
-    using fields = Fields<Field_<NullableRef<TUInt8>, &Obj::item>>;
+    using fields = Fields<Field<NullableRef<TUInt8>, &Obj::item>>;
   };
 
   auto reader = test::MockMemoryReader<uint8_t>{empty_data};

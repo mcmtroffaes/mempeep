@@ -66,14 +66,14 @@ static_assert(IsStruct<RemTriv>);
 
 static_assert(IsFieldsItem<Pad<0>>);
 static_assert(IsFieldsItem<Seek<0>>);
-static_assert(IsFieldsItem<Field_<Primitive<int>, &SomeStruct::y>>);
-static_assert(IsFieldsItem<Field_<RawAddr<uint8_t>, &SomeStruct::addr1>>);
-static_assert(IsFieldsItem<Field_<RawAddr<uint16_t>, &SomeStruct::addr2>>);
-static_assert(IsFieldsItem<Field_<RawAddr<uint32_t>, &SomeStruct::addr3>>);
-static_assert(IsFieldsItem<Field_<RawAddr<uint64_t>, &SomeStruct::addr4>>);
-static_assert(IsFieldsItem<Field_<Ref<Primitive<int>>, &SomeStruct::y>>);
+static_assert(IsFieldsItem<Field<Primitive<int>, &SomeStruct::y>>);
+static_assert(IsFieldsItem<Field<RawAddr<uint8_t>, &SomeStruct::addr1>>);
+static_assert(IsFieldsItem<Field<RawAddr<uint16_t>, &SomeStruct::addr2>>);
+static_assert(IsFieldsItem<Field<RawAddr<uint32_t>, &SomeStruct::addr3>>);
+static_assert(IsFieldsItem<Field<RawAddr<uint64_t>, &SomeStruct::addr4>>);
+static_assert(IsFieldsItem<Field<Ref<Primitive<int>>, &SomeStruct::y>>);
 static_assert(
-  IsFieldsItem<Field_<NullableRef<Primitive<int>>, &SomeStruct::z>>
+  IsFieldsItem<Field<NullableRef<Primitive<int>>, &SomeStruct::z>>
 );
 
 int main() { return 0; };

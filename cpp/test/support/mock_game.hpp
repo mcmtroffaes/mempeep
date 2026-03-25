@@ -11,7 +11,7 @@ struct Pos {
   uint8_t x, y;
 
   // intentionally have padding bytes at end, for testing
-  using fields = Fields<Field_<TUInt8, &Pos::x>, Field_<TUInt8, &Pos::y>, Pad<2>>;
+  using fields = Fields<Field<TUInt8, &Pos::x>, Field<TUInt8, &Pos::y>, Pad<2>>;
 };
 
 using TPos = Struct<Pos>;
@@ -36,17 +36,17 @@ struct Player {
 
   using fields = Fields<
     Pad<2>,
-    Field_<TUInt8, &Player::health>,
+    Field<TUInt8, &Player::health>,
     Pad<1>,
-    Field_<TPos, &Player::pos>,
-    Field_<RawAddr<uint8_t>, & Player::target_ptr>,
-        Field_<
+    Field<TPos, &Player::pos>,
+    Field<RawAddr<uint8_t>, & Player::target_ptr>,
+        Field<
           RawAddr<uint16_t>, &Player::shop_ptr>,
-    Field_<RawAddr<uint8_t>, &Player::weapon_ptr>,
-    Field_<Ref<TPos>, &Player::prev_pos>,
-    Field_<NullableRef<TPos>, &Player::tagged_pos>,
-    Field_<NullableRef<TPos>, &Player::house_pos>,
-    Field_<TUInt8, &Player::mana>,
+    Field<RawAddr<uint8_t>, &Player::weapon_ptr>,
+    Field<Ref<TPos>, &Player::prev_pos>,
+    Field<NullableRef<TPos>, &Player::tagged_pos>,
+    Field<NullableRef<TPos>, &Player::house_pos>,
+    Field<TUInt8, &Player::mana>,
     Pad<1>>;
 };
 
@@ -61,11 +61,11 @@ struct Game {
 
   using fields = Fields<
     Seek<1>,
-    Field_<TUInt8, &Game::level>,
+    Field<TUInt8, &Game::level>,
     Seek<4>,
-    Field_<TPlayer, &Game::player>,
-    Field_<Array<TPos, 2>, &Game::hands>,
-    Field_<Vector<TPos, 0x1000>, &Game::pets>>;
+    Field<TPlayer, &Game::player>,
+    Field<Array<TPos, 2>, &Game::hands>,
+    Field<Vector<TPos, 0x1000>, &Game::pets>>;
     // CircularList<&Game::caves, &Cave::next, 100>>;
 };
 

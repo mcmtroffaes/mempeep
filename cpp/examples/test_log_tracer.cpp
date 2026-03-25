@@ -21,7 +21,7 @@ struct Pos {
   // 2: y
   // 3: pad
   using fields
-    = Fields<Field_<TInt8, &Pos::x>, Pad<1>, Field_<TInt8, &Pos::y>, Pad<1>>;
+    = Fields<Field<TInt8, &Pos::x>, Pad<1>, Field<TInt8, &Pos::y>, Pad<1>>;
 };
 
 using TPos = Struct<Pos>;
@@ -42,12 +42,12 @@ struct Entity {
   // 10:  opt_pos (read address, follow if non-null)
   using fields = Fields<
     Seek<2>,
-    Field_<TInt8, &Entity::id>,
+    Field<TInt8, &Entity::id>,
     Pad<1>,
-    Field_<TPos, &Entity::pos>,
-    Field_<RawAddr<uint8_t>, &Entity::target_addr>,
-    Field_<Ref<TPos>, &Entity::extra_pos>,
-    Field_<NullableRef<TPos>, &Entity::opt_pos>>;
+    Field<TPos, &Entity::pos>,
+    Field<RawAddr<uint8_t>, &Entity::target_addr>,
+    Field<Ref<TPos>, &Entity::extra_pos>,
+    Field<NullableRef<TPos>, &Entity::opt_pos>>;
 };
 
 using TEntity = Struct<Entity>;

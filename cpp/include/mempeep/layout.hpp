@@ -13,7 +13,7 @@ concept IsFieldsItem = requires { typename T::fields_item_tag; };
 /**
  * @brief Defines the fields of a Struct.
  *
- * @tparam Items Sequence of Field_, Seek, and Pad types.
+ * @tparam Items Sequence of Field, Seek, and Pad types.
  */
 template <IsFieldsItem... Items>
 struct Fields {};
@@ -21,13 +21,13 @@ struct Fields {};
 /**
  * @brief A field. Its type must be readable.
  *
- * For example, Field_<&Class::member>.
+ * For example, Field<&Class::member>.
  *
  * @tparam M The field to deserialize into.
  */
 template <IsDescriptor Desc, auto M>
   requires std::same_as<typename Desc::native_type, detail::member_type_t<M>>
-struct Field_ {
+struct Field {
   using fields_item_tag = void;
 };
 
