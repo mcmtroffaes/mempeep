@@ -10,6 +10,9 @@ namespace mempeep::detail {
 struct NoScope {};
 
 // Deduces Tracer::Scope from Tracer, avoiding repetition at call sites
+// make_scope is called only for layout items (Field, Pad, Seek),
+// not for descriptors (Struct, Array, ...). This is intentional:
+// scoping is a layout-level concept, not a value-reading concept.
 template <IsTracer Tracer, IsAddress Address, IsFieldsItem Item>
 auto make_scope(Tracer& tracer, Address address, Item item) {
   if constexpr (IsScopedTracer<Tracer>) {
