@@ -262,7 +262,7 @@ template <
       return cursor;
     }
   }
-  if (vector_cursor && vector_cursor.value() != end_ptr) {
+  if (vector_cursor && *vector_cursor != end_ptr) {
     tracer.error(Error::VECTOR_MISALIGNED);
   }
   return cursor;
