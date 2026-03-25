@@ -32,7 +32,7 @@ struct Fields {};
 
 // Helper class for packing the field items inside `Struct`.
 template <typename T, typename FieldsT>
-struct Struct_;
+struct Struct;
 
 /**
  * @brief Reads a struct using its own fields.
@@ -41,7 +41,7 @@ struct Struct_;
  * @tparam Items The field items, mapping the memory layout.
  */
 template <typename T, IsFieldsItem... Items>
-struct Struct_<T, Fields<Items...>> {
+struct Struct<T, Fields<Items...>> {
   using native_type = T;
   using fields_type = Fields<Items...>;
 };

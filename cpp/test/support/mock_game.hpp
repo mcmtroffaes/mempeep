@@ -12,7 +12,7 @@ struct Pos {
 };
 
 // intentionally have padding bytes at end, for testing
-using TPos = Struct_<
+using TPos = Struct<
   Pos,
   Fields<Field<TUInt8, &Pos::x>, Field<TUInt8, &Pos::y>, Pad<2>>>;
 
@@ -35,7 +35,7 @@ struct Player {
   uint8_t mana;
 };
 
-using TPlayer = Struct_<
+using TPlayer = Struct<
   Player,
   Fields<
     Pad<2>,
@@ -59,7 +59,7 @@ struct Game {
   std::vector<Cave> caves;
 };
 
-using TGame = Struct_<
+using TGame = Struct<
   Game,
   Fields<
     Seek<1>,

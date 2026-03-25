@@ -316,10 +316,10 @@ template <
   IsMemoryReader MemoryReader,
   IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_value_impl(
-  Struct_<T, Fields<Items...>>,
+  Struct<T, Fields<Items...>>,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
-  native_type_t<Struct_<T, Fields<Items...>>>& target,  // T
+  native_type_t<Struct<T, Fields<Items...>>>& target,  // T
   Tracer& tracer
 ) {
   Cursor<MemoryReader> cursor{address};
