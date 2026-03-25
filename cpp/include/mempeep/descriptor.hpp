@@ -21,17 +21,29 @@ struct Primitive {
 };
 
 /**
+ * @brief Sequence of field items.
+ * 
+ * Packs the field items inside a `Struct`.
+ * 
+ * @tparam Items The field items, mapping the memory layout.
+ */
+template <IsFieldsItem... Items>
+struct Fields {};
+
+// Helper class for packing the field items inside `Struct`.
+template <typename T, typename FieldsT>
+struct Struct_;
+
+/**
  * @brief Reads a struct using its own fields.
  *
- * Delegates to the layout machinery for T, allowing structs with a
- * `fields` to be used as descriptors and composed inside `Array`,
- * `Vector`, `Ref`, etc.
- *
- * @tparam T The struct type to read. Must satisfy IsStruct.
+ * @tparam T     The struct type to read.
+ * @tparam Items The field items, mapping the memory layout.
  */
-template <IsStruct T>
-struct Struct {
+template <typename T, IsFieldsItem... Items>
+struct Struct_<T, Fields<Items...>> {
   using native_type = T;
+  using fields_type = Fields<Items...>;
 };
 
 /**

@@ -15,16 +15,15 @@ using TInt8 = Primitive<int8_t>;
 
 struct Pos {
   int8_t x, y;
-
-  // 0: x
-  // 1: pad
-  // 2: y
-  // 3: pad
-  using fields
-    = Fields<Field<TInt8, &Pos::x>, Pad<1>, Field<TInt8, &Pos::y>, Pad<1>>;
 };
 
-using TPos = Struct<Pos>;
+// 0: x
+// 1: pad
+// 2: y
+// 3: pad
+using TPos = Struct_<
+  Pos,
+  Fields<Field<TInt8, &Pos::x>, Pad<1>, Field<TInt8, &Pos::y>, Pad<1>>>;
 
 struct Entity {
   int8_t id;
@@ -32,25 +31,25 @@ struct Entity {
   uint8_t target_addr;         // raw address, not followed
   Pos extra_pos;               // followed non-nullable address to Pos
   std::optional<Pos> opt_pos;  // followed nullable address to Pos
+};
 
-  // 0-1: header
-  // 2:   id
-  // 3:   pad
-  // 4-7: pos
-  // 8:   target_addr (raw address)
-  // 9:   extra_pos (read address, follow)
-  // 10:  opt_pos (read address, follow if non-null)
-  using fields = Fields<
+// 0-1: header
+// 2:   id
+// 3:   pad
+// 4-7: pos
+// 8:   target_addr (raw address)
+// 9:   extra_pos (read address, follow)
+// 10:  opt_pos (read address, follow if non-null)
+using TEntity = Struct_<
+  Entity,
+  Fields<
     Seek<2>,
     Field<TInt8, &Entity::id>,
     Pad<1>,
     Field<TPos, &Entity::pos>,
     Field<RawAddr<uint8_t>, &Entity::target_addr>,
     Field<Ref<TPos>, &Entity::extra_pos>,
-    Field<NullableRef<TPos>, &Entity::opt_pos>>;
-};
-
-using TEntity = Struct<Entity>;
+    Field<NullableRef<TPos>, &Entity::opt_pos>>>;
 
 static void report(bool ok, const Entity& e) {
   std::cout << "-- decoded (success=" << std::boolalpha << ok << ") --\n";

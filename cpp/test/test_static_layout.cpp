@@ -5,10 +5,6 @@
 
 struct PrimTriv {};
 
-struct RemTriv {
-  using fields = void;
-};
-
 struct SomeStruct {
   uint8_t addr1;
   uint16_t addr2;
@@ -57,12 +53,7 @@ static_assert(IsPrimitive<PrimTriv>);
 static_assert(IsPrimitive<std::optional<int>>);  // it is!
 static_assert(IsPrimitive<std::array<int, 5>>);  // it is!
 static_assert(!IsPrimitive<std::vector<int>>);
-static_assert(!IsPrimitive<RemTriv>);
 static_assert(!IsPrimitive<SomeStruct>);
-
-static_assert(!IsStruct<PrimTriv>);
-static_assert(!IsStruct<SomeStruct>);
-static_assert(IsStruct<RemTriv>);
 
 static_assert(IsFieldsItem<Pad<0>>);
 static_assert(IsFieldsItem<Seek<0>>);

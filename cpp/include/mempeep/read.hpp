@@ -312,17 +312,17 @@ std::numeric_limits<member_type_t<N>>::max())
 
 template <
   IsFieldsItem... Items,
-  IsStruct Struct,
+  typename T,
   IsMemoryReader MemoryReader,
   IsTracer Tracer>
-[[nodiscard]] Cursor<MemoryReader> read_fields(
-  Fields<Items...>,
+[[nodiscard]] Cursor<MemoryReader> read_value_impl(
+  Struct_<T, Fields<Items...>>,
   const MemoryReader& reader,
-  address_t<MemoryReader> base,
-  Struct& target,
+  address_t<MemoryReader> address,
+  native_type_t<Struct_<T, Fields<Items...>>>& target,  // T
   Tracer& tracer
 ) {
-  Cursor<MemoryReader> cursor{base};
+  Cursor<MemoryReader> cursor{address};
   // Process each field item in order, stopping if the cursor becomes nullopt.
   // This is a comma fold: (expr, ...) evaluates each expr left-to-right.
   // Each expr is: cursor && (cursor = read_fields_item(...))
@@ -331,21 +331,10 @@ template <
   // Items{} constructs a tag value at zero cost to select the right overload.
   ((
      cursor
-     && (cursor = read_fields_item(Items{}, reader, base, *cursor, target, tracer))
+     && (cursor = read_fields_item(Items{}, reader, address, *cursor, target, tracer))
    ),
    ...);
   return cursor;
-}
-
-template <IsStruct T, IsMemoryReader MemoryReader, IsTracer Tracer>
-[[nodiscard]] Cursor<MemoryReader> read_value_impl(
-  Struct<T>,
-  const MemoryReader& reader,
-  address_t<MemoryReader> address,
-  typename Struct<T>::native_type& target,  // T
-  Tracer& tracer
-) {
-  return detail::read_fields(fields_t<T>{}, reader, address, target, tracer);
 }
 
 // read_value dispatch

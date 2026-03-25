@@ -60,48 +60,47 @@ TEST_CASE("failed read: invalid addresses") {
 }
 
 TEST_CASE("failed read: pad overflow") {
-  struct Overflow {
-    using fields = Fields<Pad<0xff>, Pad<0xff>>;
-  };
+  struct Overflow {};
+
+  using TOverflow = Struct_<Overflow, Fields<Pad<0xff>, Pad<0xff>>>;
 
   auto reader = test::MockMemoryReader<uint8_t>{empty_data};
   Overflow overflow{};
   ErrorTracer tracer{};
-  CHECK(!read<Struct<Overflow>>(reader, 0, overflow, tracer));
+  CHECK(!read<TOverflow>(reader, 0, overflow, tracer));
 }
 
 TEST_CASE("failed read: null ref") {
   struct Obj {
     uint8_t item;
-    using fields = Fields<Field<Ref<TUInt8>, &Obj::item>>;
   };
-
+  using TObj = Struct_<Obj, Fields<Field<Ref<TUInt8>, &Obj::item>>>;
   auto reader = test::MockMemoryReader<uint8_t>{"\x00"};
   Obj obj{};
   ErrorTracer tracer{};
-  CHECK(!read<Struct<Obj>>(reader, 0, obj, tracer));
+  CHECK(!read<TObj>(reader, 0, obj, tracer));
 }
 
 TEST_CASE("failed read: missing ref") {
   struct Obj {
     uint8_t item;
-    using fields = Fields<Field<Ref<TUInt8>, &Obj::item>>;
   };
+  using TObj = Struct_<Obj, Fields<Field<Ref<TUInt8>, &Obj::item>>>;
 
   auto reader = test::MockMemoryReader<uint8_t>{empty_data};
   Obj obj{};
   ErrorTracer tracer{};
-  CHECK(!read<Struct<Obj>>(reader, 0, obj, tracer));
+  CHECK(!read<TObj>(reader, 0, obj, tracer));
 }
 
 TEST_CASE("failed read: missing nullable ref") {
   struct Obj {
     std::optional<uint8_t> item;
-    using fields = Fields<Field<NullableRef<TUInt8>, &Obj::item>>;
   };
+  using TObj = Struct_<Obj, Fields<Field<NullableRef<TUInt8>, &Obj::item>>>;
 
   auto reader = test::MockMemoryReader<uint8_t>{empty_data};
   Obj obj{};
   ErrorTracer tracer{};
-  CHECK(!read<Struct<Obj>>(reader, 0, obj, tracer));
+  CHECK(!read<TObj>(reader, 0, obj, tracer));
 }

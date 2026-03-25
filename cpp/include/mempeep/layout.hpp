@@ -7,17 +7,6 @@
 
 namespace mempeep {
 
-template <typename T>
-concept IsFieldsItem = requires { typename T::fields_item_tag; };
-
-/**
- * @brief Defines the fields of a Struct.
- *
- * @tparam Items Sequence of Field, Seek, and Pad types.
- */
-template <IsFieldsItem... Items>
-struct Fields {};
-
 /**
  * @brief A field. Its type must be readable.
  *
