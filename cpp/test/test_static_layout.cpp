@@ -64,15 +64,15 @@ static_assert(!mempeep::IsStruct<PrimTriv>);
 static_assert(!mempeep::IsStruct<SomeStruct>);
 static_assert(mempeep::IsStruct<RemTriv>);
 
-static_assert(mempeep::IsLayoutItem<mempeep::Pad<0>>);
-static_assert(mempeep::IsLayoutItem<mempeep::Seek<0>>);
-static_assert(mempeep::IsLayoutItem<mempeep::Field<&SomeStruct::y>>);
-static_assert(mempeep::IsLayoutItem<mempeep::RawAddr<&SomeStruct::addr1>>);
-static_assert(mempeep::IsLayoutItem<mempeep::RawAddr<&SomeStruct::addr2>>);
-static_assert(mempeep::IsLayoutItem<mempeep::RawAddr<&SomeStruct::addr3>>);
-static_assert(mempeep::IsLayoutItem<mempeep::RawAddr<&SomeStruct::addr4>>);
-static_assert(mempeep::IsLayoutItem<mempeep::Ref<&SomeStruct::y>>);
-static_assert(mempeep::IsLayoutItem<mempeep::NullableRef<&SomeStruct::z>>);
+static_assert(mempeep::IsFieldsItem<mempeep::Pad<0>>);
+static_assert(mempeep::IsFieldsItem<mempeep::Seek<0>>);
+static_assert(mempeep::IsFieldsItem<mempeep::Field<&SomeStruct::y>>);
+static_assert(mempeep::IsFieldsItem<mempeep::RawAddr<&SomeStruct::addr1>>);
+static_assert(mempeep::IsFieldsItem<mempeep::RawAddr<&SomeStruct::addr2>>);
+static_assert(mempeep::IsFieldsItem<mempeep::RawAddr<&SomeStruct::addr3>>);
+static_assert(mempeep::IsFieldsItem<mempeep::RawAddr<&SomeStruct::addr4>>);
+static_assert(mempeep::IsFieldsItem<mempeep::Ref<&SomeStruct::y>>);
+static_assert(mempeep::IsFieldsItem<mempeep::NullableRef<&SomeStruct::z>>);
 
 static_assert(mempeep::IsReadable<PrimTriv>);
 static_assert(mempeep::IsReadable<RemTriv>);

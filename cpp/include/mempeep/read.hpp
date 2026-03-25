@@ -10,7 +10,7 @@ namespace mempeep::detail {
 struct NoScope {};
 
 // Deduces Tracer::Scope from Tracer, avoiding repetition at call sites
-template <IsTracer Tracer, IsAddress Address, IsLayoutItem Item>
+template <IsTracer Tracer, IsAddress Address, IsFieldsItem Item>
 auto make_scope(Tracer& tracer, Address address, Item item) {
   if constexpr (IsScopedTracer<Tracer>) {
     const auto addr = static_cast<std::uint64_t>(address);
@@ -54,7 +54,7 @@ template <IsMemoryReader MemoryReader>
 using Cursor = std::optional<address_t<MemoryReader>>;
 
 // Forward declaration to support recursive reading:
-// read -> read_layout -> read_layout_item -> read.
+// read -> read_layout -> read_fields_item -> read.
 template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 [[nodiscard]] Cursor<MemoryReader> read_into(
   const MemoryReader& reader,
@@ -80,7 +80,7 @@ template <IsMemoryReader MemoryReader, IsTracer Tracer, typename T>
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
-[[nodiscard]] Cursor<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_fields_item(
   Pad<N> item,
   const MemoryReader&,
   address_t<MemoryReader>,
@@ -93,7 +93,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
-[[nodiscard]] Cursor<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_fields_item(
   Seek<N> item,
   const MemoryReader&,
   address_t<MemoryReader> base,
@@ -107,7 +107,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
-[[nodiscard]] Cursor<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_fields_item(
   Field<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -144,7 +144,7 @@ template <IsAddress T, IsMemoryReader MemoryReader, IsTracer Tracer>
 }
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
-[[nodiscard]] Cursor<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_fields_item(
   RawAddr<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader>,
@@ -158,7 +158,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<member_type_t<M>>
-[[nodiscard]] Cursor<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_fields_item(
   Ref<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader>,
@@ -182,7 +182,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<unwrap_optional_t<member_type_t<M>>>
-[[nodiscard]] Cursor<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_fields_item(
   NullableRef<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader>,
@@ -209,7 +209,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<unwrap_array_t<member_type_t<M>>>
-[[nodiscard]] Cursor<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_fields_item(
   Array<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -229,7 +229,7 @@ template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 
 template <auto M, IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   requires IsReadable<unwrap_vector_t<member_type_t<M>>>
-[[nodiscard]] Cursor<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_fields_item(
   Vector<M> item,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -275,7 +275,7 @@ template <
   requires IsReadable<unwrap_vector_t<member_type_t<M>>>
            && IsAddress<member_type_t<N>>
            && (std::numeric_limits<address_t<MemoryReader>>::max() <= std::numeric_limits<member_type_t<N>>::max())
-[[nodiscard]] Cursor<MemoryReader> read_layout_item(
+[[nodiscard]] Cursor<MemoryReader> read_fields_item(
   CircularList<M, N, L> item,
   const MemoryReader& reader,
   address_t<MemoryReader> base,
@@ -301,7 +301,7 @@ template <
 }
 
 template <
-  IsLayoutItem... Items,
+  IsFieldsItem... Items,
   IsMemoryReader MemoryReader,
   IsReadable T,
   IsTracer Tracer>
@@ -315,13 +315,13 @@ template <
   Cursor<MemoryReader> cursor{base};
   // Process each layout item in order, stopping if the cursor becomes nullopt.
   // This is a comma fold: (expr, ...) evaluates each expr left-to-right.
-  // Each expr is: cursor && (cursor = read_layout_item(...))
+  // Each expr is: cursor && (cursor = read_fields_item(...))
   // The && is plain short-circuit evaluation, not a fold operator:
   // if cursor is nullopt (falsy), the assignment is skipped.
   // Items{} constructs a tag value at zero cost to select the right overload.
   ((
      cursor
-     && (cursor = read_layout_item(Items{}, reader, base, cursor.value(), target, tracer))
+     && (cursor = read_fields_item(Items{}, reader, base, cursor.value(), target, tracer))
    ),
    ...);
   return cursor;

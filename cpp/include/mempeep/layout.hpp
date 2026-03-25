@@ -34,7 +34,7 @@ concept IsPrimitive = requires { typename T::is_primitive_tag; }
                       || std::integral<T> || std::floating_point<T>;
 
 template <typename T>
-concept IsLayoutItem = requires { typename T::layout_item_tag; };
+concept IsFieldsItem = requires { typename T::fields_item_tag; };
 
 /**
  * @brief Defines a remote layout.
@@ -46,7 +46,7 @@ concept IsLayoutItem = requires { typename T::layout_item_tag; };
  *
  * @tparam Items Sequence of Field, Seek, and Pad types.
  */
-template <IsLayoutItem... Items>
+template <IsFieldsItem... Items>
 struct Layout {};
 
 /**
@@ -77,7 +77,7 @@ concept IsReadable = IsPrimitive<T> || IsStruct<T>;
 template <auto M>
   requires IsReadable<member_type_t<M>>
 struct Field {
-  using layout_item_tag = void;
+  using fields_item_tag = void;
 };
 
 /**
@@ -88,7 +88,7 @@ struct Field {
 template <auto N>
   requires(std::in_range<std::size_t>(N))
 struct Pad {
-  using layout_item_tag = void;
+  using fields_item_tag = void;
   static constexpr std::size_t count = static_cast<std::size_t>(N);
 };
 
@@ -105,7 +105,7 @@ struct Pad {
 template <auto N>
   requires(std::in_range<std::size_t>(N))
 struct Seek {
-  using layout_item_tag = void;
+  using fields_item_tag = void;
   static constexpr std::size_t offset = static_cast<std::size_t>(N);
 };
 
@@ -121,7 +121,7 @@ struct Seek {
 template <auto M>
   requires IsAddress<member_type_t<M>>
 struct RawAddr {
-  using layout_item_tag = void;
+  using fields_item_tag = void;
 };
 
 /**
@@ -135,7 +135,7 @@ struct RawAddr {
 template <auto M>
   requires IsReadable<member_type_t<M>>
 struct Ref {
-  using layout_item_tag = void;
+  using fields_item_tag = void;
 };
 
 /**
@@ -151,25 +151,25 @@ struct Ref {
 template <auto M>
   requires IsReadable<unwrap_optional_t<member_type_t<M>>>
 struct NullableRef {
-  using layout_item_tag = void;
+  using fields_item_tag = void;
 };
 
 template <auto M>
   requires IsReadable<unwrap_array_t<member_type_t<M>>>
 struct Array {
-  using layout_item_tag = void;
+  using fields_item_tag = void;
 };
 
 template <auto M>
   requires IsReadable<unwrap_vector_t<member_type_t<M>>>
 struct Vector {
-  using layout_item_tag = void;
+  using fields_item_tag = void;
 };
 
 template <auto M, auto N, std::size_t L>
   requires IsReadable<unwrap_vector_t<member_type_t<M>>> && IsAddress<member_type_t<N>>
 struct CircularList {
-  using layout_item_tag = void;
+  using fields_item_tag = void;
 };
 
 }  // namespace mempeep
