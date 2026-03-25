@@ -6,6 +6,7 @@ struct Struct {
   int* c;
 };
 
+static_assert(std::same_as<mempeep::member_class_t<&Struct::c>, Struct>);
 static_assert(std::same_as<mempeep::member_type_t<&Struct::c>, int*>);
 static_assert(
   std::same_as<mempeep::unwrap_optional_t<std::optional<char**>>, char**>
