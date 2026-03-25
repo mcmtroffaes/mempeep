@@ -12,9 +12,8 @@ struct Pos {
 };
 
 // intentionally have padding bytes at end, for testing
-using TPos = Struct<
-  Pos,
-  Fields<Field<TUInt8, &Pos::x>, Field<TUInt8, &Pos::y>, Pad<2>>>;
+using TPos
+  = Struct<Pos, Fields<Field<TUInt8, &Pos::x>, Field<TUInt8, &Pos::y>, Pad<2>>>;
 
 struct Cave {
   uint8_t id;
@@ -67,7 +66,7 @@ using TGame = Struct<
     Seek<4>,
     Field<TPlayer, &Game::player>,
     Field<Array<TPos, 2>, &Game::hands>,
-    Field<Vector<TPos, 0x1000>, &Game::pets>>>;
-// CircularList<&Game::caves, &Cave::next, 100>>;
+    Field<Vector<TPos, 0x1000>, &Game::pets>,
+    Field<CircularList<TCave, &Cave::next, 0x1000>, &Game::caves>>>;
 
 }  // namespace mempeep::test

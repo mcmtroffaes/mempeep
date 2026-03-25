@@ -71,6 +71,13 @@ inline void check_game(const Game& game) {
     CHECK_EQ(game.pets[2].x, 9);
     CHECK_EQ(game.pets[2].y, 10);
   }
+  SUBCASE("caves") {
+    REQUIRE_EQ(game.caves.size(), 4);
+    CHECK_EQ(game.caves[0].id, 16);
+    CHECK_EQ(game.caves[1].id, 18);
+    CHECK_EQ(game.caves[2].id, 20);
+    CHECK_EQ(game.caves[3].id, 22);
+  }
 }
 
 }  // namespace mempeep::test

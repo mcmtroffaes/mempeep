@@ -73,7 +73,7 @@ Cursor<MemoryReader> read_value_impl(
   Primitive<T>,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
-  typename Primitive<T>::native_type & target,  // i.e. T&
+  typename Primitive<T>::native_type& target,  // i.e. T&
   Tracer& tracer
 ) {
   if (reader(address, sizeof(target), &target)) {
@@ -270,44 +270,47 @@ template <
   return cursor;
 }
 
-// TODO
-/*
 template <
-  auto M,
-  auto N,
-  std::size_t L,
+  IsDescriptor Desc,
+  auto Next,
+  std::size_t MaxLen,
   IsMemoryReader MemoryReader,
-  IsReadable T,
   IsTracer Tracer>
-  requires IsReadable<unwrap_vector_t<member_type_t<M>>>
-           && IsAddress<member_type_t<N>>
-           && (std::numeric_limits<address_t<MemoryReader>>::max() <=
-std::numeric_limits<member_type_t<N>>::max())
+  requires(
+    std::numeric_limits<address_t<MemoryReader>>::max()
+    <= std::numeric_limits<detail::member_type_t<Next>>::max()
+  )
 [[nodiscard]] Cursor<MemoryReader> read_value_impl(
-  CircularList<M, N, L> item,
+  CircularList<Desc, Next, MaxLen> item,
   const MemoryReader& reader,
-  address_t<MemoryReader> base,
   address_t<MemoryReader> address,
-  T& target,
+  native_type_t<CircularList<Desc, Next, MaxLen>>& target,
   Tracer& tracer
 ) {
-  [[maybe_unused]] auto scope = make_scope(tracer, address, item);
   address_t<MemoryReader> head_ptr{};
-  auto cursor = read_address_into(reader, address, head_ptr, tracer);
+  auto cursor = read_value<Primitive<address_t<MemoryReader>>>(
+    reader, address, head_ptr, tracer
+  );
   if (!cursor) return {};
   if (head_ptr == 0) return cursor;  // empty list
-  auto& field = target.*M;
   Cursor<MemoryReader> list_cursor{head_ptr};
-  field.clear();
+  std::size_t count = 0;
+  target.clear();
   do {
-    // TODO max size to avoid overflow
-    auto& elem = field.emplace_back();
-    if (!read_into(reader, list_cursor.value(), elem, tracer)) return {};
-    list_cursor = static_cast<address_t<MemoryReader>>(elem.*N);
-  } while (list_cursor && list_cursor.value() != head_ptr && field.size() < L);
+    auto& elem = target.emplace_back();
+    if (!read_value<Desc>(reader, *list_cursor, elem, tracer)) return {};
+    list_cursor = static_cast<address_t<MemoryReader>>(elem.*Next);
+    if (!list_cursor) {
+      tracer.error(Error::ADDRESS_NULL);
+      return cursor;
+    }
+    if (++count > MaxLen) {
+      tracer.error(Error::CIRCULAR_LIST_TOO_LONG);
+      return cursor;
+    }
+  } while (*list_cursor != head_ptr);
   return cursor;
 }
-*/
 
 template <
   IsFieldsItem... Items,
