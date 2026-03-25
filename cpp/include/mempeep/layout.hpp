@@ -55,17 +55,17 @@ struct Layout {};
  * Checks if the function remote_layout(remote_layout_tag<T>) exists.
  */
 template <typename T>
-concept HasRemoteLayout = requires { typename T::remote_layout; };
+concept IsStruct = requires { typename T::remote_layout; };
 
 /**
  * @brief Shorthand for return type of `remote_layout(remote_layout_tag<T>{})`.
  */
 template <typename T>
-  requires HasRemoteLayout<T>
+  requires IsStruct<T>
 using remote_layout_t = typename T::remote_layout;
 
 template <typename T>
-concept IsReadable = IsPrimitive<T> || HasRemoteLayout<T>;
+concept IsReadable = IsPrimitive<T> || IsStruct<T>;
 
 /**
  * @brief A field. Its type must be readable.

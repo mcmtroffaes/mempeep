@@ -60,9 +60,9 @@ static_assert(!mempeep::IsPrimitive<std::vector<int>>);
 static_assert(!mempeep::IsPrimitive<RemTriv>);
 static_assert(!mempeep::IsPrimitive<SomeStruct>);
 
-static_assert(!mempeep::HasRemoteLayout<PrimTriv>);
-static_assert(!mempeep::HasRemoteLayout<SomeStruct>);
-static_assert(mempeep::HasRemoteLayout<RemTriv>);
+static_assert(!mempeep::IsStruct<PrimTriv>);
+static_assert(!mempeep::IsStruct<SomeStruct>);
+static_assert(mempeep::IsStruct<RemTriv>);
 
 static_assert(mempeep::IsLayoutItem<mempeep::Pad<0>>);
 static_assert(mempeep::IsLayoutItem<mempeep::Seek<0>>);

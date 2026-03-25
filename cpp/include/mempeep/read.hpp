@@ -334,7 +334,7 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
   T& target,
   Tracer& tracer
 ) {
-  if constexpr (HasRemoteLayout<T>) {
+  if constexpr (IsStruct<T>) {
     return detail::read_layout(
       remote_layout_t<T>{}, reader, base, target, tracer
     );

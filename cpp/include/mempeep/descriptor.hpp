@@ -39,10 +39,10 @@ struct Primitive {
  * `remote_layout` to be used as descriptors and composed inside `Array`,
  * `Vector`, `Ref`, etc.
  *
- * @tparam T The struct type to read. Must satisfy HasRemoteLayout.
+ * @tparam T The struct type to read. Must satisfy IsStruct.
  */
-template <HasRemoteLayout T>
-struct RemoteLayout {
+template <IsStruct T>
+struct Struct {
   using descriptor_tag = void;
   using value_type = T;
 };
