@@ -363,10 +363,12 @@ namespace mempeep {
  * if no errors were reported, and false otherwise.
  *
  * @tparam MemoryReader The type for the reader callback.
- * @tparam T          The native type to deserialize into.
- * @param memory The memory abstraction providing the `MemoryReader` function.
- * @param base   The remote address to start reading from.
- * @param target The native object to populate.
+ * @tparam Desc   The descriptor for the deserialization layout.
+ * @param reader  The memory abstraction providing the `MemoryReader` function.
+ * @param address The remote address to start reading from.
+ * @param target  The native object to populate
+ *                Must have type `native_type_t<Desc>`.
+ * @param tracer  The tracer for producing the return value.
  * @return The result of `tracer.success()` (convertible to bool).
  */
 template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
