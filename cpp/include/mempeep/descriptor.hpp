@@ -2,12 +2,42 @@
 
 #pragma once
 
+#include <concepts>
 #include <cstddef>
-#include <mempeep/concepts.hpp>
+#include <mempeep/address.hpp>
 #include <mempeep/detail/member_traits.hpp>
 #include <optional>
 
 namespace mempeep {
+
+// --- Concepts for primitive and descriptor types. ---
+
+/**
+ * @brief Primitive types that be directly copied in memory.
+ *
+ * A type satisfies IsPrimitive if it can be copied byte-for-byte
+ * (e.g. via memcpy) without requiring construction, destruction,
+ * or pointer fixups.
+ */
+template <typename T>
+concept IsPrimitive = std::is_trivially_copyable_v<T>;
+
+/**
+ * @brief Concept satisfied by all descriptor types.
+ *
+ * A descriptor describes how to read a value from remote memory and what
+ * native type it produces. Every descriptor exposes a `native_type` alias
+ * giving the native type it populates.
+ */
+template <typename Desc>
+concept IsDescriptor = requires { typename Desc::native_type; };
+
+/**
+ * @brief Shorthand for `T::native_type`.
+ */
+template <typename T>
+  requires IsDescriptor<T>
+using native_type_t = typename T::native_type;
 
 /**
  * @brief Reads sizeof(T) bytes directly from remote memory into a T.
@@ -19,6 +49,8 @@ template <typename T>
 struct Primitive {
   using native_type = T;
 };
+
+// --- Actual descriptors. ---
 
 /**
  * @brief Reads an address without following it.
