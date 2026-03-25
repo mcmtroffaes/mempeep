@@ -2,7 +2,7 @@
 
 #include <concepts>             // std::same_as
 #include <cstddef>              // std::size_t
-#include <mempeep/address.hpp>  // IsAddress
+#include <mempeep/concepts/address.hpp>  // IsAddress
 
 namespace mempeep {
 

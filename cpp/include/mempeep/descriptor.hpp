@@ -4,40 +4,14 @@
 
 #include <concepts>
 #include <cstddef>
-#include <mempeep/address.hpp>
+#include <mempeep/concepts/address.hpp>
+#include <mempeep/concepts/descriptor.hpp>
+#include <mempeep/concepts/primitive.hpp>
 #include <mempeep/detail/member_traits.hpp>
+#include <mempeep/fields.hpp>
 #include <optional>
 
 namespace mempeep {
-
-// --- Concepts for primitive and descriptor types. ---
-
-/**
- * @brief Primitive types that be directly copied in memory.
- *
- * A type satisfies IsPrimitive if it can be copied byte-for-byte
- * (e.g. via memcpy) without requiring construction, destruction,
- * or pointer fixups.
- */
-template <typename T>
-concept IsPrimitive = std::is_trivially_copyable_v<T>;
-
-/**
- * @brief Concept satisfied by all descriptor types.
- *
- * A descriptor describes how to read a value from remote memory and what
- * native type it produces. Every descriptor exposes a `native_type` alias
- * giving the native type it populates.
- */
-template <typename Desc>
-concept IsDescriptor = requires { typename Desc::native_type; };
-
-/**
- * @brief Shorthand for `typename T::native_type`.
- */
-template <typename T>
-  requires IsDescriptor<T>
-using native_type_t = typename T::native_type;
 
 /**
  * @brief Reads sizeof(T) bytes directly from remote memory into a T.
@@ -49,8 +23,6 @@ template <typename T>
 struct Primitive {
   using native_type = T;
 };
-
-// --- Actual descriptors. ---
 
 /**
  * @brief Reads an address without following it.
@@ -159,65 +131,6 @@ template <IsDescriptor Desc, auto Next, std::size_t MaxLen>
 struct CircularList {
   using native_type = std::vector<native_type_t<Desc>>;
 };
-
-// In the remainder of this file we set up everything for the Struct descriptor.
-// The syntax is `Struct<T, Fields<Field<...>, Pad<...>, Seek<...>, ...>>`.
-// So we need Field, Pad, Seek, Fields, and finally Struct.
-
-/**
- * @brief A field of a struct.
- *
- * Example: `Field<Primitive<int>, &X::x>`.
- *
- * @tparam Desc The descriptor (how it is stored in remote memory).
- * @tparam M    The field to deserialize into (where it is copied to natively).
- */
-template <IsDescriptor Desc, auto M>
-  requires std::same_as<native_type_t<Desc>, detail::member_type_t<M>>
-struct Field {
-  using fields_item_tag = void;
-};
-
-/**
- * @brief Padding relative to the current position in the layout.
- * @tparam N Number of bytes.
- *           Its value must be representable by address_t<MemoryReader>.
- */
-template <auto N>
-  requires(std::in_range<std::size_t>(N))
-struct Pad {
-  using fields_item_tag = void;
-  static constexpr std::size_t count = static_cast<std::size_t>(N);
-};
-
-/**
- * @brief Absolute offset relative to base position of the layout.
- *
- * Seeks are not required to be monotonically increasing. This allows
- * skipping around a non-linear layout. It is the caller's responsibility to
- * ensure the offsets are correct.
- *
- * @tparam N The offset in bytes.
- *           Its value must be representable by address_t<MemoryReader>.
- */
-template <auto N>
-  requires(std::in_range<std::size_t>(N))
-struct Seek {
-  using fields_item_tag = void;
-  static constexpr std::size_t offset = static_cast<std::size_t>(N);
-};
-
-// concept to aid type checking
-template <typename T>
-concept IsFieldsItem = requires { typename T::fields_item_tag; };
-
-/**
- * @brief Sequence of field items.
- *
- * @tparam Items The field items, mapping the memory layout.
- */
-template <IsFieldsItem... Items>
-struct Fields {};
 
 // Base template for packing the field items inside `Struct`.
 template <typename T, typename FieldsT>
