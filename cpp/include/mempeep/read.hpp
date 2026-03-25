@@ -77,6 +77,9 @@ template <IsPrimitive T, IsMemoryReader MemoryReader, IsTracer Tracer>
   Tracer& tracer
 ) {
   if (reader(address, sizeof(target), &target)) {
+    if constexpr (requires { tracer.value(target); }) {
+      tracer.value(target);
+    }
     return advance(address, sizeof(target), tracer);
   } else {
     tracer.error(Error::READ_FAILED);
