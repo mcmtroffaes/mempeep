@@ -33,7 +33,7 @@ template <typename Desc>
 concept IsDescriptor = requires { typename Desc::native_type; };
 
 /**
- * @brief Shorthand for `T::native_type`.
+ * @brief Shorthand for `typename T::native_type`.
  */
 template <typename T>
   requires IsDescriptor<T>
@@ -74,7 +74,7 @@ struct RawAddr {
  * itself is not stored; only the pointee value is written into the native
  * object.
  *
- * @tparam Desc Descriptor for the pointee. `Desc::native_type` is the native
+ * @tparam Desc Descriptor for the pointee. `native_type_t<Desc>` is the native
  *              type produced.
  */
 template <IsDescriptor Desc>
@@ -123,7 +123,7 @@ struct Array {
  * `MaxLen`. The cursor advances past the two addresses only, not past
  * the elements.
  *
- * @tparam Desc   Descriptor for each element. `Desc::native_type` is the
+ * @tparam Desc   Descriptor for each element. `native_type_t<Desc>` is the
  *                element type.
  * @tparam MaxLen Maximum number of elements to read before reporting
  *                `Error::VECTOR_TOO_LONG` and stopping.
@@ -144,9 +144,9 @@ struct Vector {
  * node count exceeds `MaxLen` before the list closes. The cursor advances
  * past the stored head address only, not past the nodes themselves.
  *
- * @tparam Desc   Descriptor for each node. Desc::native_type is the node
+ * @tparam Desc   Descriptor for each node. `native_type_t<Desc>` is the node
  *                type.
- * @tparam Next   Member pointer into Desc::native_type identifying the
+ * @tparam Next   Member pointer into `native_type_t<Desc>` identifying the
  *                field that holds the raw address of the next node. Must
  *                satisfy IsAddress.
  * @tparam MaxLen Maximum number of nodes to read before reporting
@@ -154,8 +154,7 @@ struct Vector {
  *                infinite loops on corrupt data.
  */
 template <IsDescriptor Desc, auto Next, std::size_t MaxLen>
-  requires std::
-             same_as<detail::member_class_t<Next>, native_type_t<Desc>>
+  requires std::same_as<detail::member_class_t<Next>, native_type_t<Desc>>
            && IsAddress<detail::member_type_t<Next>>
 struct CircularList {
   using native_type = std::vector<native_type_t<Desc>>;
