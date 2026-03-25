@@ -149,12 +149,7 @@ template <IsAddress AddrT, IsMemoryReader MemoryReader, IsTracer Tracer>
   auto cursor = read_value<Primitive<address_t<MemoryReader>>>(
     reader, address, raw, tracer
   );
-  if (cursor) {
-    target = static_cast<AddrT>(raw);
-    if constexpr (requires { tracer.value(target); }) {
-      tracer.value(target);
-    }
-  }
+  if (cursor) target = static_cast<AddrT>(raw);
   return cursor;
 }
 
