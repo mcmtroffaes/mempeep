@@ -48,7 +48,6 @@ struct RawAddr {
 template <IsDescriptor Desc>
 struct Ref {
   using native_type = typename Desc::native_type;
-  using element_descriptor = Desc;
 };
 
 /**
@@ -64,7 +63,6 @@ struct Ref {
 template <IsDescriptor Desc>
 struct NullableRef {
   using native_type = std::optional<typename Desc::native_type>;
-  using element_descriptor = Desc;
 };
 
 /**
@@ -80,8 +78,6 @@ struct NullableRef {
 template <IsDescriptor Desc, std::size_t N>
 struct Array {
   using native_type = std::array<typename Desc::native_type, N>;
-  using element_descriptor = Desc;
-  static constexpr std::size_t count = N;
 };
 
 /**
@@ -103,8 +99,6 @@ struct Array {
 template <IsDescriptor Desc, std::size_t MaxLen>
 struct Vector {
   using native_type = std::vector<typename Desc::native_type>;
-  using element_descriptor = Desc;
-  static constexpr std::size_t max_len = MaxLen;
 };
 
 /**
@@ -133,8 +127,6 @@ template <IsDescriptor Desc, auto Next, std::size_t MaxLen>
            && IsAddress<detail::member_type_t<Next>>
 struct CircularList {
   using native_type = std::vector<typename Desc::native_type>;
-  using element_descriptor = Desc;
-  static constexpr std::size_t max_len = MaxLen;
 };
 
 /**
