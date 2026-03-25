@@ -69,7 +69,7 @@ template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
 );
 
 template <IsPrimitive T, IsMemoryReader MemoryReader, IsTracer Tracer>
-Cursor<MemoryReader> read_value_impl(
+[[nodiscard]] Cursor<MemoryReader> read_value_impl(
   Primitive<T>,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
