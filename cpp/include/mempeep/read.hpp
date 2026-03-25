@@ -336,7 +336,7 @@ template <IsMemoryReader MemoryReader, IsReadable T, IsTracer Tracer>
 ) {
   if constexpr (IsStruct<T>) {
     return detail::read_layout(
-      remote_layout_t<T>{}, reader, base, target, tracer
+      fields_t<T>{}, reader, base, target, tracer
     );
   } else {
     auto cursor = detail::read_bytes(reader, base, target, tracer);

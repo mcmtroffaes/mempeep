@@ -33,10 +33,10 @@ struct Primitive {
 };
 
 /**
- * @brief Reads a struct using its own remote_layout.
+ * @brief Reads a struct using its own fields.
  *
  * Delegates to the layout machinery for T, allowing structs with a
- * `remote_layout` to be used as descriptors and composed inside `Array`,
+ * `fields` to be used as descriptors and composed inside `Array`,
  * `Vector`, `Ref`, etc.
  *
  * @tparam T The struct type to read. Must satisfy IsStruct.

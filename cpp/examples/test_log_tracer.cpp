@@ -18,7 +18,7 @@ struct Pos {
   // 1: pad
   // 2: y
   // 3: pad
-  using remote_layout = Layout<Field<&Pos::x>, Pad<1>, Field<&Pos::y>, Pad<1>>;
+  using fields = Layout<Field<&Pos::x>, Pad<1>, Field<&Pos::y>, Pad<1>>;
 };
 
 struct Entity {
@@ -35,7 +35,7 @@ struct Entity {
   // 8:   target_addr (raw address)
   // 9:   extra_pos (read address, follow)
   // 10:  opt_pos (read address, follow if non-null)
-  using remote_layout = Layout<
+  using fields = Layout<
     Seek<2>,
     Field<&Entity::id>,
     Pad<1>,

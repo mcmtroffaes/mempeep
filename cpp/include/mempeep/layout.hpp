@@ -52,17 +52,17 @@ struct Layout {};
 /**
  * @brief Does T have a custom layout?
  *
- * Checks if the function remote_layout(remote_layout_tag<T>) exists.
+ * Checks if the function fields(fields_tag<T>) exists.
  */
 template <typename T>
-concept IsStruct = requires { typename T::remote_layout; };
+concept IsStruct = requires { typename T::fields; };
 
 /**
- * @brief Shorthand for return type of `remote_layout(remote_layout_tag<T>{})`.
+ * @brief Shorthand for return type of `fields(fields_tag<T>{})`.
  */
 template <typename T>
   requires IsStruct<T>
-using remote_layout_t = typename T::remote_layout;
+using fields_t = typename T::fields;
 
 template <typename T>
 concept IsReadable = IsPrimitive<T> || IsStruct<T>;

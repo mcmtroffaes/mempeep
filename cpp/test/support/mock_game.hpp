@@ -9,7 +9,7 @@ struct Pos {
   uint8_t x, y;
 
   // intentionally have padding bytes at end, for testing
-  using remote_layout = Layout<Field<&Pos::x>, Field<&Pos::y>, Pad<2>>;
+  using fields = Layout<Field<&Pos::x>, Field<&Pos::y>, Pad<2>>;
 };
 
 struct Cave {
@@ -30,7 +30,7 @@ struct Player {
   std::optional<Pos> house_pos;
   uint8_t mana;
 
-  using remote_layout = Layout<
+  using fields = Layout<
     Pad<2>,
     Field<&Player::health>,
     Pad<1>,
@@ -52,7 +52,7 @@ struct Game {
   std::vector<Pos> pets;
   std::vector<Cave> caves;
 
-  using remote_layout = Layout<
+  using fields = Layout<
     Seek<1>,
     Field<&Game::level>,
     Seek<4>,

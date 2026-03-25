@@ -8,7 +8,7 @@ struct PrimTriv {
 };
 
 struct RemTriv {
-  using remote_layout = mempeep::Layout<>;
+  using fields = mempeep::Layout<>;
 };
 
 struct SomeStruct {
