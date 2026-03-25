@@ -4,7 +4,7 @@
 
 #include <cstddef>
 #include <mempeep/concepts.hpp>
-#include <mempeep/detail/traits.hpp>
+#include <mempeep/detail/member_traits.hpp>
 #include <optional>
 
 namespace mempeep {
