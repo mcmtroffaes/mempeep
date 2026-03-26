@@ -11,14 +11,15 @@ namespace mempeep::test {
 
 static constexpr char game_data[]
   = "\x00\x00\x00\x00"  // 0:  unused
-    "\x00\x11\x00\x00"  // 4:  pad(1), level = 17, pad(2)
+    "\x00\x11"          // 4:  pad(1), level = 17
+    "\x46\x00"          // 6:  message ref string -> 70, pad(1)
     "\x00\x00\x7b\x00"  // 8:  pad(2), health = 123, pad(1)
     "\x0b\x16\x00\x00"  // 12: pos = (11, 22, pad(2))
     "\x00"              // 16: target_ptr = 0
     "\x02"              // 17: shop_ptr = 2
     "\x06"              // 18: weapon_ptr = 6
     "\x24"              // 19: prev_pos ref = 36
-    "\x28"              // 20: tagged_pos nullable ref = 40
+    "\x28"              // 20: tagged_pos nullable ref -> 40
     "\x00"              // 21: house_pos nullable ref = 0 (null)
     "\x2f"              // 22: mana = 47
     "\x00"              // 23: pad(1)
@@ -35,10 +36,17 @@ static constexpr char game_data[]
     "\x10\x3e"          // 60: caves[0] = (16, 62)
     "\x12\x40"          // 62: caves[1] = (18, 64)
     "\x14\x42"          // 64: caves[2] = (20, 66)
-    "\x16\x3c";         // 66: caves[3] = (22, 60)
+    "\x16\x3c"          // 66: caves[3] = (22, 60)
+    "\x00\x00"          // 68: unused
+    "hello world\x00"   // 70: "hello world\x00"
+    "\x00\x00";         // 82: unused
 
 inline void check_game(const Game& game) {
   SUBCASE("level") { CHECK_EQ(game.level, 17); }
+  SUBCASE("message") {
+    CHECK_EQ(game.message.size(), 12);
+    CHECK_EQ(game.message, std::string("hello world\x00", 12));
+  }
   SUBCASE("player") {
     CHECK_EQ(game.player.health, 123);
     CHECK_EQ(game.player.pos.x, 11);

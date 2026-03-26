@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string.h>  // strnlen
+
 #include <cstdint>  // std::uint64_t
 #include <limits>   // std::numeric_limits
 #include <mempeep/concepts/memory.hpp>
@@ -91,6 +93,27 @@ template <IsPrimitive T, IsMemoryReader MemoryReader, IsTracer Tracer>
       tracer.value(target);
     }
     return advance(address, sizeof(target), tracer);
+  } else {
+    tracer.error(Error::READ_FAILED);
+    return {};
+  }
+}
+
+template <std::size_t Len, IsMemoryReader MemoryReader, IsTracer Tracer>
+[[nodiscard]] Cursor<MemoryReader> read_value_impl(
+  String<Len>,
+  const MemoryReader& reader,
+  address_t<MemoryReader> address,
+  native_type_t<String<Len>>& target,  // std::string
+  Tracer& tracer
+) {
+  char buffer[Len]{};
+  if (reader(address, sizeof(buffer), &buffer)) {
+    target = std::string(buffer, Len);
+    if constexpr (requires { tracer.value(target); }) {
+      tracer.value(target);
+    }
+    return advance(address, Len, tracer);
   } else {
     tracer.error(Error::READ_FAILED);
     return {};

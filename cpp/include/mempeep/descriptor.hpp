@@ -11,6 +11,7 @@
 #include <mempeep/detail/member_traits.hpp>
 #include <mempeep/fields.hpp>
 #include <optional>  // std::optional
+#include <string>    // std::string
 #include <vector>    // std::vector
 
 namespace mempeep {
@@ -38,6 +39,19 @@ struct Primitive {
 template <IsAddress AddrT>
 struct RawAddr {
   using native_type = AddrT;
+};
+
+/**
+ * @brief Reads a fixed length string.
+ *
+ * Reads Len bytes and stores the result as a string.
+ * No truncation happens, so the string may contain null characters.
+ *
+ * @tparam Len Length of the string.
+ */
+template <std::size_t Len>
+struct String {
+  using native_type = std::string;
 };
 
 /**

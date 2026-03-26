@@ -52,6 +52,7 @@ using TPlayer = Struct<
 
 struct Game {
   uint8_t level;
+  std::string message;
   Player player;
   std::array<Pos, 2> hands;
   std::vector<Pos> pets;
@@ -63,6 +64,7 @@ using TGame = Struct<
   Fields<
     Seek<1>,
     Field<TUInt8, &Game::level>,
+    Field<Ref<String<12>>, &Game::message>,
     Seek<4>,
     Field<TPlayer, &Game::player>,
     Field<Array<TPos, 2>, &Game::hands>,
