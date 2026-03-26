@@ -1,7 +1,7 @@
 // not a doctest since we only need static_asserts
 #include <cstddef>  // std::size_t
 #include <cstdint>  // std::int32_t, ...
-#include <mempeep/memory.hpp>
+#include <mempeep/concepts/memory.hpp>
 
 struct Obj1 {};
 
