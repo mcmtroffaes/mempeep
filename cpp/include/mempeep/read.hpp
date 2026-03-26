@@ -26,6 +26,16 @@ auto make_scope(Tracer& tracer, Address address, Item item) {
   }
 }
 
+template <IsTracer Tracer, IsAddress Address, IsDescriptor Desc>
+auto make_desc_scope(Tracer& tracer, Address address, Desc desc) {
+  if constexpr (IsDescScopedTracer<Tracer>) {
+    const auto addr = static_cast<std::uint64_t>(address);
+    return typename Tracer::DescScope(tracer, addr, desc);
+  } else {
+    return NoScope{};
+  }
+}
+
 // Abstract unsigned addition with overflow check.
 template <std::unsigned_integral S, std::unsigned_integral T>
 [[nodiscard]] constexpr std::optional<S> checked_add(S s, T t) noexcept {
@@ -350,6 +360,7 @@ template <IsDescriptor Desc, IsMemoryReader MemoryReader, IsTracer Tracer>
   native_type_t<Desc>& out,
   Tracer& tracer
 ) {
+  [[maybe_unused]] auto scope = make_desc_scope(tracer, addr, Desc{});
   return read_value_impl(Desc{}, reader, addr, out, tracer);
 }
 

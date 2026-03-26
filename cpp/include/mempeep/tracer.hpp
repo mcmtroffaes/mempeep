@@ -52,6 +52,29 @@ concept IsScopedTracer
   = IsTracer<Tracer> && requires { typename Tracer::Scope; };
 
 /**
+ * @brief Optional extension of IsTracer that supports per-descriptor-read
+ * scope tracking.
+ *
+ * A tracer implementing this concept will have a DescScope object
+ * constructed at the start of each descriptor read and destroyed at the
+ * end, allowing it to observe recursive structure in value reads.
+ *
+ * DescScope must be constructible as:
+ * @code
+ *   DescScope(tracer, address, desc)
+ * @endcode
+ * where address is std::uint64_t and desc is a descriptor tag value
+ * (Primitive<T>, Struct<T,F>, Array<D,N>, ...).
+ *
+ * The concept only checks that DescScope exists as a member type.
+ * If DescScope is not constructible with a given descriptor type, no
+ * scope is created for that descriptor and no overhead is incurred.
+ */
+template <typename Tracer>
+concept IsDescScopedTracer
+  = IsTracer<Tracer> && requires { typename Tracer::DescScope; };
+
+/**
  * @brief Optional extension of IsTracer that supports per-primitive-read
  * value reporting.
  *
@@ -89,6 +112,7 @@ struct ErrorTracer {
 
 static_assert(IsTracer<ErrorTracer>);
 static_assert(!IsScopedTracer<ErrorTracer>);
+static_assert(!IsDescScopedTracer<ErrorTracer>);
 static_assert(!IsValueTracer<ErrorTracer>);
 
 }  // namespace mempeep

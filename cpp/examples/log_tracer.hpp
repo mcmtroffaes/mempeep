@@ -39,14 +39,54 @@ std::string_view item_label(mempeep::Field<Desc, M>) {
   return member_name<M>();
 }
 
-template <auto N>
-std::string_view item_label(mempeep::Pad<N>) {
-  return "(pad)";
+template <std::size_t N>
+std::string item_label(mempeep::Pad<N>) {
+  return std::format("(pad {:#x})", N);
 }
 
-template <auto N>
-std::string_view item_label(mempeep::Seek<N>) {
-  return "(seek)";
+template <std::size_t N>
+std::string item_label(mempeep::Seek<N>) {
+  return std::format("(seek {:#x})", N);
+}
+
+template <typename T>
+std::string_view desc_label(mempeep::Primitive<T>) {
+  return "(primitive)";
+}
+
+template <typename T>
+std::string_view desc_label(mempeep::RawAddr<T>) {
+  return "(raw-addr)";
+}
+
+template <typename T>
+std::string_view desc_label(mempeep::Ref<T>) {
+  return "(ref)";
+}
+
+template <typename T>
+std::string_view desc_label(mempeep::NullableRef<T>) {
+  return "(nullable-ref)";
+}
+
+template <typename T, std::size_t N>
+std::string desc_label(mempeep::Array<T, N>) {
+  return std::format("(array)[{}]", N);
+}
+
+template <typename T, auto MaxLen>
+std::string desc_label(mempeep::Vector<T, MaxLen>) {
+  return std::format("(vector)");
+}
+
+template <typename T, auto N, auto MaxLen>
+std::string_view desc_label(mempeep::CircularList<T, N, MaxLen>) {
+  return std::format("(circular-list)");
+}
+
+template <typename T, typename TFields>
+std::string_view desc_label(mempeep::Struct<T, TFields>) {
+  return "(struct)";
 }
 
 /** @brief Simple scoped tracer.
@@ -62,7 +102,7 @@ struct LogTracer {
   uint64_t address = 0;
 
   void log(std::string_view msg) {
-    std::print(out, "[{:08X}] {: >{}}{}\n", address, "", indent, msg);
+    std::print(out, "[{:08x}] {: >{}}{}\n", address, "", indent, msg);
   }
 
   void error(mempeep::Error e) {
@@ -72,7 +112,10 @@ struct LogTracer {
 
   template <typename T>
   void value(const T& val) {
-    if constexpr (std::formattable<T, char>) {
+    if constexpr (std::is_integral_v<T>) {
+      log(std::format("={:#x}", val));  // format as hex
+    }
+    else if constexpr (std::formattable<T, char>) {
       log(std::format("={}", val));
     } else {
       log("=???");
@@ -92,5 +135,18 @@ struct LogTracer {
     }
 
     ~Scope() { t.indent--; }
+  };
+
+  struct DescScope {
+    LogTracer& t;
+
+    template <typename Desc>
+    DescScope(LogTracer& t, uint64_t address, Desc desc) : t(t) {
+      t.address = address;
+      t.log(desc_label(desc));
+      t.indent++;
+    }
+
+    ~DescScope() { t.indent--; }
   };
 };
