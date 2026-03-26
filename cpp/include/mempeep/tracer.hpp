@@ -29,18 +29,18 @@ concept IsTracer = requires(Tracer& tracer, Error e) {
 };
 
 /**
- * @brief Optional extension of IsTracer that supports per-layout-item scope
+ * @brief Optional extension of IsTracer that supports per-field-item scope
  * tracking.
  *
  * A tracer implementing this concept will have a Scope object constructed
- * at the start of each layout item read and destroyed at the end, allowing
+ * at the start of each field item read and destroyed at the end, allowing
  * it to track nesting, log addresses, and label reads.
  *
  * Scope must be constructible as:
  * @code
  *   Scope(tracer, address, item)
  * @endcode
- * where address is std::uint64_t and item is a layout item tag value
+ * where address is std::uint64_t and item is a field item tag value
  * (Field<M>, Pad<N>, Seek<N>, ...).
  *
  * The concept only checks that Scope exists as a member type.
@@ -56,7 +56,7 @@ concept IsScopedTracer
  * value reporting.
  *
  * A tracer implementing this concept will have its value() method called
- * after each successful primitive read (i.e. types without a remote layout),
+ * after each successful primitive read,
  * allowing it to log or process the value alongside the address and layout
  * item provided by IsScopedTracer::Scope.
  *
