@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <array>
 #include <concepts>
 #include <cstddef>
 #include <mempeep/concepts/address.hpp>
@@ -9,6 +10,7 @@
 #include <mempeep/concepts/primitive.hpp>
 #include <mempeep/detail/member_traits.hpp>
 #include <mempeep/fields.hpp>
+#include <vector>
 #include <optional>
 
 namespace mempeep {

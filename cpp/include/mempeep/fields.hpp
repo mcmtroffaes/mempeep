@@ -29,11 +29,9 @@ struct Field {
  * @tparam N Number of bytes.
  *           Its value must be representable by address_t<MemoryReader>.
  */
-template <auto N>
-  requires(std::in_range<std::size_t>(N))
+template <std::size_t N>
 struct Pad {
   using fields_item_tag = void;
-  static constexpr std::size_t count = static_cast<std::size_t>(N);
 };
 
 /**
@@ -46,11 +44,9 @@ struct Pad {
  * @tparam N The offset in bytes.
  *           Its value must be representable by address_t<MemoryReader>.
  */
-template <auto N>
-  requires(std::in_range<std::size_t>(N))
+template <std::size_t N>
 struct Seek {
   using fields_item_tag = void;
-  static constexpr std::size_t offset = static_cast<std::size_t>(N);
 };
 
 /**

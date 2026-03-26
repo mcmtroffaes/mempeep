@@ -94,7 +94,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
   Tracer& tracer
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, item);
-  return advance(address, Pad<N>::count, tracer);
+  return advance(address, N, tracer);
 }
 
 template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
@@ -107,7 +107,7 @@ template <auto N, IsMemoryReader MemoryReader, IsTracer Tracer>
   Tracer& tracer
 ) {
   [[maybe_unused]] auto scope = make_scope(tracer, address, item);
-  return advance(base, Seek<N>::offset, tracer);
+  return advance(base, N, tracer);
 }
 
 template <
