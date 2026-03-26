@@ -98,21 +98,4 @@ concept IsValueTracer = IsTracer<Tracer> && requires(Tracer& tracer) {
   { tracer.value(0) } -> std::same_as<void>;
 };
 
-/**
- * @brief Minimal IsTracer implementation that reports whether any error
- * occurred. Suitable when error details are not needed.
- */
-struct ErrorTracer {
-  bool ok = true;
-
-  void error(Error) { ok = false; }
-
-  bool success() const { return ok; }
-};
-
-static_assert(IsTracer<ErrorTracer>);
-static_assert(!IsScopedTracer<ErrorTracer>);
-static_assert(!IsDescScopedTracer<ErrorTracer>);
-static_assert(!IsValueTracer<ErrorTracer>);
-
 }  // namespace mempeep

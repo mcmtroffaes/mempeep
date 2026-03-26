@@ -3,6 +3,7 @@
 
 #include <array>
 #include <mempeep/read.hpp>
+#include <mempeep/tracers/error_tracer.hpp>
 #include <optional>
 #include <string_view>
 
@@ -74,6 +75,7 @@ TEST_CASE("failed read: null ref") {
   struct Obj {
     uint8_t item;
   };
+
   using TObj = Struct<Obj, Fields<Field<Ref<TUInt8>, &Obj::item>>>;
   auto reader = test::MockMemoryReader<uint8_t>{"\x00"};
   Obj obj{};
@@ -85,6 +87,7 @@ TEST_CASE("failed read: missing ref") {
   struct Obj {
     uint8_t item;
   };
+
   using TObj = Struct<Obj, Fields<Field<Ref<TUInt8>, &Obj::item>>>;
 
   auto reader = test::MockMemoryReader<uint8_t>{empty_data};
@@ -97,6 +100,7 @@ TEST_CASE("failed read: missing nullable ref") {
   struct Obj {
     std::optional<uint8_t> item;
   };
+
   using TObj = Struct<Obj, Fields<Field<NullableRef<TUInt8>, &Obj::item>>>;
 
   auto reader = test::MockMemoryReader<uint8_t>{empty_data};

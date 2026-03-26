@@ -2,7 +2,6 @@
 
 #include <format>
 #include <mempeep/descriptor.hpp>
-#include <mempeep/tracer.hpp>
 #include <ostream>
 #include <print>
 
