@@ -2,16 +2,16 @@
 
 #pragma once
 
-#include <array>
-#include <concepts>
-#include <cstddef>
+#include <array>     // std::array
+#include <concepts>  // std::same_as
+#include <cstddef>   // std::size_t
 #include <mempeep/concepts/address.hpp>
 #include <mempeep/concepts/descriptor.hpp>
 #include <mempeep/concepts/primitive.hpp>
 #include <mempeep/detail/member_traits.hpp>
 #include <mempeep/fields.hpp>
-#include <vector>
-#include <optional>
+#include <optional>  // std::optional
+#include <vector>    // std::vector
 
 namespace mempeep {
 
