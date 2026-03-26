@@ -1,9 +1,12 @@
 #pragma once
 
-#include <limits>  // std::numeric_limits
+#include <cstdint>  // std::uint64_t
+#include <limits>   // std::numeric_limits
 #include <mempeep/descriptor.hpp>
 #include <mempeep/memory.hpp>
 #include <mempeep/tracer.hpp>
+#include <optional>  // std::optional
+#include <utility>   // std::ignore
 
 namespace mempeep::detail {
 
