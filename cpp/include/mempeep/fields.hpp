@@ -1,7 +1,10 @@
 #pragma once
 
+#include <concepts>  // std::same_as
+#include <cstddef>   // std::size_t
 #include <mempeep/concepts/descriptor.hpp>
 #include <mempeep/concepts/fields.hpp>
+#include <mempeep/detail/member_traits.hpp>
 
 // In this file we set up everything for the Struct descriptor.
 // The syntax is `Struct<T, Fields<Field<...>, Pad<...>, Seek<...>, ...>>`.
