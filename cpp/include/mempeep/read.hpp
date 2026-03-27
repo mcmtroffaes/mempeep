@@ -1,7 +1,5 @@
 #pragma once
 
-#include <string.h>  // strnlen
-
 #include <cstdint>  // std::uint64_t
 #include <limits>   // std::numeric_limits
 #include <mempeep/concepts/memory.hpp>
