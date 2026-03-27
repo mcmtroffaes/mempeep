@@ -8,7 +8,7 @@ namespace mempeep {
  * @brief Minimal IsTracer implementation that reports whether any error
  * occurred. Suitable when error details are not needed.
  */
-struct ErrorTracer {
+struct OkTracer {
   bool ok = true;
 
   void error(Error) { ok = false; }

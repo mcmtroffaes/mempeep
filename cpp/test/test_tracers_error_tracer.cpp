@@ -2,22 +2,22 @@
 #include <doctest/doctest.h>
 
 #include <mempeep/concepts/tracer.hpp>
-#include <mempeep/tracers/error_tracer.hpp>
+#include <mempeep/tracers/ok_tracer.hpp>
 
 using namespace mempeep;
 
-static_assert(IsTracer<ErrorTracer>);
-static_assert(!IsScopedTracer<ErrorTracer>);
-static_assert(!IsDescScopedTracer<ErrorTracer>);
-static_assert(!IsValueTracer<ErrorTracer>);
+static_assert(IsTracer<OkTracer>);
+static_assert(!IsScopedTracer<OkTracer>);
+static_assert(!IsDescScopedTracer<OkTracer>);
+static_assert(!IsValueTracer<OkTracer>);
 
 TEST_CASE("init") {
-  ErrorTracer tracer{};
+  OkTracer tracer{};
   CHECK(tracer.success());
 }
 
 TEST_CASE("error") {
-  ErrorTracer tracer{};
+  OkTracer tracer{};
   tracer.error(Error::READ_FAILED);
   CHECK(!tracer.success());
 }

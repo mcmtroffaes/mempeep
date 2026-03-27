@@ -3,7 +3,7 @@
 
 #include <array>
 #include <mempeep/read.hpp>
-#include <mempeep/tracers/error_tracer.hpp>
+#include <mempeep/tracers/ok_tracer.hpp>
 #include <optional>
 #include <string_view>
 
@@ -21,7 +21,7 @@ TEST_CASE("successful read") {
   static constexpr uint8_t base{4};
   auto reader = test::MockMemoryReader<uint8_t>{test::game_data};
   test::Game game{};
-  ErrorTracer tracer{};
+  OkTracer tracer{};
   CHECK(read<test::TGame>(reader, base, game, tracer));
   test::check_game(game);
 }
@@ -29,7 +29,7 @@ TEST_CASE("successful read") {
 TEST_CASE("failed read: complete failure") {
   auto reader = test::MockMemoryReader<uint8_t>{empty_data};
   test::Game game{};
-  ErrorTracer tracer{};
+  OkTracer tracer{};
   CHECK(!read<test::TGame>(reader, 0, game, tracer));
 }
 
@@ -38,7 +38,7 @@ TEST_CASE("failed read: invalid addresses") {
   static constexpr std::string_view data{test::game_data, 23};
   auto reader = test::MockMemoryReader<uint8_t>{data};
   test::Game game{};
-  ErrorTracer tracer{};
+  OkTracer tracer{};
   CHECK(!read<test::TGame>(reader, base, game, tracer));
   SUBCASE("level") { CHECK_EQ(game.level, 17); }
   SUBCASE("player") {
@@ -66,7 +66,7 @@ TEST_CASE("failed read: pad overflow") {
   using TOverflow = Struct<Overflow, Fields<Pad<0xff>, Pad<0xff>>>;
   auto reader = test::MockMemoryReader<uint8_t>{empty_data};
   Overflow overflow{};
-  ErrorTracer tracer{};
+  OkTracer tracer{};
   CHECK(!read<TOverflow>(reader, 0, overflow, tracer));
 }
 
@@ -78,7 +78,7 @@ TEST_CASE("failed read: null ref") {
   using TObj = Struct<Obj, Fields<Field<Ref<TUInt8>, &Obj::item>>>;
   auto reader = test::MockMemoryReader<uint8_t>{"\x00"};
   Obj obj{};
-  ErrorTracer tracer{};
+  OkTracer tracer{};
   CHECK(!read<TObj>(reader, 0, obj, tracer));
 }
 
@@ -90,7 +90,7 @@ TEST_CASE("failed read: missing ref") {
   using TObj = Struct<Obj, Fields<Field<Ref<TUInt8>, &Obj::item>>>;
   auto reader = test::MockMemoryReader<uint8_t>{empty_data};
   Obj obj{};
-  ErrorTracer tracer{};
+  OkTracer tracer{};
   CHECK(!read<TObj>(reader, 0, obj, tracer));
 }
 
@@ -102,6 +102,6 @@ TEST_CASE("failed read: missing nullable ref") {
   using TObj = Struct<Obj, Fields<Field<NullableRef<TUInt8>, &Obj::item>>>;
   auto reader = test::MockMemoryReader<uint8_t>{empty_data};
   Obj obj{};
-  ErrorTracer tracer{};
+  OkTracer tracer{};
   CHECK(!read<TObj>(reader, 0, obj, tracer));
 }
