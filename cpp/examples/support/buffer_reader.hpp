@@ -1,4 +1,4 @@
-// this is used by examples to simulate
+// Used by examples to simulate a memory reader.
 
 #pragma once
 
