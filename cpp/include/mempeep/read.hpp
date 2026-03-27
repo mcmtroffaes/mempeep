@@ -103,11 +103,6 @@ template <
   std::size_t MaxLen,
   IsMemoryReader MemoryReader,
   IsTracer Tracer>
-  requires(
-    IsPrimitive<LenT>
-    && std::numeric_limits<LenT>::max()
-         <= std::numeric_limits<std::size_t>::max()
-  )
 [[nodiscard]] Cursor<MemoryReader> read_value_impl(
   LenString<LenT, MaxLen>,
   const MemoryReader& reader,

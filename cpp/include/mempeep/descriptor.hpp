@@ -53,6 +53,11 @@ struct RawAddr {
  *                `Error::STRING_TOO_LONG`.
  */
 template <std::unsigned_integral LenT, std::size_t MaxLen>
+  requires(
+    IsPrimitive<LenT>
+    && std::numeric_limits<LenT>::max()
+         <= std::numeric_limits<std::size_t>::max()
+  )
 struct LenString {
   using native_type = std::string;
 };
