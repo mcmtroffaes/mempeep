@@ -13,10 +13,8 @@ namespace mempeep::detail {
 
 struct NoScope {};
 
-// Deduces Tracer::Scope from Tracer, avoiding repetition at call sites
-// make_scope is called only for layout items (Field, Pad, Seek),
-// not for descriptors (Struct, Array, ...). This is intentional:
-// scoping is a layout-level concept, not a value-reading concept.
+// Deduces Tracer::Scope from Tracer, avoiding repetition at call sites.
+// make_scope is called for fields items (Field, Pad, Seek).
 template <IsTracer Tracer, IsAddress Address, IsFieldsItem Item>
 auto make_scope(Tracer& tracer, Address address, Item item) {
   if constexpr (IsScopedTracer<Tracer>) {
@@ -27,6 +25,8 @@ auto make_scope(Tracer& tracer, Address address, Item item) {
   }
 }
 
+// Deduces Tracer::DescScope from Tracer, avoiding repetition at call sites.
+// make_desc_scope is called for descriptors (Primitive, Struct, Array, ...).
 template <IsTracer Tracer, IsAddress Address, IsDescriptor Desc>
 auto make_desc_scope(Tracer& tracer, Address address, Desc desc) {
   if constexpr (IsDescScopedTracer<Tracer>) {
@@ -54,16 +54,16 @@ template <IsAddress Addr, IsTracer Tracer>
   return u;
 }
 
-// Cursor tracks the current read position within a layout.
+// Cursor tracks the current read position.
 //
-// It starts at the layout's base address and advances as each item is read.
+// It starts at a given address and advances as each item is read.
 // It becomes nullopt when the current position can no longer be determined,
 // for example, due to a failed memory read or an address overflow.
 //
 // Key invariant: a cursor only becomes nullopt if an error was already
 // reported to the tracer. nullopt without a tracer error never occurs.
 //
-// Errors are contained locally: a child layout's cursor becoming nullopt
+// Errors are contained locally: a child's cursor becoming nullopt
 // does not invalidate the parent's cursor. This allows reading to continue
 // past failed items (e.g. a bad address), recovering as much data as
 // possible. Child errors are still reported through the tracer.
