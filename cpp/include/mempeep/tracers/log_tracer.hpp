@@ -2,69 +2,43 @@
 
 #include <format>
 #include <mempeep/descriptor.hpp>
+#include <nameof.hpp>
 #include <ostream>
 #include <print>
 
-template <auto M>
-consteval std::string_view member_name() {
-#if defined(_MSC_VER) && !defined(__clang__)
-  constexpr std::string_view sig = __FUNCSIG__;
-  constexpr auto last_colon = sig.rfind(':');
-  constexpr auto close = sig.rfind('>');
-#else
-  constexpr std::string_view sig = __PRETTY_FUNCTION__;
-  constexpr auto last_colon = sig.rfind(':');
-  constexpr auto close = sig.rfind(']');
-#endif
-  static_assert(
-    last_colon != std::string_view::npos,
-    "member_name(): failed to find ':' in function signature"
-  );
-  static_assert(
-    close != std::string_view::npos,
-    "member_name(): failed to find closing delimiter in function signature"
-  );
-  static_assert(
-    last_colon + 1 < close, "member_name(): invalid substring bounds"
-  );
-  constexpr auto len = close - last_colon - 1;
-  static_assert(len > 0, "member_name(): extracted name is empty");
-  return sig.substr(last_colon + 1, len);
-}
-
 template <mempeep::IsDescriptor Desc, auto M>
   requires std::is_member_object_pointer_v<decltype(M)>
-std::string_view item_label(mempeep::Field<Desc, M>) {
-  return member_name<M>();
+std::string item_label(mempeep::Field<Desc, M>) {
+  return std::format("{}:", nameof::nameof_member<M>());
 }
 
 template <std::size_t N>
 std::string item_label(mempeep::Pad<N>) {
-  return std::format("(pad {:#x})", N);
+  return std::format("(pad<{:#x}>)", N);
 }
 
 template <std::size_t N>
 std::string item_label(mempeep::Seek<N>) {
-  return std::format("(seek {:#x})", N);
+  return std::format("(seek<{:#x}>)", N);
 }
 
 template <typename T>
-std::string_view desc_label(mempeep::Primitive<T>) {
-  return "(primitive)";
+std::string desc_label(mempeep::Primitive<T>) {
+  return std::string(nameof::nameof_type<T>());
 }
 
 template <typename T>
-std::string_view desc_label(mempeep::RawAddr<T>) {
+std::string desc_label(mempeep::RawAddr<T>) {
   return "(raw-addr)";
 }
 
 template <typename T>
-std::string_view desc_label(mempeep::Ref<T>) {
+std::string desc_label(mempeep::Ref<T>) {
   return "(ref)";
 }
 
 template <typename T>
-std::string_view desc_label(mempeep::NullableRef<T>) {
+std::string desc_label(mempeep::NullableRef<T>) {
   return "(nullable-ref)";
 }
 
@@ -79,13 +53,13 @@ std::string desc_label(mempeep::Vector<T, MaxLen>) {
 }
 
 template <typename T, auto N, auto MaxLen>
-std::string_view desc_label(mempeep::CircularList<T, N, MaxLen>) {
+std::string desc_label(mempeep::CircularList<T, N, MaxLen>) {
   return std::format("(circular-list)");
 }
 
 template <typename T, typename TFields>
-std::string_view desc_label(mempeep::Struct<T, TFields>) {
-  return "(struct)";
+std::string desc_label(mempeep::Struct<T, TFields>) {
+  return std::string(nameof::nameof_type<T>());
 }
 
 /** @brief Simple scoped tracer.
@@ -113,11 +87,10 @@ struct LogTracer {
   void value(const T& val) {
     if constexpr (std::is_integral_v<T>) {
       log(std::format("={:#x}", val));  // format as hex
-    }
-    else if constexpr (std::formattable<T, char>) {
+    } else if constexpr (std::formattable<T, char>) {
       log(std::format("={}", val));
     } else {
-      log("=???");
+      log("=...");
     }
   }
 

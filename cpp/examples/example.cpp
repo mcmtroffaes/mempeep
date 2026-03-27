@@ -2,9 +2,9 @@
 #include <cstdint>
 #include <iostream>
 #include <mempeep/read.hpp>
+#include <mempeep/tracers/log_tracer.hpp>
 #include <optional>
 
-#include "log_tracer.hpp"
 #include "support/buffer_reader.hpp"
 
 using namespace mempeep;
