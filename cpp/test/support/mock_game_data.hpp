@@ -38,14 +38,15 @@ static constexpr char game_data[]
     "\x14\x42"          // 64: caves[2] = (20, 66)
     "\x16\x3c"          // 66: caves[3] = (22, 60)
     "\x00\x00"          // 68: unused
-    "hello world\x00"   // 70: "hello world\x00"
+    "\x0b"              // 70: message len = 11
+    "hello world"       // 71: message text = "hello world"
     "\x00\x00";         // 82: unused
 
 inline void check_game(const Game& game) {
   SUBCASE("level") { CHECK_EQ(game.level, 17); }
   SUBCASE("message") {
-    CHECK_EQ(game.message.size(), 12);
-    CHECK_EQ(game.message, std::string("hello world\x00", 12));
+    CHECK_EQ(game.message.size(), 11);
+    CHECK_EQ(game.message, std::string("hello world"));
   }
   SUBCASE("player") {
     CHECK_EQ(game.player.health, 123);

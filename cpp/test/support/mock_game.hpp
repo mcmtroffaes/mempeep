@@ -64,7 +64,7 @@ using TGame = Struct<
   Fields<
     Seek<1>,
     Field<TUInt8, &Game::level>,
-    Field<Ref<String<12>>, &Game::message>,
+    Field<Ref<LenString<uint8_t, 0x40>>, &Game::message>,
     Seek<4>,
     Field<TPlayer, &Game::player>,
     Field<Array<TPos, 2>, &Game::hands>,
