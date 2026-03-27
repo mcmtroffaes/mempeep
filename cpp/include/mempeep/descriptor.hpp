@@ -42,15 +42,18 @@ struct RawAddr {
 };
 
 /**
- * @brief Reads a fixed length string.
+ * @brief Reads a length-prefixed string.
  *
- * Reads Len bytes and stores the result as a string.
- * No truncation happens, so the string may contain null characters.
+ * Reads a length value of type `LenT` from the current address, then reads
+ * that many bytes as the string content. The cursor advances past both the
+ * length prefix and the string content.
  *
- * @tparam Len Length of the string.
+ * @tparam LenT   The type of the length prefix.
+ * @tparam MaxLen The maximum length allowed before reporting
+ *                `Error::STRING_TOO_LONG`.
  */
-template <std::size_t Len>
-struct String {
+template <std::unsigned_integral LenT, std::size_t MaxLen>
+struct LenString {
   using native_type = std::string;
 };
 

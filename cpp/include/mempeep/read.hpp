@@ -98,21 +98,37 @@ template <IsPrimitive T, IsMemoryReader MemoryReader, IsTracer Tracer>
   }
 }
 
-template <std::size_t Len, IsMemoryReader MemoryReader, IsTracer Tracer>
+template <
+  std::unsigned_integral LenT,
+  std::size_t MaxLen,
+  IsMemoryReader MemoryReader,
+  IsTracer Tracer>
+  requires(
+    IsPrimitive<LenT>
+    && std::numeric_limits<LenT>::max()
+         <= std::numeric_limits<std::size_t>::max()
+  )
 [[nodiscard]] Cursor<MemoryReader> read_value_impl(
-  String<Len>,
+  LenString<LenT, MaxLen>,
   const MemoryReader& reader,
   address_t<MemoryReader> address,
-  native_type_t<String<Len>>& target,  // std::string
+  native_type_t<LenString<LenT, MaxLen>>& target,  // std::string
   Tracer& tracer
 ) {
-  char buffer[Len]{};
-  if (reader(address, sizeof(buffer), &buffer)) {
-    target = std::string(buffer, Len);
+  LenT len{};
+  auto cursor = read_value<Primitive<LenT>>(reader, address, len, tracer);
+  if (!cursor) return {};
+  if (len > MaxLen) {
+    tracer.error(Error::STRING_TOO_LONG);
+    return {};
+  }
+  target.resize(len);
+  if (len == 0) return cursor;  // reader might reject size 0
+  if (reader(*cursor, len, target.data())) {
     if constexpr (requires { tracer.value(target); }) {
       tracer.value(target);
     }
-    return advance(address, Len, tracer);
+    return advance(*cursor, len, tracer);
   } else {
     tracer.error(Error::READ_FAILED);
     return {};
