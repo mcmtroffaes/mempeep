@@ -1,7 +1,8 @@
 #pragma once
 
-#include <cstdint>  // std::uint64_t
-#include <limits>   // std::numeric_limits
+#include <concepts>  // std::unsigned_integral
+#include <cstdint>   // std::uint64_t
+#include <limits>    // std::numeric_limits
 #include <mempeep/concepts/memory.hpp>
 #include <mempeep/concepts/tracer.hpp>
 #include <mempeep/descriptor.hpp>
