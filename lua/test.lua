@@ -1,6 +1,14 @@
 package.path = package.path .. ";./test/?.lua"
 local failures = 0
-for _, name in ipairs({ "test_T", "test_D", "test_schema", "test_reader", "test_printer", "test_decoder" }) do
+for _, name in ipairs({
+  "test_T",
+  "test_D",
+  "test_schema",
+  "test_reader",
+  "test_printer",
+  "test_decoder",
+  "test_descriptor",
+}) do
   local ok, err = pcall(require, name)
   if ok then
     print(name .. ": passed")
