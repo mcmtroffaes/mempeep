@@ -47,8 +47,8 @@ end
 -- @return v
 function M.assert_fmt(v)
   M.assert_string(v)
-  local ok, size = pcall(string.packsize, v)
-  assert(ok and size > 0, "invalid or non-fixed-size format: " .. v)
+  local ok, err = pcall(string.packsize, v)
+  assert(ok, "invalid or non-fixed-size format: " .. err)
   return v
 end
 
