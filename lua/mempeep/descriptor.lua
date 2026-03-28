@@ -171,7 +171,7 @@ function M.CircularList(desc, next_key, max_len)
   M.assert_string(next_key)
   local found = false
   for _, field in ipairs(desc.fields) do
-    if field.tag == "Field" and field.key == next_key then    
+    if field.tag == "Field" and field.key == next_key then
       found = true
       assert(field.desc.tag == "RawAddr", "expected a RawAddr for '" .. next_key .. "' field")
       break
