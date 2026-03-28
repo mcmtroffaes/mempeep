@@ -26,6 +26,14 @@ local fields_item_tags = {
 -- Validators
 --------------------------------------------------------------------------------
 
+--- Assert that `v` is a table.
+-- @param v value to check
+-- @return v
+function M.assert_table(v)
+  assert(type(v) == "table", "expected a table, got " .. type(v))
+  return v
+end
+
 --- Assert that `v` is a string.
 -- @param v value to check
 -- @return v
@@ -72,7 +80,8 @@ end
 -- @param v value to check
 -- @return v
 function M.assert_descriptor(v)
-  assert(type(v) == "table" and descriptor_tags[v.tag], "expected a descriptor")
+  M.assert_table(v)
+  assert(descriptor_tags[v.tag], "expected a descriptor, got " .. tostring(v.tag))
   return v
 end
 
@@ -80,7 +89,8 @@ end
 -- @param v value to check
 -- @return v
 function M.assert_fields_item(v)
-  assert(type(v) == "table" and fields_item_tags[v.tag], "expected a fields item (Field, Pad, or Seek)")
+  M.assert_table(v)
+  assert(fields_item_tags[v.tag], "expected a fields item (Field, Pad, or Seek), got " .. tostring(v.tag))
   return v
 end
 
@@ -88,7 +98,7 @@ end
 -- @param v value to check
 -- @return v
 function M.assert_fields(v)
-  assert(type(v) == "table", "expected a table")
+  M.assert_table(v)
   local seen = {}
   for _, item in ipairs(v) do
     M.assert_fields_item(item)
